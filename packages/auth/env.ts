@@ -11,7 +11,11 @@ export const env = createEnv({
         : z.string().min(1).optional(),
     NODE_ENV: z.enum(["development", "production"]).optional(),
   },
-  client: {},
+  client: {
+    NEXT_PUBLIC_SUPABASE_URL: z.string().min(1),
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
+    NEXT_PUBLIC_APP_URL: z.string().min(1),
+  },
   experimental__runtimeEnv: {},
   skipValidation:
     !!process.env.CI || process.env.npm_lifecycle_event === "lint",
