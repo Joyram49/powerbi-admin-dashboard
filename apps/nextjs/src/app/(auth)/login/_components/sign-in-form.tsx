@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -39,26 +41,25 @@ export function SignInForm() {
       password: "",
     },
   });
+  const router = useRouter();
 
-  // const signUp = api.auth.signUp.useMutation();
-  const register = api.auth.createSuperAdmin.useMutation();
+  const signIn = api.auth.signIn.useMutation();
+  // const register = api.auth.createSuperAdmin.useMutation();
 
   function onSubmit(data: z.infer<typeof FormSchema>) {
-    console.log("Submitting data:", data);
-    const requestedData = {
-      email: data.email,
-      password: data.password,
-      role: "superAdmin",
-      userName: "appSuperAdmin",
-    };
-    register.mutate(requestedData, {
-      onSuccess: (result) => {
-        console.log("Signup success:", result);
-        // Optionally: Redirect or show success message
-      },
+    // const requestedData = {
+    //   email: data.email,
+    //   password: data.password,
+    //   role: "superAdmin",
+    //   userName: "appSuperAdminThree",
+    // };
+    signIn.mutate(data, {
       onError: (error) => {
-        console.error("Signup error:", error);
-        // Optionally: Display error feedback to the user
+        console.error("SignIn error:", error);
+      },
+      onSuccess: (result) => {
+        console.log("signIn success:", result);
+        router.push("/dashboard");
       },
     });
   }
@@ -92,6 +93,9 @@ export function SignInForm() {
             </FormItem>
           )}
         />
+        <div>
+          <Link href="/forgot-password">Forgot your Password?</Link>
+        </div>
         <Button
           type="submit"
           className="w-full bg-foreground text-background hover:bg-foreground/90"

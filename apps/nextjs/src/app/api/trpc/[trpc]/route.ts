@@ -1,7 +1,7 @@
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 
 import { appRouter, createTRPCContext } from "@acme/api";
-import { getSession } from "@acme/auth";
+import { createClientServer } from "@acme/db";
 
 import { env } from "~/env";
 
@@ -26,9 +26,12 @@ export const OPTIONS = () => {
 
 const handler = async (req: Request) => {
   // Optimize session retrieval with error handling and caching
-  let session = null;
+  let session = null; // Define session type
+
   try {
-    const { data } = await getSession();
+    const supabase = createClientServer();
+    const { data } = await supabase.auth.getSession();
+    console.log(">>> Session inside route handler:", data.session);
     session = data.session;
   } catch (error) {
     console.error("Session retrieval error:", error);

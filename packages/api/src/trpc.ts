@@ -2,8 +2,7 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
 
-import { createClientServer } from "@acme/auth";
-import { db } from "@acme/db";
+import { createClientServer, db } from "@acme/db";
 
 // Memoize session to reduce unnecessary lookups
 const sessionCache = new Map<string, Session | null>();
@@ -30,6 +29,8 @@ const isomorphicGetSession = async (
     const {
       data: { session },
     } = await supabase.auth.getSession();
+
+    console.log(">>> Session inside isomorphicGetSession:", session);
 
     if (!session) {
       sessionCache.set(cacheKey, null);
@@ -63,6 +64,8 @@ export const createTRPCContext = async (opts: {
   db: typeof db;
 }> => {
   const session = opts.session ?? (await isomorphicGetSession(opts.headers));
+
+  console.log(">>> Session inside createTRPCContext:", session);
 
   return {
     session,

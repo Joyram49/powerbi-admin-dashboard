@@ -2,8 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { LRUCache } from "lru-cache";
 import { z } from "zod";
 
-import { createClientServer } from "@acme/auth";
-import { db, users } from "@acme/db";
+import { createClientServer, db, users } from "@acme/db";
 
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 
@@ -106,6 +105,8 @@ export const authRouter = createTRPCRouter({
       if (cachedResult) return cachedResult;
       const supabase = createClientServer();
 
+      console.log(`signin input: ${input.email}`);
+
       try {
         const { data, error } = await supabase.auth.signInWithPassword({
           email: input.email,
@@ -167,6 +168,26 @@ export const authRouter = createTRPCRouter({
       const supabase = createClientServer();
       const { data } = await supabase.auth.getSession();
       return data.session;
+    } catch (error) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: String(error),
+      });
+    }
+  }),
+
+  // get user profile
+  getProfile: publicProcedure.query(async () => {
+    try {
+      const supabase = createClientServer();
+      const { data, error } = await supabase.auth.getUser();
+      if (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: error.message || "Failed to get user profile",
+        });
+      }
+      return data;
     } catch (error) {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
@@ -272,8 +293,6 @@ export const authRouter = createTRPCRouter({
           },
         });
 
-        console.log("Supabse error found while creating user: ", error);
-
         if (error) {
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
@@ -288,8 +307,6 @@ export const authRouter = createTRPCRouter({
           });
         }
 
-        console.log("Supabase user created:", data);
-
         // Insert the created super admin into your custom users table.
         await db.insert(users).values({
           id: data.user.id,
@@ -302,8 +319,6 @@ export const authRouter = createTRPCRouter({
           modifiedBy: input.email, // record the creator's email as modifiedBy
           status: "active",
         });
-
-        console.log("User inserted into the custom users table.");
 
         return { success: true, user: data.user };
       } catch (error) {

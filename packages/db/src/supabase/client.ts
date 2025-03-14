@@ -1,7 +1,8 @@
-import { createClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
+import { env } from "../../env";
 import * as schema from "../schema";
 
 if (!process.env.NEXT_PUBLIC_SUPABASE_URL)
@@ -11,10 +12,12 @@ if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 if (!process.env.POSTGRES_URL) throw new Error("Missing POSTGRES_URL");
 
 // Create Supabase client for auth
-export const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-);
+export function createClientBrowser() {
+  return createBrowserClient(
+    env.NEXT_PUBLIC_SUPABASE_URL,
+    env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  );
+}
 
 // Create postgres connection
 const connectionString = process.env.POSTGRES_URL;

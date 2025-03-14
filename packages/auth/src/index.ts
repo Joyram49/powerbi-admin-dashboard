@@ -1,51 +1,15 @@
-import { cookies } from "next/headers";
 //create Supabase client for server side rendering
-import { createBrowserClient, createServerClient } from "@supabase/ssr";
 import { LRUCache } from "lru-cache";
 
-import { env } from "../../../apps/nextjs/src/env";
+import { createClientServer } from "@acme/db";
+
+import { env } from "../env";
 
 // Auth Cache
 const authResultCache = new LRUCache<string, any>({
   max: 500, // Adjust based on expected traffic
   ttl: 1000 * 60 * 5, // 5 minutes cache
 });
-
-// Create Supabase client for client side rendering
-export function createClientBrowser() {
-  return createBrowserClient(
-    env.NEXT_PUBLIC_SUPABASE_URL,
-    env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  );
-}
-
-// Create Supabase client for server side rendering
-export function createClientServer() {
-  const cookieStore = cookies();
-
-  return createServerClient(
-    env.NEXT_PUBLIC_SUPABASE_URL,
-    env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options),
-            );
-          } catch {
-            // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
-          }
-        },
-      },
-    },
-  );
-}
 
 // Enhanced authentication helper functions with caching and error handling
 export async function signUp(

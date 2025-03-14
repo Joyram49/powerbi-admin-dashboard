@@ -1,17 +1,18 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 
-export function createClient() {
+import { env } from "../../env";
+
+export function createClientServer() {
   const cookieStore = cookies();
 
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL)
-    throw new Error("Missing SUPABASE_URL");
-  if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+  if (!env.NEXT_PUBLIC_SUPABASE_URL) throw new Error("Missing SUPABASE_URL");
+  if (!env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
     throw new Error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY");
 
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    env.NEXT_PUBLIC_SUPABASE_URL,
+    env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
         getAll() {
