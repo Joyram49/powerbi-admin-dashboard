@@ -28,12 +28,17 @@ const isomorphicGetSession = async (
   try {
     const {
       data: { session },
+      error,
     } = await supabase.auth.getSession();
+
+    console.log(">>> error inside trpc context", error);
 
     if (!session) {
       sessionCache.set(cacheKey, null);
       return null;
     }
+
+    console.log(">>> session inside the trpc context ismorphic", session);
 
     const processedSession = {
       user: {
@@ -62,6 +67,8 @@ export const createTRPCContext = async (opts: {
   db: typeof db;
 }> => {
   const session = opts.session ?? (await isomorphicGetSession(opts.headers));
+
+  console.log("session inside trpc context", session);
 
   return {
     session,

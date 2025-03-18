@@ -1,16 +1,16 @@
 import { TRPCError } from "@trpc/server";
-import { LRUCache } from "lru-cache";
 import { z } from "zod";
 
 import { createClientServer, db, users } from "@acme/db";
 
+import { env } from "../../../auth/env";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 
-// Create a cache to store recent authentication results
-const authCache = new LRUCache<string, any>({
-  max: 500, // Adjust based on expected traffic
-  ttl: 1000 * 60 * 5, // 5 minutes cache
-});
+// // Create a cache to store recent authentication results
+// const authCache = new LRUCache<string, any>({
+//   max: 500, // Adjust based on expected traffic
+//   ttl: 1000 * 60 * 5, // 5 minutes cache
+// });
 
 export const createUserSchema = z
   .object({
@@ -43,11 +43,11 @@ export const authRouter = createTRPCRouter({
   signUp: publicProcedure
     .input(createUserSchema)
     .mutation(async ({ input }) => {
-      const cacheKey = `signup:${input.email}`;
+      // const cacheKey = `signup:${input.email}`;
 
-      // Check cache first
-      const cachedResult = authCache.get(cacheKey);
-      if (cachedResult) return cachedResult;
+      // // Check cache first
+      // const cachedResult = authCache.get(cacheKey);
+      // if (cachedResult) return cachedResult;
 
       const supabase = createClientServer();
       try {
@@ -78,7 +78,7 @@ export const authRouter = createTRPCRouter({
         };
 
         // Cache successful signup
-        authCache.set(cacheKey, result);
+        // authCache.set(cacheKey, result);
 
         return result;
       } catch (error) {
@@ -98,14 +98,12 @@ export const authRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ input }) => {
-      const cacheKey = `signin:${input.email}`;
+      // const cacheKey = `signin:${input.email}`;
 
-      // Check cache first
-      const cachedResult = authCache.get(cacheKey);
-      if (cachedResult) return cachedResult;
+      // // Check cache first
+      // const cachedResult = authCache.get(cacheKey);
+      // if (cachedResult) return cachedResult;
       const supabase = createClientServer();
-
-      console.log(`signin input: ${input.email}`);
 
       try {
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -120,13 +118,19 @@ export const authRouter = createTRPCRouter({
           });
         }
 
+        // Log session details for debugging
+        console.log("Session created:", {
+          accessToken: data.session.access_token,
+          refreshToken: data.session.refresh_token,
+        });
+
         const result = {
           user: data.user,
           session: data.session,
         };
 
         // Cache successful signin
-        authCache.set(cacheKey, result);
+        // authCache.set(cacheKey, result);
 
         return result;
       } catch (error) {
@@ -151,7 +155,7 @@ export const authRouter = createTRPCRouter({
       }
 
       // Clear any cached sessions for this user
-      authCache.clear();
+      // authCache.clear();
 
       return { success: true };
     } catch (error) {
@@ -265,7 +269,7 @@ export const authRouter = createTRPCRouter({
         }
 
         // Invalidate any cached sessions
-        authCache.clear();
+        // authCache.clear();
 
         return { success: true };
       } catch (error) {
@@ -280,6 +284,11 @@ export const authRouter = createTRPCRouter({
   createSuperAdmin: publicProcedure
     .input(createUserSchema)
     .mutation(async ({ input }) => {
+      // const cacheKey = `signup:${input.email}`;
+
+      // // Check cache first
+      // const cachedResult = authCache.get(cacheKey);
+      // if (cachedResult) return cachedResult;
       const supabase = createClientServer();
       try {
         const { data, error } = await supabase.auth.signUp({
@@ -290,6 +299,7 @@ export const authRouter = createTRPCRouter({
               role: input.role,
               userName: input.userName ?? input.email,
             },
+            emailRedirectTo: `${env.NEXT_PUBLIC_APP_URL}/api/auth/confirm`,
           },
         });
 
@@ -319,6 +329,9 @@ export const authRouter = createTRPCRouter({
           modifiedBy: input.email, // record the creator's email as modifiedBy
           status: "active",
         });
+
+        // Cache successful signup
+        // authCache.set(cacheKey, data);
 
         return { success: true, user: data.user };
       } catch (error) {

@@ -20,9 +20,10 @@ import { Input } from "@acme/ui/input";
 import { api } from "~/trpc/react";
 
 const FormSchema = z.object({
-  email: z
-    .string({ message: "Email is required" })
-    .email({ message: "Invalid email address" }),
+  userName: z
+    .string()
+    .min(3, { message: "Username must be at least 3 characters" }),
+  email: z.string().email({ message: "Invalid email address" }),
   password: z
     .string()
     .min(8, { message: "Password must be between 8-20 characters" })
@@ -33,10 +34,11 @@ const FormSchema = z.object({
     }),
 });
 
-export function SignInForm() {
+export function SignUpForm() {
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
+      userName: "",
       email: "",
       password: "",
     },
@@ -44,17 +46,18 @@ export function SignInForm() {
 
   const router = useRouter();
 
-  const signIn = api.auth.signIn.useMutation();
+  const register = api.auth.createSuperAdmin.useMutation();
 
   function onSubmit(data: z.infer<typeof FormSchema>) {
-    signIn.mutate(data, {
+    const requestedData = { ...data, role: "superAdmin" };
+    register.mutate(requestedData, {
       onError: (error) => {
-        console.error("SignIn error:", error);
+        console.error("Signup error:", error);
       },
       onSuccess: (result) => {
-        console.log("signIn success:", result);
+        console.log("Signup success:", result);
         form.reset();
-        router.push("/dashboard");
+        router.push("/login");
       },
     });
   }
@@ -62,6 +65,19 @@ export function SignInForm() {
   return (
     <Form {...form} className="flex w-full items-center justify-center">
       <form onSubmit={form.handleSubmit(onSubmit)} className="w-full space-y-6">
+        <FormField
+          control={form.control}
+          name="userName"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Username</FormLabel>
+              <FormControl>
+                <Input placeholder="Enter your username" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <FormField
           control={form.control}
           name="email"
@@ -82,7 +98,11 @@ export function SignInForm() {
             <FormItem>
               <FormLabel>Password</FormLabel>
               <FormControl>
-                <Input placeholder="write your password" {...field} />
+                <Input
+                  type="password"
+                  placeholder="Enter your password"
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -95,7 +115,7 @@ export function SignInForm() {
           type="submit"
           className="w-full bg-foreground text-background hover:bg-foreground/90"
         >
-          Submit
+          Sign Up
         </Button>
       </form>
     </Form>

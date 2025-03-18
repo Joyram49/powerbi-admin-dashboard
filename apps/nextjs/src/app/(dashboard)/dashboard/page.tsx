@@ -1,5 +1,12 @@
-function DashboardPage() {
-  return <div>Welcome to the dashboard page!</div>;
-}
+export default function DashboardPage() {
+  return (
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold">Dashboard</h1>
 
-export default DashboardPage;
+      <p className="my-4">
+        Welcome to your dashboard! This is a protected page that should only be
+        accessible after successfully logging in.
+      </p>
+    </div>
+  );
+}
