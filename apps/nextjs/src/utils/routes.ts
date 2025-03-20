@@ -5,13 +5,20 @@ export const LOGIN = "/login";
 export const REGISTER = "/register";
 export const ROOT = "/";
 export const FORGOT_PASSWORD = "/forgot-password";
-export const CONFIRM_EMAIL = "/confirm";
+export const VERIFY_OTP = "/verify-otp";
+export const RESET_PASSWORD = "/reset-password";
 
 // Add additional public routes as necessary
-export const PUBLIC_ROUTES = [LOGIN, FORGOT_PASSWORD, CONFIRM_EMAIL, REGISTER];
+export const PUBLIC_ROUTES = [LOGIN, FORGOT_PASSWORD, VERIFY_OTP, REGISTER];
 
 // Auth-related routes (for authentication pages)
-export const AUTH_ROUTES = [LOGIN, FORGOT_PASSWORD, REGISTER];
+export const AUTH_ROUTES = [
+  LOGIN,
+  FORGOT_PASSWORD,
+  VERIFY_OTP,
+  RESET_PASSWORD,
+  REGISTER,
+];
 
 // Dashboard routes (require authentication)
 export const PRIVATE_ROUTES = [

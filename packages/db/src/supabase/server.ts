@@ -3,17 +3,29 @@ import { createServerClient } from "@supabase/ssr";
 
 import { env } from "../../env";
 
+// Define more specific types for cookie options
+interface CookieOptions {
+  path?: string;
+  domain?: string;
+  maxAge?: number;
+  httpOnly?: boolean;
+  secure?: boolean;
+  sameSite?: "strict" | "lax" | "none";
+  expires?: Date;
+}
+
+interface StoredCookie {
+  value: string;
+  options: CookieOptions;
+}
+
+// Global store for cookies with proper typing
+export const globalCookieStore: Record<string, StoredCookie> = {};
+
 // Create Supabase client for server auth
 export function createClientServer() {
   try {
     const cookieStore = cookies();
-
-    // Debug: Check what cookies are available
-    const allCookies = cookieStore.getAll();
-    console.log(
-      `Available cookies (${allCookies.length}):`,
-      allCookies.map((c) => c.name).join(", "),
-    );
 
     return createServerClient(
       env.NEXT_PUBLIC_SUPABASE_URL,
@@ -25,24 +37,39 @@ export function createClientServer() {
           },
           setAll(cookiesToSet) {
             try {
-              console.log(
-                `Setting ${cookiesToSet.length} cookies:`,
-                cookiesToSet.map((c) => c.value).join(", "),
-              );
-
               cookiesToSet.forEach(({ name, value, options }) => {
+                // Set with minimal options to avoid conflicts
                 cookieStore.set({
                   name,
                   value,
-                  ...options,
-                  // Only use essential options to avoid conflicts
                   path: "/",
-                  sameSite: "lax",
-                  secure: false, // Works in both HTTP and HTTPS
-                  httpOnly: false, // Allow JS access
                   maxAge: 60 * 60 * 24 * 30, // 30 days
                 });
-                console.log(`Set cookie: ${name} (length: ${value.length})`);
+
+                // Also manually store in a global for retrieval with proper typing
+                const safeOptions: CookieOptions = {
+                  path: "/",
+                  maxAge: 60 * 60 * 24 * 30,
+                  // Only copy known safe properties from options
+                  ...(options.path && { path: options.path }),
+                  ...(options.domain && { domain: options.domain }),
+                  ...(options.maxAge && { maxAge: options.maxAge }),
+                  ...(options.httpOnly !== undefined && {
+                    httpOnly: options.httpOnly,
+                  }),
+                  ...(options.secure !== undefined && {
+                    secure: options.secure,
+                  }),
+                  ...(options.sameSite && {
+                    sameSite: options.sameSite as "strict" | "lax" | "none",
+                  }),
+                  ...(options.expires && { expires: options.expires }),
+                };
+
+                globalCookieStore[name] = {
+                  value,
+                  options: safeOptions,
+                };
               });
             } catch (err) {
               console.error(
@@ -55,7 +82,6 @@ export function createClientServer() {
         auth: {
           persistSession: true,
           autoRefreshToken: true,
-          detectSessionInUrl: true,
         },
       },
     );
@@ -67,5 +93,3 @@ export function createClientServer() {
     throw new Error("Failed to create server client");
   }
 }
-
-// Helper function for server contexts where we can use next/headers

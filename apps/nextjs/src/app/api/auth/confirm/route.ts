@@ -10,8 +10,6 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get("type") as EmailOtpType | null;
   const next = searchParams.get("next") ?? "/";
 
-  console.log("Inside the auth route handler.");
-
   if (token_hash && type) {
     const supabase = createClientServer();
 

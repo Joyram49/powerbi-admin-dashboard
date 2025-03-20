@@ -38,20 +38,19 @@ export async function updateSession(request: NextRequest) {
   );
 
   const {
-    data: { session: user },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const pathName = request.nextUrl.pathname;
 
   if (!user && !PUBLIC_ROUTES.includes(pathName) && pathName !== ROOT) {
-    console.log(">>> User:", user);
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
   if (!!user && PUBLIC_ROUTES.includes(pathName)) {
     const url = request.nextUrl.clone();
-    url.pathname = "/";
+    url.pathname = "/dashboard";
     return NextResponse.redirect(url);
   }
 
