@@ -1,17 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import {
-  BarChart3,
-  Building,
-  FileText,
-  Home,
-  KeyRound,
-  LogOut,
-  UserPlus,
-  Users,
-} from "lucide-react";
+import { Activity, BarChart3, BriefcaseBusiness, FileText, Home, KeyRound, LogOut, ShieldPlus, UserPlus, Users } from "lucide-react";
+
+
+
+
 
 // Animation Variants
 const sidebarVariants = {
@@ -30,20 +26,30 @@ const navigationItems = {
       icon: <Home className="mr-3 h-5 w-5" />,
       label: "Home",
     },
-    {
-      href: "/dashboard/super-admin/companies",
-      icon: <Building className="mr-3 h-5 w-5" />,
-      label: "Company List",
-    },
+    // {
+    //   href: "/dashboard/super-admin/companies",
+    //   icon: <Building className="mr-3 h-5 w-5" />,
+    //   label: "Company List",
+    // },
     {
       href: "/dashboard/super-admin/companies/add",
-      icon: <UserPlus className="mr-3 h-5 w-5" />,
+      icon: <BriefcaseBusiness className="mr-3 h-5 w-5" />,
       label: "Add Company",
     },
     {
       href: "/dashboard/super-admin/users",
       icon: <Users className="mr-3 h-5 w-5" />,
-      label: "Users List",
+      label: "Super Admins",
+    },
+    {
+      href: "/dashboard/super-admin/users/add",
+      icon: <ShieldPlus className="mr-3 h-5 w-5" />,
+      label: "Add Super Admin",
+    },
+    {
+      href: "/dashboard/super-admin/users/add",
+      icon: <Activity className="mr-3 h-5 w-5" />,
+      label: "Track Logins",
     },
     {
       href: "/auth/change-password",
@@ -62,11 +68,11 @@ const navigationItems = {
       icon: <Home className="mr-3 h-5 w-5" />,
       label: "Home",
     },
-    {
-      href: "/dashboard/admin/reports",
-      icon: <FileText className="mr-3 h-5 w-5" />,
-      label: "Report List",
-    },
+    // {
+    //   href: "/dashboard/admin/reports",
+    //   icon: <FileText className="mr-3 h-5 w-5" />,
+    //   label: "Report List",
+    // },
     {
       href: "/dashboard/admin/users",
       icon: <Users className="mr-3 h-5 w-5" />,
@@ -139,7 +145,7 @@ export default function Sidebar({
       </div>
       <nav className="flex-1 overflow-y-auto py-4">
         {items.map((item, index) => (
-          <a
+          <Link
             key={index}
             href={item.href}
             className={`flex items-center px-4 py-2 ${
@@ -150,7 +156,7 @@ export default function Sidebar({
           >
             {item.icon}
             <span>{item.label}</span>
-          </a>
+          </Link>
         ))}
       </nav>
     </motion.aside>

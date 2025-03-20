@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   Building,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Plus,
@@ -13,6 +15,12 @@ import {
 import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@acme/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@acme/ui/dropdown-menu";
 import { Input } from "@acme/ui/input";
 import {
   Table,
@@ -29,6 +37,7 @@ const getCompanies = () => {
     {
       id: 1,
       name: "Acme Corporation",
+      admin: "John Doe",
       users: 24,
       createdDate: "2025-01-15",
       active: true,
@@ -36,6 +45,7 @@ const getCompanies = () => {
     {
       id: 2,
       name: "Wayne Enterprises",
+      admin: "John Smith",
       users: 18,
       createdDate: "2025-02-10",
       active: true,
@@ -43,6 +53,7 @@ const getCompanies = () => {
     {
       id: 3,
       name: "Stark Industries",
+      admin: "Sara Johnson",
       users: 32,
       createdDate: "2025-02-20",
       active: true,
@@ -50,6 +61,7 @@ const getCompanies = () => {
     {
       id: 4,
       name: "Umbrella Corp",
+      admin: "Jessica White",
       users: 16,
       createdDate: "2025-03-05",
       active: false,
@@ -126,7 +138,7 @@ export default function SuperAdminDashboard() {
                     }}
                   />
                 </div>
-                <Button className="bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white">
+                <Button className="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700">
                   <Plus className="mr-2 h-4 w-4" />
                   New Company
                 </Button>
@@ -140,6 +152,7 @@ export default function SuperAdminDashboard() {
                   <TableHead className="dark:text-slate-300">
                     Company Name
                   </TableHead>
+                  <TableHead className="dark:text-slate-300">Admin</TableHead>
                   <TableHead className="dark:text-slate-300">
                     Date Created
                   </TableHead>
@@ -165,13 +178,34 @@ export default function SuperAdminDashboard() {
                     className="dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                   >
                     <TableCell className="font-medium">
-                      {company.name}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full justify-between"
+                          >
+                            {company.name}
+                            <ChevronDown className="ml-2 h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem>User List</DropdownMenuItem>
+                          <DropdownMenuItem>Edit</DropdownMenuItem>
+                          <DropdownMenuItem>Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
+                    <TableCell>{company.admin}</TableCell>
                     <TableCell>{company.createdDate}</TableCell>
                     <TableCell className="text-center">
-                      <Badge className="bg-blue-50 dark:bg-blue-900 dark:text-blue-100">
-                        {company.users}
-                      </Badge>
+                      <Link
+                        href={`/dashboard/super-admin/companies/${company.id}/users`}
+                      >
+                        <Badge className="bg-blue-50 dark:bg-blue-900 dark:text-blue-100">
+                          {company.users}
+                        </Badge>
+                      </Link>
                     </TableCell>
                     <TableCell className="text-center">
                       <Badge
@@ -185,14 +219,13 @@ export default function SuperAdminDashboard() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600"
+                      <Link
+                        href={`/dashboard/super-admin/companies/${company.id}/reports`}
+                        className="flex items-center justify-center text-nowrap rounded-md border border-slate-200 px-2 py-1 text-sm font-medium dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600"
                       >
                         <Building className="mr-2 h-4 w-4" />
-                        View Details
-                      </Button>
+                        View Reports
+                      </Link>
                     </TableCell>
                   </motion.tr>
                 ))}

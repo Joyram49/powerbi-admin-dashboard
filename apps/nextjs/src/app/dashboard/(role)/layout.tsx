@@ -1,16 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Plus } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@acme/ui/avatar";
 import { ThemeToggle } from "@acme/ui/theme";
-
-import RoleSwitcher from "../../_components/RoleSwitcher";
-import Sidebar from "../../_components/Sidebar";
-import Link from "next/link";
+import RoleSwitcher from "../_components/RoleSwitcher";
+import Sidebar from "../_components/Sidebar";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const router = useRouter();

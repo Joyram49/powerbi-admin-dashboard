@@ -1,8 +1,8 @@
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 
 import { appRouter, createTRPCContext } from "@acme/api";
-import { createClientServer } from "@acme/db";
 
+import { createClientServer } from "@/utils/supabase/client";
 import { env } from "~/env";
 
 // export const runtime = "edge";

@@ -1,29 +1,39 @@
 // routes.ts
-
 // Public routes (accessible without authentication)
+import { env } from "~/env";
+
 export const LOGIN = "/login";
 export const REGISTER = "/register";
 export const ROOT = "/";
 export const FORGOT_PASSWORD = "/forgot-password";
 export const CONFIRM_EMAIL = "/confirm";
 export const DASHBOARD = "/dashboard";
-export const USER_DASHBOARD = "/dashboard/user";
-export const ADMIN_DASHBOARD = "/dashboard/admin";
-export const SUPER_ADMIN_DASHBOARD = "/dashboard/super-admin";
 
 // Add additional public routes as necessary
-export const PUBLIC_ROUTES = [
-  LOGIN,
-  FORGOT_PASSWORD,
-  CONFIRM_EMAIL,
-  REGISTER,
-  DASHBOARD,
-  USER_DASHBOARD,
-  ADMIN_DASHBOARD,
-  SUPER_ADMIN_DASHBOARD,
-];
+export const PUBLIC_ROUTES = [LOGIN, FORGOT_PASSWORD, CONFIRM_EMAIL, REGISTER];
 
-// Dashboard routes (require authentication)
+// During development, dashboard routes are public
+export const isDevelopment = env.NODE_ENV === "development";
+
+// Function to check if a route is public
+export const isPublicRoute = (pathname: string) => {
+  if (PUBLIC_ROUTES.includes(pathname)) return true;
+
+  // In development mode, make dashboard routes public
+  if (
+    isDevelopment &&
+    (pathname === DASHBOARD ||
+      pathname.startsWith(`${DASHBOARD}/`) ||
+      pathname.startsWith(`${DASHBOARD}/companies/add`) ||
+      pathname.startsWith(`${DASHBOARD}/companies`))
+  ) {
+    return true;
+  }
+
+  return false;
+};
+
+// Dashboard routes (require authentication in production)
 export const PRIVATE_ROUTES = [
   "/private",
   // Add other dashboard-specific routes here
