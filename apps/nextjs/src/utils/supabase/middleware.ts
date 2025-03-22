@@ -38,8 +38,8 @@ export async function updateSession(request: NextRequest) {
   );
 
   const {
-    data: { session: user },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
   const isDashboardRoute =
@@ -54,7 +54,7 @@ export async function updateSession(request: NextRequest) {
 
   if (user && isPublicRoute(pathname) && !isDashboardRoute) {
     const url = request.nextUrl.clone();
-    url.pathname = "/";
+    url.pathname = "/dashboard";
     return NextResponse.redirect(url);
   }
 

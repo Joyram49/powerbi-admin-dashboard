@@ -6,11 +6,12 @@ export const LOGIN = "/login";
 export const REGISTER = "/register";
 export const ROOT = "/";
 export const FORGOT_PASSWORD = "/forgot-password";
-export const CONFIRM_EMAIL = "/confirm";
+export const VERIFY_OTP = "/verify-otp";
+export const RESET_PASSWORD = "/reset-password";
 export const DASHBOARD = "/dashboard";
 
 // Add additional public routes as necessary
-export const PUBLIC_ROUTES = [LOGIN, FORGOT_PASSWORD, CONFIRM_EMAIL, REGISTER];
+export const PUBLIC_ROUTES = [LOGIN, FORGOT_PASSWORD, VERIFY_OTP, REGISTER];
 
 // During development, dashboard routes are public
 export const isDevelopment = env.NODE_ENV === "development";

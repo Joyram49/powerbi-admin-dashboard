@@ -41,15 +41,40 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
             headers() {
               const headers = new Headers();
               headers.set("x-trpc-source", "nextjs-react");
-              // Timeout for the link
-              headers.set("timeout", "10000"); // 10 seconds
+              headers.set("timeout", "10000"); // 10 seconds timeout
+
+              // Print current cookies for debugging
+              if (typeof window !== "undefined") {
+                console.log(
+                  "Current cookies when making tRPC request:",
+                  document.cookie,
+                );
+              }
+
               return headers;
             },
-            // Fetch options
+            // Enhanced fetch options
             fetch(url, options) {
+              // Log request for debugging
+              console.log(`tRPC fetch to ${url.href}`);
+
+              // Make the fetch with credentials included
               return fetch(url, {
                 ...options,
-                credentials: "include", // Send cookies with request
+                credentials: "include", // Important: This ensures cookies are sent with the request
+              }).then((response) => {
+                // Log response cookies for debugging
+                console.log("tRPC response received");
+                if (typeof window !== "undefined") {
+                  // Check if cookies were set after the response
+                  setTimeout(() => {
+                    console.log(
+                      "Cookies after tRPC response:",
+                      document.cookie,
+                    );
+                  }, 100); // Small delay to ensure cookies are processed
+                }
+                return response;
               });
             },
           }),

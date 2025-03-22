@@ -46,7 +46,7 @@ export function SignUpForm() {
 
   const router = useRouter();
 
-  const register = api.auth.createSuperAdmin.useMutation();
+  const register = api.auth.signUp.useMutation();
 
   function onSubmit(data: z.infer<typeof FormSchema>) {
     const requestedData = { ...data, role: "superAdmin" };
@@ -57,7 +57,7 @@ export function SignUpForm() {
       onSuccess: (result) => {
         console.log("Signup success:", result);
         form.reset();
-        router.push("/login");
+        router.push("/dashboard");
       },
     });
   }

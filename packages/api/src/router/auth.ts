@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { createClientServer, db, users } from "@acme/db";
+import { createClientServer, db, eq, users } from "@acme/db";
 
 import { env } from "../../../auth/env";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
@@ -40,31 +40,43 @@ export const createUserSchema = z
 
 export const authRouter = createTRPCRouter({
   // Signup procedure with optional metadata
-  signUp: publicProcedure
+  signUp: protectedProcedure
     .input(createUserSchema)
     .mutation(async ({ input }) => {
-      // const cacheKey = `signup:${input.email}`;
-
-      // // Check cache first
-      // const cachedResult = authCache.get(cacheKey);
-      // if (cachedResult) return cachedResult;
-
       const supabase = createClientServer();
       try {
-        const { data, error } = await supabase.auth.admin.createUser({
+        // Use the regular signUp method instead of admin.createUser
+        const response = await supabase.auth.signUp({
           email: input.email,
           password: input.password,
+          options: {
+            data: {
+              role: input.role,
+              userName: input.userName ?? input.email,
+            },
+            emailRedirectTo: `${env.NEXT_PUBLIC_APP_URL}/api/auth/confirm`,
+          },
         });
 
-        if (error) {
+        if (response.error) {
+          console.error("Auth signup error:", response.error);
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
-            message: error.message || "Failed to create user in auth system",
+            message:
+              response.error.message || "Failed to create user in auth system",
           });
         }
+
+        if (!response.data.user) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to create user - no user returned",
+          });
+        }
+
         // Insert the user into your custom users table.
         await db.insert(users).values({
-          id: data.user.id,
+          id: response.data.user.id,
           userName: input.userName ?? input.email,
           email: input.email,
           companyId: input.companyId ?? null,
@@ -73,18 +85,14 @@ export const authRouter = createTRPCRouter({
           dateCreated: new Date(),
         });
 
-        const result = {
-          user: data.user,
+        return {
+          user: response.data.user,
         };
-
-        // Cache successful signup
-        // authCache.set(cacheKey, result);
-
-        return result;
       } catch (error) {
+        console.error("Signup error:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: String(error),
+          message: error instanceof Error ? error.message : String(error),
         });
       }
     }),
@@ -98,45 +106,41 @@ export const authRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ input }) => {
-      // const cacheKey = `signin:${input.email}`;
-
-      // // Check cache first
-      // const cachedResult = authCache.get(cacheKey);
-      // if (cachedResult) return cachedResult;
       const supabase = createClientServer();
 
       try {
+        // Sign in with Supabase
         const { data, error } = await supabase.auth.signInWithPassword({
           email: input.email,
           password: input.password,
         });
 
+        console.log(data);
+
         if (error) {
           throw new TRPCError({
             code: "UNAUTHORIZED",
-            message: error.message || "Invalid credentials",
+            message: error.message || "Authentication failed",
           });
         }
 
-        // Log session details for debugging
-        console.log("Session created:", {
-          accessToken: data.session.access_token,
-          refreshToken: data.session.refresh_token,
-        });
-
-        const result = {
+        return {
           user: data.user,
           session: data.session,
         };
+      } catch (err) {
+        console.error(
+          "Sign-in error:",
+          err instanceof Error ? err.message : String(err),
+        );
 
-        // Cache successful signin
-        // authCache.set(cacheKey, result);
+        if (err instanceof TRPCError) {
+          throw err;
+        }
 
-        return result;
-      } catch (error) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: String(error),
+          message: "Authentication failed",
         });
       }
     }),
@@ -145,23 +149,35 @@ export const authRouter = createTRPCRouter({
   signOut: publicProcedure.mutation(async () => {
     try {
       const supabase = createClientServer();
-      const { error } = await supabase.auth.signOut();
+      // Perform sign out
+      const { error } = await supabase.auth.signOut({ scope: "global" });
 
       if (error) {
+        console.error("Sign-out error:", error.message);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: error.message || "Logout failed",
         });
       }
 
-      // Clear any cached sessions for this user
-      // authCache.clear();
+      // Note: We can't manually clear cookies here since we're in a tRPC procedure
+      // and not a route handler. We'll need to clear cookies in the client after signOut
+      // returns success.
 
-      return { success: true };
+      console.log("User signed out successfully");
+      return {
+        success: true,
+        // Return a flag indicating that cookies should be cleared client-side
+        clearCookies: true,
+      };
     } catch (error) {
+      console.error(
+        "Sign-out error:",
+        error instanceof Error ? error.message : String(error),
+      );
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
-        message: String(error),
+        message: "Sign-out failed",
       });
     }
   }),
@@ -340,6 +356,139 @@ export const authRouter = createTRPCRouter({
           code: "INTERNAL_SERVER_ERROR",
           message: String(error),
         });
+      }
+    }),
+
+  // Send OTP to verify email
+  sendOTP: publicProcedure
+    .input(
+      z.object({
+        email: z.string().email({ message: "Invalid email address" }),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      try {
+        const supabase = createClientServer();
+
+        const result = await db
+          .select()
+          .from(users)
+          .where(eq(users.email, input.email));
+
+        if (result.length === 0) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "User does not exist",
+          });
+        }
+
+        const { error } = await supabase.auth.signInWithOtp({
+          email: input.email,
+          options: {
+            shouldCreateUser: false,
+          },
+        });
+
+        if (error) {
+          return {
+            success: false,
+            message: error.message || "Failed to send OTP",
+          };
+        }
+
+        return {
+          success: true,
+          message: "OTP sent successfully",
+        };
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to send OTP";
+        return {
+          success: false,
+          message: errorMessage,
+        };
+      }
+    }),
+
+  // verify OTP
+  verifyOTP: publicProcedure
+    .input(
+      z.object({
+        email: z.string().email({ message: "Invalid email address" }),
+        token: z.string().length(6),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      try {
+        const supabase = createClientServer();
+        const { error } = await supabase.auth.verifyOtp({
+          email: input.email,
+          token: input.token,
+          type: "email",
+        });
+
+        if (error) {
+          return {
+            success: false,
+            message: error.message || "Failed to verify OTP",
+          };
+        }
+
+        return {
+          success: true,
+          message: "OTP verified successfully",
+        };
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to verify OTP";
+        return {
+          success: false,
+          message: errorMessage,
+        };
+      }
+    }),
+
+  // update password
+  updatePassword: protectedProcedure
+    .input(
+      z.object({
+        password: z
+          .string()
+          .min(8, { message: "Password must be between 8-20 characters" })
+          .max(20, { message: "Password must be between 8-20 characters" })
+          .regex(/^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/, {
+            message:
+              "Password must include at least one uppercase letter, one number, and one special character",
+          }),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      try {
+        const supabase = createClientServer();
+
+        // Update the password
+        const { error } = await supabase.auth.updateUser({
+          password: input.password,
+        });
+
+        if (error) {
+          return {
+            success: false,
+            message: error.message || "Failed to update password",
+          };
+        }
+
+        return {
+          success: true,
+          message: "Password updated successfully",
+        };
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to update password";
+        return {
+          success: false,
+          message: errorMessage,
+        };
       }
     }),
 });
