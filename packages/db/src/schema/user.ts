@@ -10,9 +10,9 @@ import {
 import { companies } from "./company";
 
 export const userRoleEnum = pgEnum("user_role", [
-  "superAdmin",
-  "admin",
-  "user",
+  "SUPER_ADMIN",
+  "ADMIN",
+  "USER",
 ]);
 
 export const users = pgTable("user", {
@@ -23,7 +23,7 @@ export const users = pgTable("user", {
   companyId: uuid("company_id").references(() => companies.id, {
     onDelete: "set null",
   }),
-  role: userRoleEnum("role").notNull().default("user"),
+  role: userRoleEnum("role").notNull().default("USER"),
   dateCreated: timestamp("date_created").defaultNow().notNull(),
   lastLogin: timestamp("last_login"),
   modifiedBy: varchar("modified_by", { length: 255 }),
