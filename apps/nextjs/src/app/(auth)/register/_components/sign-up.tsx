@@ -36,7 +36,7 @@ const FormSchema = z.object({
   password: z
     .string()
     .min(12, { message: "Password must be at least 12 characters" })
-    .max(64, { message: "Password must be less than 64 characters" })
+    .max(20, { message: "Password must be less than 20 characters" })
     .regex(/^(?=.*[A-Z])/, {
       message: "Password must include at least one uppercase letter",
     })
