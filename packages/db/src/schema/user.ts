@@ -1,5 +1,6 @@
 import {
   boolean,
+  jsonb,
   pgEnum,
   pgTable,
   timestamp,
@@ -28,6 +29,7 @@ export const users = pgTable("user", {
   lastLogin: timestamp("last_login"),
   modifiedBy: varchar("modified_by", { length: 255 }),
   status: varchar("status", { length: 50 }).notNull().default("active"),
+  passwordHistory: jsonb("password_history").$type<string[]>().default([]),
 });
 
 // Move type export **below** all schema definitions

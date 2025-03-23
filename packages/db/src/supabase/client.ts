@@ -28,7 +28,7 @@ export function createClientBrowser() {
           path: "/",
           sameSite: "lax",
           secure: process.env.NODE_ENV === "production",
-          maxAge: 60 * 60 * 24 * 30, // 30 days
+          maxAge: 60 * 60 * 4, // 4 hours
           httpOnly: false, // Allow JavaScript access
         },
       },

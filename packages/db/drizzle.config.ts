@@ -9,6 +9,7 @@ export default defineConfig({
     "./src/schema/company.ts",
     "./src/schema/user.ts",
     "./src/schema/post.ts",
+    "./src/schema/login-attempts.ts",
   ],
   out: "./migrations",
   driver: "pg",

@@ -57,7 +57,7 @@ export function createClientServer() {
                   name,
                   value,
                   path: "/",
-                  maxAge: 60 * 60 * 24 * 30,
+                  maxAge: 60 * 60 * 4,
                 });
 
                 // Also store in global store for retrieval
@@ -65,7 +65,7 @@ export function createClientServer() {
                   value,
                   options: {
                     path: "/",
-                    maxAge: 60 * 60 * 24 * 30,
+                    maxAge: 60 * 60 * 4,
                     ...options,
                   },
                 };
@@ -149,7 +149,7 @@ const createCustomResponseHandler = async (req: Request) => {
       name,
       value,
       path: "/",
-      maxAge: 60 * 60 * 24 * 30,
+      maxAge: 60 * 60 * 4,
       sameSite: "lax",
       httpOnly: false,
       ...options,
@@ -167,7 +167,7 @@ const createCustomResponseHandler = async (req: Request) => {
           name: cookie.name,
           value: cookie.value,
           path: "/",
-          maxAge: 60 * 60 * 24 * 30,
+          maxAge: 60 * 60 * 4,
           sameSite: "lax",
           httpOnly: false,
         });
@@ -389,7 +389,7 @@ export async function POST(req: Request) {
                 name,
                 value,
                 path: "/",
-                maxAge: 60 * 60 * 24 * 30,
+                maxAge: 60 * 60 * 4,
                 sameSite: "lax",
                 httpOnly: false,
                 ...options,
@@ -480,7 +480,7 @@ Key cookie settings for proper browser handling:
   sameSite: "lax",       // Allow cookies in same-site navigation
   secure: false,         // Allow HTTP in development (true in production)
   httpOnly: false,       // Allow JavaScript access to auth cookies
-  maxAge: 60 * 60 * 24 * 30, // 30 days expiration
+  maxAge: 60 * 60 * 4, // =4 hour expiration
 }
 ```
 
