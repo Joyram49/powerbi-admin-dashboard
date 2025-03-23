@@ -43,13 +43,13 @@ export function createClientServer() {
                   name,
                   value,
                   path: "/",
-                  maxAge: 60 * 60 * 24 * 30, // 30 days
+                  maxAge: 60 * 60 * 4, // hours
                 });
 
                 // Also manually store in a global for retrieval with proper typing
                 const safeOptions: CookieOptions = {
                   path: "/",
-                  maxAge: 60 * 60 * 24 * 30,
+                  maxAge: 60 * 60 * 4,
                   // Only copy known safe properties from options
                   ...(options.path && { path: options.path }),
                   ...(options.domain && { domain: options.domain }),

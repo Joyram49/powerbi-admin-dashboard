@@ -1,28 +1,26 @@
 import { TRPCError } from "@trpc/server";
+import { compareSync, hash } from "bcryptjs";
 import { z } from "zod";
 
-import { createClientServer, db, eq, users } from "@acme/db";
+import { createClientServer, db, eq, loginAttempts, users } from "@acme/db";
 
 import { env } from "../../../auth/env";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
-
-// // Create a cache to store recent authentication results
-// const authCache = new LRUCache<string, any>({
-//   max: 500, // Adjust based on expected traffic
-//   ttl: 1000 * 60 * 5, // 5 minutes cache
-// });
 
 export const createUserSchema = z
   .object({
     email: z.string().email({ message: "Invalid email address" }),
     password: z
       .string()
-      .min(8, { message: "Password must be between 8-20 characters" })
-      .max(20, { message: "Password must be between 8-20 characters" })
-      .regex(/^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/, {
-        message:
-          "Password must include at least one uppercase letter, one number, and one special character",
-      }),
+      .min(12, { message: "Password must be between 12-20 characters" })
+      .max(20, { message: "Password must be between 12-20 characters" })
+      .regex(
+        /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).+$/,
+        {
+          message:
+            "Password must include at least one uppercase letter, one number, and one special character",
+        },
+      ),
     role: z.enum(["superAdmin", "admin", "user"]),
     companyId: z.string().optional(),
     userName: z.string().optional(),
@@ -40,7 +38,7 @@ export const createUserSchema = z
 
 export const authRouter = createTRPCRouter({
   // Signup procedure with optional metadata
-  signUp: protectedProcedure
+  signUp: publicProcedure
     .input(createUserSchema)
     .mutation(async ({ input }) => {
       const supabase = createClientServer();
@@ -59,7 +57,6 @@ export const authRouter = createTRPCRouter({
         });
 
         if (response.error) {
-          console.error("Auth signup error:", response.error);
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
             message:
@@ -74,6 +71,8 @@ export const authRouter = createTRPCRouter({
           });
         }
 
+        const hashedPassword = await hash(input.password, 10);
+
         // Insert the user into your custom users table.
         await db.insert(users).values({
           id: response.data.user.id,
@@ -83,16 +82,20 @@ export const authRouter = createTRPCRouter({
           role: input.role,
           isSuperAdmin: input.role === "superAdmin",
           dateCreated: new Date(),
+          lastLogin: new Date(),
+          passwordHistory: [hashedPassword],
         });
 
         return {
           user: response.data.user,
         };
       } catch (error) {
-        console.error("Signup error:", error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error instanceof Error ? error.message : String(error),
+          message: error instanceof Error ? error.message : "failed to signup",
         });
       }
     }),
@@ -109,19 +112,156 @@ export const authRouter = createTRPCRouter({
       const supabase = createClientServer();
 
       try {
+        // First, check if the user exists in our database
+        const userExists = await db
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.email, input.email))
+          .limit(1);
+
+        // If user doesn't exist, return generic error without tracking attempts
+        if (userExists.length === 0) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "Invalid login credentials",
+          });
+        }
+
+        // Check if account is locked
+        const lockRecord = await db
+          .select()
+          .from(loginAttempts)
+          .where(eq(loginAttempts.email, input.email))
+          .limit(1);
+
+        const now = new Date();
+        const lockRecordExists = lockRecord.length > 0;
+
+        // Check if account is locked
+        if (
+          lockRecordExists &&
+          lockRecord[0]?.isLocked === true &&
+          lockRecord[0]?.lockedUntil &&
+          lockRecord[0]?.lockedUntil > now
+        ) {
+          const lockRemainingMin = Math.ceil(
+            (lockRecord[0].lockedUntil.getTime() - now.getTime()) / (1000 * 60),
+          );
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: `Account locked. Try again in ${lockRemainingMin} minute(s).`,
+          });
+        }
+
+        // If lock expired, reset the lock
+        if (
+          lockRecordExists &&
+          lockRecord[0]?.isLocked === true &&
+          lockRecord[0]?.lockedUntil &&
+          lockRecord[0]?.lockedUntil <= now
+        ) {
+          await db
+            .update(loginAttempts)
+            .set({
+              isLocked: false,
+              attempts: 0,
+              updatedAt: now,
+            })
+            .where(eq(loginAttempts.email, input.email));
+        }
+
         // Sign in with Supabase
         const { data, error } = await supabase.auth.signInWithPassword({
           email: input.email,
           password: input.password,
         });
 
-        console.log(data);
-
         if (error) {
+          // Only track failed attempts for invalid credentials errors
+          // Supabase error codes for invalid login: "invalid_credentials", "invalid_grant", or message contains "Invalid login credentials"
+          const isInvalidCredentialsError =
+            error.message.includes("Invalid login credentials") ||
+            error.code === "invalid_credentials" ||
+            error.code === "invalid_grant";
+
+          if (isInvalidCredentialsError) {
+            // Since we checked earlier that user exists, we can update login attempts
+            // Update or create the login attempts record
+            if (lockRecordExists) {
+              const attempts = (lockRecord[0]?.attempts ?? 0) + 1;
+              const MAX_ATTEMPTS = 5;
+              const LOCK_DURATION_MINUTES = 30;
+
+              // Check if we need to lock the account
+              if (attempts >= MAX_ATTEMPTS) {
+                const lockedUntil = new Date();
+                lockedUntil.setMinutes(
+                  lockedUntil.getMinutes() + LOCK_DURATION_MINUTES,
+                );
+
+                await db
+                  .update(loginAttempts)
+                  .set({
+                    attempts,
+                    lastAttempt: now,
+                    isLocked: true,
+                    lockedUntil,
+                    updatedAt: now,
+                  })
+                  .where(eq(loginAttempts.email, input.email));
+
+                throw new TRPCError({
+                  code: "FORBIDDEN",
+                  message: `Too many failed login attempts. Account locked for ${LOCK_DURATION_MINUTES} minutes.`,
+                });
+              } else {
+                await db
+                  .update(loginAttempts)
+                  .set({
+                    attempts,
+                    lastAttempt: now,
+                    updatedAt: now,
+                  })
+                  .where(eq(loginAttempts.email, input.email));
+              }
+            } else {
+              // Create a new record
+              await db.insert(loginAttempts).values({
+                id: crypto.randomUUID(),
+                email: input.email,
+                attempts: 1,
+                lastAttempt: now,
+                createdAt: now,
+                updatedAt: now,
+              });
+            }
+          }
+
+          // Rethrow the original error
           throw new TRPCError({
             code: "UNAUTHORIZED",
-            message: error.message || "Authentication failed",
+            message: error.message || "Incorrect password please try again",
           });
+        }
+
+        // update last login date for the user
+        await db
+          .update(users)
+          .set({
+            lastLogin: new Date(),
+          })
+          .where(eq(users.email, input.email));
+
+        // If login successful, reset attempts
+        if (lockRecordExists) {
+          await db
+            .update(loginAttempts)
+            .set({
+              attempts: 0,
+              isLocked: false,
+              updatedAt: now,
+            })
+            .where(eq(loginAttempts.email, input.email));
         }
 
         return {
@@ -129,11 +269,6 @@ export const authRouter = createTRPCRouter({
           session: data.session,
         };
       } catch (err) {
-        console.error(
-          "Sign-in error:",
-          err instanceof Error ? err.message : String(err),
-        );
-
         if (err instanceof TRPCError) {
           throw err;
         }
@@ -146,14 +281,13 @@ export const authRouter = createTRPCRouter({
     }),
 
   // Signout procedure
-  signOut: publicProcedure.mutation(async () => {
+  signOut: protectedProcedure.mutation(async () => {
     try {
       const supabase = createClientServer();
       // Perform sign out
       const { error } = await supabase.auth.signOut({ scope: "global" });
 
       if (error) {
-        console.error("Sign-out error:", error.message);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: error.message || "Logout failed",
@@ -164,17 +298,15 @@ export const authRouter = createTRPCRouter({
       // and not a route handler. We'll need to clear cookies in the client after signOut
       // returns success.
 
-      console.log("User signed out successfully");
       return {
         success: true,
         // Return a flag indicating that cookies should be cleared client-side
         clearCookies: true,
       };
     } catch (error) {
-      console.error(
-        "Sign-out error:",
-        error instanceof Error ? error.message : String(error),
-      );
+      if (error instanceof TRPCError) {
+        throw error;
+      }
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: "Sign-out failed",
@@ -189,6 +321,9 @@ export const authRouter = createTRPCRouter({
       const { data } = await supabase.auth.getSession();
       return data.session;
     } catch (error) {
+      if (error instanceof TRPCError) {
+        throw error;
+      }
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: String(error),
@@ -209,46 +344,15 @@ export const authRouter = createTRPCRouter({
       }
       return data;
     } catch (error) {
+      if (error instanceof TRPCError) {
+        throw error;
+      }
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: String(error),
       });
     }
   }),
-
-  // Password reset request
-  resetPasswordRequest: publicProcedure
-    .input(
-      z.object({
-        email: z.string().email(),
-      }),
-    )
-    .mutation(async ({ input }) => {
-      try {
-        const supabase = createClientServer();
-        const { error } = await supabase.auth.resetPasswordForEmail(
-          input.email,
-          {
-            // Optional: specify redirect URL for password reset
-            redirectTo: process.env.NEXT_PUBLIC_APP_URL + "/reset-password",
-          },
-        );
-
-        if (error) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: error.message || "Password reset request failed",
-          });
-        }
-
-        return { success: true };
-      } catch (error) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: String(error),
-        });
-      }
-    }),
 
   // Update user profile (protected route)
   updateProfile: protectedProcedure
@@ -296,15 +400,10 @@ export const authRouter = createTRPCRouter({
       }
     }),
 
-  // create super admin user
+  // create super admin user (only for development purposes)
   createSuperAdmin: publicProcedure
     .input(createUserSchema)
     .mutation(async ({ input }) => {
-      // const cacheKey = `signup:${input.email}`;
-
-      // // Check cache first
-      // const cachedResult = authCache.get(cacheKey);
-      // if (cachedResult) return cachedResult;
       const supabase = createClientServer();
       try {
         const { data, error } = await supabase.auth.signUp({
@@ -344,6 +443,8 @@ export const authRouter = createTRPCRouter({
           // Optionally, leave lastLogin and companyId as null.
           modifiedBy: input.email, // record the creator's email as modifiedBy
           status: "active",
+          // Add the initial password to the password history
+          passwordHistory: [input.password],
         });
 
         // Cache successful signup
@@ -351,7 +452,9 @@ export const authRouter = createTRPCRouter({
 
         return { success: true, user: data.user };
       } catch (error) {
-        console.error("Error creating super admin:", error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: String(error),
@@ -390,10 +493,10 @@ export const authRouter = createTRPCRouter({
         });
 
         if (error) {
-          return {
-            success: false,
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
             message: error.message || "Failed to send OTP",
-          };
+          });
         }
 
         return {
@@ -401,12 +504,15 @@ export const authRouter = createTRPCRouter({
           message: "OTP sent successfully",
         };
       } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : "Failed to send OTP";
-        return {
-          success: false,
-          message: errorMessage,
-        };
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error ? error.message : "Failed to send OTP",
+        });
       }
     }),
 
@@ -428,10 +534,11 @@ export const authRouter = createTRPCRouter({
         });
 
         if (error) {
-          return {
-            success: false,
-            message: error.message || "Failed to verify OTP",
-          };
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "You have provided an incorrect access code, please try again",
+          });
         }
 
         return {
@@ -439,12 +546,15 @@ export const authRouter = createTRPCRouter({
           message: "OTP verified successfully",
         };
       } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : "Failed to verify OTP";
-        return {
-          success: false,
-          message: errorMessage,
-        };
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error ? error.message : "Failed to verify OTP",
+        });
       }
     }),
 
@@ -454,17 +564,45 @@ export const authRouter = createTRPCRouter({
       z.object({
         password: z
           .string()
-          .min(8, { message: "Password must be between 8-20 characters" })
-          .max(20, { message: "Password must be between 8-20 characters" })
+          .min(12, { message: "Password must be between 12-20 characters" })
+          .max(20, { message: "Password must be between 12-20 characters" })
           .regex(/^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/, {
             message:
               "Password must include at least one uppercase letter, one number, and one special character",
           }),
       }),
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       try {
         const supabase = createClientServer();
+
+        // Get the user's password history
+        const userRecord = await db
+          .select({ passwordHistory: users.passwordHistory })
+          .from(users)
+          .where(eq(users.id, ctx.session.user.id))
+          .limit(1);
+
+        if (userRecord.length === 0) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "User not found",
+          });
+        }
+
+        const passwordHistory = userRecord[0]?.passwordHistory ?? [];
+
+        const isPasswordExist = passwordHistory.some((password) =>
+          compareSync(password, input.password),
+        );
+
+        // Check if the new password is in the history
+        if (isPasswordExist) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Password cannot match the last 3 historical passwords",
+          });
+        }
 
         // Update the password
         const { error } = await supabase.auth.updateUser({
@@ -472,23 +610,48 @@ export const authRouter = createTRPCRouter({
         });
 
         if (error) {
-          return {
-            success: false,
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
             message: error.message || "Failed to update password",
-          };
+          });
         }
+
+        const hashedPassword = await hash(input.password, 10);
+
+        // Update the password history (keep at most 3 passwords)
+        const updatedHistory = [hashedPassword, ...passwordHistory];
+        if (updatedHistory.length > 3) {
+          updatedHistory.length = 3; // Truncate to max 3 elements
+        }
+
+        // Update the password history in the database
+        await db
+          .update(users)
+          .set({
+            passwordHistory: updatedHistory,
+          })
+          .where(eq(users.id, ctx.session.user.id));
+
+        // Sign out from all devices
+        await supabase.auth.signOut({ scope: "global" });
 
         return {
           success: true,
-          message: "Password updated successfully",
+          message:
+            "Password updated successfully. You have been signed out from all devices.",
         };
       } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : "Failed to update password";
-        return {
-          success: false,
-          message: errorMessage,
-        };
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to update password",
+        });
       }
     }),
 });

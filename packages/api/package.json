@@ -23,6 +23,7 @@
     "@acme/db": "workspace:*",
     "@acme/validators": "workspace:*",
     "@trpc/server": "catalog:",
+    "bcryptjs": "^3.0.2",
     "jquery": "^3.7.1",
     "superjson": "2.2.1",
     "zod": "catalog:"

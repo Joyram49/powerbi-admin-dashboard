@@ -96,7 +96,7 @@ const createCustomResponseHandler = async (req: Request) => {
         name,
         value: cookieData.value,
         path: cookieData.options.path ?? "/",
-        maxAge: cookieData.options.maxAge ?? 60 * 60 * 24 * 30,
+        maxAge: cookieData.options.maxAge ?? 60 * 60 * 4,
         // Use type assertion for string literal
         sameSite: cookieData.options.sameSite ?? "lax",
         httpOnly: Boolean(cookieData.options.httpOnly),
@@ -124,7 +124,7 @@ const createCustomResponseHandler = async (req: Request) => {
           name: cookie.name,
           value: cookie.value,
           path: "/",
-          maxAge: 60 * 60 * 24 * 30,
+          maxAge: 60 * 60 * 4,
           sameSite: "lax" as const,
           httpOnly: false,
         });

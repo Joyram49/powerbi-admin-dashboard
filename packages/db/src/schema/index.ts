@@ -1,10 +1,12 @@
 import { relations } from "drizzle-orm";
 
 import { companies } from "./company";
+import { loginAttempts } from "./login-attempts";
 import { posts } from "./post";
 import { users } from "./user";
 
 export * from "./company";
+export * from "./login-attempts";
 export * from "./post";
 export * from "./user";
 
@@ -31,5 +33,13 @@ export const postRelations = relations(posts, ({ one }) => ({
   user: one(users, {
     fields: [posts.userId],
     references: [users.id],
+  }),
+}));
+
+// login attempts relations
+export const loginAttemptRelations = relations(loginAttempts, ({ one }) => ({
+  user: one(users, {
+    fields: [loginAttempts.email],
+    references: [users.email],
   }),
 }));
