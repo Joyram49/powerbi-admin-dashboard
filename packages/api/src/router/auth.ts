@@ -40,7 +40,7 @@ export const createUserSchema = z
 
 export const authRouter = createTRPCRouter({
   // Signup procedure with optional metadata
-  signUp: protectedProcedure
+  signUp: publicProcedure
     .input(createUserSchema)
     .mutation(async ({ input }) => {
       const supabase = createClientServer();

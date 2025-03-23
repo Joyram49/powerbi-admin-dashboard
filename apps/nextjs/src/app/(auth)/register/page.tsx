@@ -16,8 +16,7 @@ function SignUpPage() {
   return (
     <Suspense fallback={<AuthShowcaseSkeleton />}>
       {/* <AuthShowcase /> */}
-      <div className="flex w-full max-w-sm flex-col gap-4 p-4">
-        <h1 className="text-center text-3xl font-medium"> Welcome Back</h1>
+      <div className="flex w-full flex-col gap-4 p-4">
         <SignUpForm />
       </div>
     </Suspense>

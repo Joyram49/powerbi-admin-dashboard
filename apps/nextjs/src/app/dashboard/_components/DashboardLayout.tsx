@@ -36,7 +36,7 @@ export default function DashboardLayout({
 }) {
   // Navigation items based on user role
   const navigationItems = {
-    super_admin: [
+    superAdmin: [
       {
         href: "/dashboard/super-admin",
         icon: <Home className="mr-3 h-5 w-5" />,
@@ -168,7 +168,7 @@ export default function DashboardLayout({
             <div className="flex items-center space-x-4">
               <ThemeToggle />
               {/* Only show Add Company button for super_admin */}
-              {userRole === "super_admin" && (
+                {userRole === "superAdmin" && (
                 <motion.button
                   className="rounded-md bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
                   whileHover={{ scale: 1.05 }}

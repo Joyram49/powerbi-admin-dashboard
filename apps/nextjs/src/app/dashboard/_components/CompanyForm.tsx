@@ -182,7 +182,7 @@ const CompanyAdminForm = () => {
 
   return (
     <div className="mx-auto max-w-4xl p-4 md:p-6">
-      <Card className="border dark:border-gray-800">
+      <Card className="border bg-gray-100 dark:border-gray-800 dark:bg-gray-900">
         <CardHeader className="border-b bg-gray-50 dark:border-gray-800 dark:bg-gray-900">
           <div className="flex items-center justify-between">
             <motion.div
@@ -241,7 +241,7 @@ const CompanyAdminForm = () => {
                             <Input
                               placeholder="Enter company name"
                               {...field}
-                              className="dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                              className="dark:border-gray-700 dark:bg-gray-800 dark:text-white bg-white"
                             />
                           </FormControl>
                           <FormMessage className="text-xs dark:text-red-400" />
@@ -265,7 +265,7 @@ const CompanyAdminForm = () => {
                               onChange={(e) =>
                                 field.onChange(parseInt(e.target.value) || 0)
                               }
-                              className="dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                              className="dark:border-gray-700 dark:bg-gray-800 dark:text-white bg-white"
                             />
                           </FormControl>
                           <FormDescription className="text-xs text-gray-500 dark:text-gray-400">
@@ -290,7 +290,7 @@ const CompanyAdminForm = () => {
                             <Input
                               placeholder="Enter full address"
                               {...field}
-                              className="dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                              className="dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white"
                             />
                           </FormControl>
                           <FormMessage className="text-xs dark:text-red-400" />
@@ -312,7 +312,7 @@ const CompanyAdminForm = () => {
                             <Input
                               placeholder="Enter contact person name"
                               {...field}
-                              className="dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                              className="dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white"
                             />
                           </FormControl>
                           <FormMessage className="text-xs dark:text-red-400" />

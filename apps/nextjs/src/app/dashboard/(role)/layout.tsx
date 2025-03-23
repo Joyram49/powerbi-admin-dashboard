@@ -42,13 +42,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     if (!userRole) return; // Prevent running on first render
 
     switch (userRole) {
-      case "SUPER_ADMIN":
+      case "superAdmin":
         router.push("/dashboard/super-admin");
         break;
-      case "ADMIN":
+      case "admin":
         router.push("/dashboard/admin");
         break;
-      case "USER":
+      case "user":
       default:
         router.push("/dashboard/user");
         break;
@@ -70,7 +70,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <div className="flex items-center space-x-4">
                 <ThemeToggle />
                 {/* Only show Add Company button for super_admin */}
-                {userRole === "SUPER_ADMIN" && (
+                {userRole === "superAdmin" && (
                   <motion.button
                     className="rounded-md bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
                     whileHover={{ scale: 1.05 }}
@@ -86,7 +86,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   </motion.button>
                 )}
                 {/* Only show Add User button for admin */}
-                {userRole === "ADMIN" && (
+                  {userRole === "admin" && (
                   <motion.button
                     className="rounded-md bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
                     whileHover={{ scale: 1.05 }}

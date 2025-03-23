@@ -20,7 +20,7 @@ const sidebarVariants = {
 };
 
 const navigationItems = {
-  SUPER_ADMIN: [
+  superAdmin  : [
     {
       href: "/dashboard/super-admin",
       icon: <Home className="mr-3 h-5 w-5" />,
@@ -62,7 +62,7 @@ const navigationItems = {
       label: "Log Out",
     },
   ],
-  ADMIN: [
+  admin: [
     {
       href: "/dashboard/admin",
       icon: <Home className="mr-3 h-5 w-5" />,
@@ -94,7 +94,7 @@ const navigationItems = {
       label: "Log Out",
     },
   ],
-  USER: [
+  user: [
     {
       href: "/dashboard/user",
       icon: <Home className="mr-3 h-5 w-5" />,
@@ -130,7 +130,7 @@ export default function Sidebar({
   const items =
     userRole && Object.keys(navigationItems).includes(userRole)
       ? navigationItems[userRole as keyof typeof navigationItems]
-      : navigationItems.USER;
+        : navigationItems.user;
 
   return (
     <motion.aside

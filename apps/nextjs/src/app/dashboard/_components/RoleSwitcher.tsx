@@ -35,9 +35,9 @@ export default function RoleSwitcher({ onRoleChange }: RoleSwitcherProps) {
         onChange={(e) => changeRole(e.target.value)}
         className="rounded border p-2 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
       >
-        <option value="SUPER_ADMIN">Super Admin</option>
-        <option value="ADMIN">Admin</option>
-        <option value="USER">User</option>
+        <option value="superAdmin">Super Admin</option>
+        <option value="admin">Admin</option>
+        <option value="user">User</option>
       </select>
     </div>
   );

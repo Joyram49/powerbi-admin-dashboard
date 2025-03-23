@@ -54,7 +54,7 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
               return headers;
             },
             // Enhanced fetch options
-            fetch(url, options) {
+            async fetch(url, options) {
               // Log request for debugging
               console.log(`tRPC fetch to ${url.href}`);
 
