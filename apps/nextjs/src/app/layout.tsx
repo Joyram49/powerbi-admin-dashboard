@@ -4,7 +4,7 @@ import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 
 import { cn } from "@acme/ui";
-import { ThemeProvider, ThemeToggle } from "@acme/ui/theme";
+import { ThemeProvider } from "@acme/ui/theme";
 import { Toaster } from "@acme/ui/toast";
 
 import { TRPCReactProvider } from "~/trpc/react";
@@ -12,6 +12,7 @@ import { TRPCReactProvider } from "~/trpc/react";
 import "~/app/globals.css";
 
 import { env } from "~/env";
+import Loading from "./_components/Loader";
 
 export const metadata: Metadata = {
   metadataBase: new URL(
@@ -58,9 +59,7 @@ export default function RootLayout(props: { children: React.ReactNode }) {
           disableTransitionOnChange
         >
           <TRPCReactProvider>
-            <Suspense fallback={<div>Loading...</div>}>
-              {props.children}
-            </Suspense>
+            <Suspense fallback={<Loading />}>{props.children}</Suspense>
           </TRPCReactProvider>
 
           <Toaster richColors closeButton position="top-right" />

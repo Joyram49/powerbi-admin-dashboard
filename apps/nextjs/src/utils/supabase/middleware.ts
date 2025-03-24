@@ -3,17 +3,12 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 import { env } from "~/env";
-import { getUserRole } from "../getUserRole";
-import { isPublicRoute, ROOT } from "../routes";
+import { PUBLIC_ROUTES, ROLE_ROUTES, ROOT } from "../routes";
 
 export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({
+  let supabaseResponse = NextResponse.next({
     request,
   });
-
-  if (!env.NEXT_PUBLIC_SUPABASE_URL) throw new Error("Missing SUPABASE_URL");
-  if (!env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY");
 
   const supabase = createServerClient(
     env.NEXT_PUBLIC_SUPABASE_URL,
@@ -27,11 +22,11 @@ export async function updateSession(request: NextRequest) {
           cookiesToSet.forEach(({ name, value, options: _options }) =>
             request.cookies.set(name, value),
           );
-          response = NextResponse.next({
+          supabaseResponse = NextResponse.next({
             request,
           });
           cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options),
+            supabaseResponse.cookies.set(name, value, options),
           );
         },
       },
@@ -41,68 +36,24 @@ export async function updateSession(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  console.log(user);
-  const { pathname } = request.nextUrl;
-  const isDashboardRoute =
-    pathname === "/dashboard" || pathname.startsWith("/dashboard/");
 
-  // Handle authentication redirects
-  if (!user && !isPublicRoute(pathname) && pathname !== ROOT) {
+  const pathName = request.nextUrl.pathname;
+  const userRole = user?.role; 
+  console.log("User role:", userRole);
+
+  // If not logged in and accessing private route → redirect to login
+  if (!user && !PUBLIC_ROUTES.includes(pathName) && pathName !== ROOT) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
-  if (!user && !isPublicRoute(pathname) && pathname !== ROOT) {
+
+  // If logged in and visiting a public page → redirect based on role
+  if (!!user && PUBLIC_ROUTES.includes(pathName)) {
     const url = request.nextUrl.clone();
-    url.pathname = "/register";
+    url.pathname = ROLE_ROUTES[userRole as keyof typeof ROLE_ROUTES] || "/";
     return NextResponse.redirect(url);
   }
 
-  if (user && isPublicRoute(pathname) && !isDashboardRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
-  }
-
-  // Handle role-based routing for dashboard in both dev and prod
-  // In dev mode, this still redirects to appropriate dashboards but doesn't enforce authentication
-  if (isDashboardRoute && pathname === "/dashboard" && user) {
-    const userRole = getUserRole(request);
-    const url = request.nextUrl.clone();
-
-    switch (userRole) {
-      case "superAdmin":
-        url.pathname = "/dashboard/super-admin";
-        return NextResponse.redirect(url);
-      case "admin":
-        url.pathname = "/dashboard/admin";
-        return NextResponse.redirect(url);
-      case "user":
-      default:
-        url.pathname = "/dashboard/user";
-        return NextResponse.redirect(url);
-    }
-  }
-
-  // Access control based on roles - only apply if user is authenticated
-  if (isDashboardRoute && user) {
-    const userRole = getUserRole(request);
-    const url = request.nextUrl.clone();
-
-    if (
-      userRole === "user" &&
-      (pathname.startsWith("/dashboard/super-admin") ||
-        pathname.startsWith("/dashboard/admin"))
-    ) {
-      url.pathname = "/dashboard/user";
-      return NextResponse.redirect(url);
-    }
-
-    if (userRole === "admin" && pathname.startsWith("/dashboard/super-admin")) {
-      url.pathname = "/dashboard/admin";
-      return NextResponse.redirect(url);
-    }
-  }
-
-  return response;
+  return supabaseResponse;
 }

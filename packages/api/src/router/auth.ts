@@ -42,6 +42,7 @@ export const authRouter = createTRPCRouter({
     .input(createUserSchema)
     .mutation(async ({ input }) => {
       const supabase = createClientServer();
+      console.log("Sign Up Input", input);
       try {
         // Use the regular signUp method instead of admin.createUser
         const response = await supabase.auth.signUp({
@@ -70,7 +71,7 @@ export const authRouter = createTRPCRouter({
             message: "Failed to create user - no user returned",
           });
         }
-
+        console.log("Data signup", response);
         const hashedPassword = await hash(input.password, 10);
 
         // Insert the user into your custom users table.
