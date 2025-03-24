@@ -16,6 +16,9 @@ export const userRoleEnum = pgEnum("user_role", [
   "user",
 ]);
 
+// Export the enum to register it with the database
+export const userStatusEnum = pgEnum("user_status", ["active", "inactive"]);
+
 export const users = pgTable("user", {
   id: uuid("id").notNull().primaryKey().defaultRandom(),
   userName: varchar("user_name", { length: 255 }).unique().notNull(),
@@ -28,7 +31,7 @@ export const users = pgTable("user", {
   dateCreated: timestamp("date_created").defaultNow().notNull(),
   lastLogin: timestamp("last_login"),
   modifiedBy: varchar("modified_by", { length: 255 }),
-  status: varchar("status", { length: 50 }).notNull().default("active"),
+  status: userStatusEnum("status").default("active"),
   passwordHistory: jsonb("password_history").$type<string[]>().default([]),
 });
 

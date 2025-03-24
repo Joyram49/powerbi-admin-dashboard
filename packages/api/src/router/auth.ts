@@ -42,6 +42,7 @@ export const authRouter = createTRPCRouter({
     .input(createUserSchema)
     .mutation(async ({ input }) => {
       const supabase = createClientServer();
+
       try {
         // Use the regular signUp method instead of admin.createUser
         const response = await supabase.auth.signUp({

@@ -1,7 +1,7 @@
 "server-only";
 
 import { cache } from "react";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { createHydrationHelpers } from "@trpc/react-query/rsc";
 
 import type { AppRouter } from "@acme/api";
@@ -13,10 +13,19 @@ const createContext = cache(() => {
   const heads = new Headers(headers());
   heads.set("x-trpc-source", "rsc");
 
+  // Get the cookie header
+  const allCookies = cookies();
+  const cookieHeader = allCookies
+    .getAll()
+    .map((cookie) => `${cookie.name}=${cookie.value}`)
+    .join("; ");
+
+  // Add cookies to the headers
+  if (cookieHeader) {
+    heads.set("cookie", cookieHeader);
+  }
+
   return createTRPCContext({
-    session: {
-      user: null,
-    },
     headers: heads,
   });
 });

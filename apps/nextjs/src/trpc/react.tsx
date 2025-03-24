@@ -43,14 +43,6 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
               headers.set("x-trpc-source", "nextjs-react");
               headers.set("timeout", "10000"); // 10 seconds timeout
 
-              // Print current cookies for debugging
-              if (typeof window !== "undefined") {
-                console.log(
-                  "Current cookies when making tRPC request:",
-                  document.cookie,
-                );
-              }
-
               return headers;
             },
             // Enhanced fetch options
