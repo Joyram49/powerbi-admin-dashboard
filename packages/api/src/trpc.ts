@@ -11,34 +11,41 @@ export interface Session {
   user: {
     id: string;
     email?: string;
+    role?: string;
   } | null;
 }
 
 const isomorphicGetSession = async (
   headers: Headers,
 ): Promise<Session | null> => {
-  const cacheKey = headers.get("authorization") ?? "default";
+  const authHeader = headers.get("authorization");
+  const cookieHeader = headers.get("cookie");
+
+  const cacheKey = authHeader ?? cookieHeader ?? "default";
 
   // Check cache first
   if (sessionCache.has(cacheKey)) {
     return sessionCache.get(cacheKey) ?? null;
   }
+
   const supabase = createClientServer();
 
   try {
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
 
-    if (!session) {
+    if (error || !user) {
       sessionCache.set(cacheKey, null);
       return null;
     }
 
     const processedSession = {
       user: {
-        id: session.user.id,
-        email: session.user.email,
+        id: user.id,
+        email: user.email,
+        role: user.user_metadata.role as string,
       },
     };
 
@@ -61,7 +68,18 @@ export const createTRPCContext = async (opts: {
   session: Session | null;
   db: typeof db;
 }> => {
-  const session = opts.session ?? (await isomorphicGetSession(opts.headers));
+  // Start with provided session if available
+  let session = opts.session ?? null;
+
+  try {
+    if (!session) {
+      // Try to get session from headers
+      session = await isomorphicGetSession(opts.headers);
+    }
+  } catch (error) {
+    console.error("Error retrieving session in context:", error);
+    session = null;
+  }
 
   return {
     session,

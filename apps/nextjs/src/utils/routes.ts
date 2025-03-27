@@ -23,5 +23,7 @@ export const ROLE_ROUTES: ROLE_ROUTES_TYPES = {
 // Dashboard routes (require authentication in production)
 export const PRIVATE_ROUTES = [
   "/private",
+  "/company",
+  REGISTER,
   // Add other dashboard-specific routes here
 ];

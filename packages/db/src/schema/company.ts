@@ -1,4 +1,11 @@
-import { pgTable, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
+import { pgEnum, pgTable, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
+
+export const companyStatus = pgEnum("company_status", [
+  "active",
+  "inactive",
+  "pending",
+  "suspended",
+]);
 
 // Do NOT import `users` directly! Avoid circular dependencies.
 export const companies = pgTable("company", {
@@ -8,9 +15,9 @@ export const companies = pgTable("company", {
   phone: varchar("phone", { length: 50 }),
   email: varchar("email", { length: 255 }),
   companyAdminId: uuid("company_admin_id").notNull(),
-  dateJoined: timestamp("date_joined").defaultNow(),
-  status: varchar("status", { length: 50 }).default("active"),
-  lastActivity: timestamp("last_activity"),
+  dateJoined: timestamp("date_joined", { withTimezone: true }).defaultNow(),
+  status: companyStatus("status").default("active"),
+  lastActivity: timestamp("last_activity", { withTimezone: true }),
   modifiedBy: varchar("modified_by", { length: 255 }),
 });
 

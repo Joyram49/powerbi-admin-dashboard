@@ -140,7 +140,11 @@ export function SignUpForm() {
   
   console.log(">>>Register", register);
   function onSubmit(data: z.infer<typeof FormSchema>) {
-    const requestedData: requestedDataType = { ...data, role: "superAdmin" };
+    const requestedData: requestedDataType = {
+      ...data,
+      role: "user",
+      companyId: "890cb7d9-9a78-47dc-9550-c474949e46a8",
+    };
     register.mutate(requestedData, {
       onError: (error) => {
         toast.error(`${error.message}`);
