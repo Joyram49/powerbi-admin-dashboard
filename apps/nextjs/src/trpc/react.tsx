@@ -54,19 +54,6 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
               return fetch(url, {
                 ...options,
                 credentials: "include", // Important: This ensures cookies are sent with the request
-              }).then((response) => {
-                // Log response cookies for debugging
-                console.log("tRPC response received");
-                if (typeof window !== "undefined") {
-                  // Check if cookies were set after the response
-                  setTimeout(() => {
-                    console.log(
-                      "Cookies after tRPC response:",
-                      document.cookie,
-                    );
-                  }, 100); // Small delay to ensure cookies are processed
-                }
-                return response;
               });
             },
           }),

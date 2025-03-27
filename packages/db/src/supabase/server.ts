@@ -4,7 +4,7 @@ import { createServerClient } from "@supabase/ssr";
 import { env } from "../../env";
 
 // Define more specific types for cookie options
-interface CookieOptions {
+interface CustomCookieOptions {
   path?: string;
   domain?: string;
   maxAge?: number;
@@ -16,7 +16,7 @@ interface CookieOptions {
 
 interface StoredCookie {
   value: string;
-  options: CookieOptions;
+  options: CustomCookieOptions;
 }
 
 // Global store for cookies with proper typing
@@ -47,7 +47,7 @@ export function createClientServer() {
                 });
 
                 // Also manually store in a global for retrieval with proper typing
-                const safeOptions: CookieOptions = {
+                const safeOptions: CustomCookieOptions = {
                   path: "/",
                   maxAge: 60 * 60 * 4,
                   // Only copy known safe properties from options
@@ -91,5 +91,39 @@ export function createClientServer() {
       err instanceof Error ? err.message : String(err),
     );
     throw new Error("Failed to create server client");
+  }
+}
+
+// Create Supabase client for admin operations
+export function createAdminClient() {
+  try {
+    if (!env.SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
+    }
+
+    return createServerClient(
+      env.NEXT_PUBLIC_SUPABASE_URL,
+      env.SUPABASE_SERVICE_ROLE_KEY,
+      {
+        cookies: {
+          getAll() {
+            return [];
+          },
+          setAll() {
+            // No-op for admin client
+          },
+        },
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        },
+      },
+    );
+  } catch (err) {
+    console.error(
+      "Error creating admin client:",
+      err instanceof Error ? err.message : String(err),
+    );
+    throw new Error("Failed to create admin client");
   }
 }

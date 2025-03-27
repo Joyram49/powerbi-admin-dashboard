@@ -120,7 +120,6 @@ export const publicProcedure = t.procedure.use(performanceMiddleware);
 export const protectedProcedure = t.procedure
   .use(performanceMiddleware)
   .use(({ ctx, next }) => {
-    console.log(">>> ctx inside protectedProcedure", ctx.session);
     if (!ctx.session?.user) {
       throw new TRPCError({
         code: "UNAUTHORIZED",

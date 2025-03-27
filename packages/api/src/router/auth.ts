@@ -1,8 +1,15 @@
 import { TRPCError } from "@trpc/server";
 import { compareSync, hash } from "bcryptjs";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 
-import { createClientServer, db, eq, loginAttempts, users } from "@acme/db";
+import {
+  createAdminClient,
+  createClientServer,
+  db,
+  loginAttempts,
+  users,
+} from "@acme/db";
 
 import { env } from "../../../auth/env";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
@@ -24,6 +31,7 @@ export const createUserSchema = z
     role: z.enum(["superAdmin", "admin", "user"]),
     companyId: z.string().optional(),
     userName: z.string().optional(),
+    modifiedBy: z.string().optional(),
   })
   .refine(
     (data) => {
@@ -37,38 +45,48 @@ export const createUserSchema = z
   );
 
 export const authRouter = createTRPCRouter({
-  // Signup procedure with optional metadata
-  signUp: publicProcedure
+  // Create user procedure with optional metadata
+  createUser: protectedProcedure
     .input(createUserSchema)
-    .mutation(async ({ input }) => {
-      const supabase = createClientServer();
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.session.user.role === "user") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not authorized to create a user",
+        });
+      }
+
+      if (
+        ctx.session.user.role === "admin" &&
+        (input.role === "admin" || input.role === "superAdmin")
+      ) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not authorized to create a user with this role",
+        });
+      }
+
+      const supabase = createAdminClient();
 
       try {
-        // Use the regular signUp method instead of admin.createUser
-        const response = await supabase.auth.signUp({
+        // Use admin API to create user without affecting current session
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.admin.createUser({
           email: input.email,
           password: input.password,
-          options: {
-            data: {
-              role: input.role,
-              userName: input.userName ?? input.email,
-            },
-            emailRedirectTo: `${env.NEXT_PUBLIC_APP_URL}/api/auth/confirm`,
+          email_confirm: true,
+          user_metadata: {
+            role: input.role,
+            userName: input.userName ?? input.email,
           },
         });
 
-        if (response.error) {
+        if (error) {
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
-            message:
-              response.error.message || "Failed to create user in auth system",
-          });
-        }
-
-        if (!response.data.user) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Failed to create user - no user returned",
+            message: error.message || "Failed to create user in auth system",
           });
         }
 
@@ -76,19 +94,20 @@ export const authRouter = createTRPCRouter({
 
         // Insert the user into your custom users table.
         await db.insert(users).values({
-          id: response.data.user.id,
+          id: user?.id,
           userName: input.userName ?? input.email,
           email: input.email,
           companyId: input.companyId ?? null,
           role: input.role,
           isSuperAdmin: input.role === "superAdmin",
           dateCreated: new Date(),
-          lastLogin: new Date(),
+          modifiedBy: ctx.session.user.id,
           passwordHistory: [hashedPassword],
         });
 
         return {
-          user: response.data.user,
+          success: true,
+          user: user,
         };
       } catch (error) {
         if (error instanceof TRPCError) {
@@ -266,6 +285,7 @@ export const authRouter = createTRPCRouter({
         }
 
         return {
+          success: true,
           user: data.user,
           session: data.session,
         };
@@ -295,13 +315,9 @@ export const authRouter = createTRPCRouter({
         });
       }
 
-      // Note: We can't manually clear cookies here since we're in a tRPC procedure
-      // and not a route handler. We'll need to clear cookies in the client after signOut
-      // returns success.
-
       return {
         success: true,
-        // Return a flag indicating that cookies should be cleared client-side
+
         clearCookies: true,
       };
     } catch (error) {
@@ -394,68 +410,6 @@ export const authRouter = createTRPCRouter({
 
         return { success: true };
       } catch (error) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: String(error),
-        });
-      }
-    }),
-
-  // create super admin user (only for development purposes)
-  createSuperAdmin: publicProcedure
-    .input(createUserSchema)
-    .mutation(async ({ input }) => {
-      const supabase = createClientServer();
-      try {
-        const { data, error } = await supabase.auth.signUp({
-          email: input.email,
-          password: input.password,
-          options: {
-            data: {
-              role: input.role,
-              userName: input.userName ?? input.email,
-            },
-            emailRedirectTo: `${env.NEXT_PUBLIC_APP_URL}/api/auth/confirm`,
-          },
-        });
-
-        if (error) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message:
-              error.message || "Failed to create super admin in auth system",
-          });
-        }
-        if (!data.user) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Failed to create super admin in auth system",
-          });
-        }
-
-        // Insert the created super admin into your custom users table.
-        await db.insert(users).values({
-          id: data.user.id,
-          userName: input.userName ?? input.email,
-          isSuperAdmin: true,
-          email: input.email,
-          role: input.role,
-          dateCreated: new Date(),
-          // Optionally, leave lastLogin and companyId as null.
-          modifiedBy: input.email, // record the creator's email as modifiedBy
-          status: "active",
-          // Add the initial password to the password history
-          passwordHistory: [input.password],
-        });
-
-        // Cache successful signup
-        // authCache.set(cacheKey, data);
-
-        return { success: true, user: data.user };
-      } catch (error) {
-        if (error instanceof TRPCError) {
-          throw error;
-        }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: String(error),
@@ -652,6 +606,81 @@ export const authRouter = createTRPCRouter({
             error instanceof Error
               ? error.message
               : "Failed to update password",
+        });
+      }
+    }),
+
+  // Signup procedure (for creating superAdmin)
+  signUp: protectedProcedure
+    .input(createUserSchema)
+    .mutation(async ({ ctx, input }) => {
+      // Check if the user is superAdmin
+      if (ctx.session.user.role !== "superAdmin") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only superAdmin can create another superAdmin",
+        });
+      }
+
+      // Check if trying to create superAdmin
+      if (input.role !== "superAdmin") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "This endpoint is only for creating superAdmin users",
+        });
+      }
+
+      const supabase = createClientServer();
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email: input.email,
+          password: input.password,
+          options: {
+            data: {
+              role: input.role,
+              userName: input.userName ?? input.email,
+            },
+            emailRedirectTo: `${env.NEXT_PUBLIC_APP_URL}/api/auth/confirm`,
+          },
+        });
+
+        if (error) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message:
+              error.message || "Failed to create superAdmin in auth system",
+          });
+        }
+        if (!data.user) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to create superAdmin in auth system",
+          });
+        }
+
+        const hashedPassword = await hash(input.password, 10);
+
+        // Insert the user into your custom users table.
+        await db.insert(users).values({
+          id: data.user.id,
+          userName: input.userName ?? input.email,
+          isSuperAdmin: true,
+          email: input.email,
+          role: input.role,
+          dateCreated: new Date(),
+          modifiedBy: ctx.session.user.email,
+          status: "active",
+          passwordHistory: [hashedPassword],
+        });
+
+        return { success: true, user: data.user };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: String(error),
         });
       }
     }),

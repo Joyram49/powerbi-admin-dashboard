@@ -28,8 +28,10 @@ export const users = pgTable("user", {
     onDelete: "set null",
   }),
   role: userRoleEnum("role").notNull().default("user"),
-  dateCreated: timestamp("date_created").defaultNow().notNull(),
-  lastLogin: timestamp("last_login"),
+  dateCreated: timestamp("date_created", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  lastLogin: timestamp("last_login", { withTimezone: true }),
   modifiedBy: varchar("modified_by", { length: 255 }),
   status: userStatusEnum("status").default("active"),
   passwordHistory: jsonb("password_history").$type<string[]>().default([]),

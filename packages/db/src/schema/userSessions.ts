@@ -9,8 +9,8 @@ export const userSessions = pgTable("user_sessions", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
 
-  startTime: timestamp("start_time").defaultNow(),
-  endTime: timestamp("end_time"),
+  startTime: timestamp("start_time", { withTimezone: true }).defaultNow(),
+  endTime: timestamp("end_time", { withTimezone: true }),
   totalActiveTime: interval("total_active_time"),
   totalInactiveTime: interval("total_inactive_time"),
   reportId: uuid("report_id")

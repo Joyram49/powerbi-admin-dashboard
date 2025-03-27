@@ -46,10 +46,14 @@ export function SignUpForm() {
 
   const router = useRouter();
 
-  const register = api.auth.signUp.useMutation();
+  const register = api.auth.createUser.useMutation();
 
   function onSubmit(data: z.infer<typeof FormSchema>) {
-    const requestedData = { ...data, role: "superAdmin" };
+    const requestedData = {
+      ...data,
+      role: "user",
+      companyId: "890cb7d9-9a78-47dc-9550-c474949e46a8",
+    };
     register.mutate(requestedData, {
       onError: (error) => {
         console.error("Signup error:", error);

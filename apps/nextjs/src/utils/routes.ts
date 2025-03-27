@@ -9,7 +9,7 @@ export const VERIFY_OTP = "/verify-otp";
 export const RESET_PASSWORD = "/reset-password";
 
 // Add additional public routes as necessary
-export const PUBLIC_ROUTES = [LOGIN, FORGOT_PASSWORD, VERIFY_OTP, REGISTER];
+export const PUBLIC_ROUTES = [LOGIN, FORGOT_PASSWORD, VERIFY_OTP];
 
 // Auth-related routes (for authentication pages)
 export const AUTH_ROUTES = [
@@ -24,6 +24,8 @@ export const AUTH_ROUTES = [
 export const PRIVATE_ROUTES = [
   "/dashboard",
   "/private",
+  "/company",
+  REGISTER,
   // Add other dashboard-specific routes here
 ];
 

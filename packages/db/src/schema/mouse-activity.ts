@@ -12,7 +12,7 @@ export const mouseActivities = pgTable("mouse_activity", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   mouseEventType: varchar("mouse_event_type").notNull(),
-  timestamp: timestamp("timestamp").defaultNow(),
+  timestamp: timestamp("timestamp", { withTimezone: true }).defaultNow(),
 });
 
 export type MouseActivity = typeof mouseActivities.$inferSelect;

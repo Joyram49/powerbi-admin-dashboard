@@ -17,8 +17,8 @@ export default defineConfig({
     "./src/schema/mouse-activity.ts",
   ],
   out: "./migrations",
-  driver: "pg",
+  dialect: "postgresql",
   dbCredentials: {
-    connectionString: process.env.POSTGRES_URL,
+    url: process.env.POSTGRES_URL,
   },
 });

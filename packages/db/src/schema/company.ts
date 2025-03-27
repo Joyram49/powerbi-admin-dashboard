@@ -15,9 +15,9 @@ export const companies = pgTable("company", {
   phone: varchar("phone", { length: 50 }),
   email: varchar("email", { length: 255 }),
   companyAdminId: uuid("company_admin_id").notNull(),
-  dateJoined: timestamp("date_joined").defaultNow(),
+  dateJoined: timestamp("date_joined", { withTimezone: true }).defaultNow(),
   status: companyStatus("status").default("active"),
-  lastActivity: timestamp("last_activity"),
+  lastActivity: timestamp("last_activity", { withTimezone: true }),
   modifiedBy: varchar("modified_by", { length: 255 }),
 });
 
