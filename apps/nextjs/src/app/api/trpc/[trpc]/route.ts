@@ -47,8 +47,17 @@ const createCustomResponseHandler = async (req: Request) => {
 
   try {
     const supabase = createClientServer();
-    const { data } = await supabase.auth.getSession();
-    session = data.session;
+    const { data } = await supabase.auth.getUser();
+    if (data.user) {
+      const userMetadata = data.user.user_metadata;
+      const user = {
+        id: data.user.id,
+        email: data.user.email,
+        userName: userMetadata.userName as string,
+        role: userMetadata.role as string,
+      };
+      session = { user };
+    }
   } catch (error) {
     console.error("Session retrieval error:", error);
   }

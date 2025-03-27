@@ -7,6 +7,7 @@ import { Button } from "@acme/ui/button";
 import { api } from "~/trpc/react";
 
 function SignOutBtn() {
+  const { data: _users } = api.user.getAllUsers.useQuery();
   const signOut = api.auth.signOut.useMutation();
   const router = useRouter();
   const handleClick = () => {

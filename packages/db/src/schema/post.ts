@@ -8,8 +8,12 @@ export const posts = pgTable("post", {
   id: uuid("id").notNull().primaryKey().defaultRandom(),
   title: varchar("title", { length: 256 }).notNull(),
   content: text("content").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
   userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
 });
 

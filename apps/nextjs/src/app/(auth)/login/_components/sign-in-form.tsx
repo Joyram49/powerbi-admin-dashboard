@@ -8,7 +8,6 @@ import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { Alert, AlertDescription, AlertTitle } from "@acme/ui/alert";
 import { Button } from "@acme/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@acme/ui/card";
 import {
@@ -20,7 +19,6 @@ import {
   FormMessage,
 } from "@acme/ui/form";
 import { Input } from "@acme/ui/input";
-import { Progress } from "@acme/ui/progress";
 import { toast, Toaster } from "@acme/ui/toast";
 
 import { api } from "~/trpc/react";
@@ -68,27 +66,11 @@ const buttonVariants = {
 
 export function SignInForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
-  const [passwordStrength, setPasswordStrength] = useState(0);
-  const [csrfToken, setCsrfToken] = useState<string | null>(null);
 
   // Handle hydration issues with theme
   useEffect(() => {
     setMounted(true);
-
-    // Fetch CSRF token
-    const fetchCsrfToken = async () => {
-      try {
-        const response = await fetch("/api/csrf-token");
-        const data = await response.json();
-        setCsrfToken(data.csrfToken);
-      } catch (error) {
-        console.error("Failed to fetch CSRF token:", error);
-      }
-    };
-
-    fetchCsrfToken();
   }, []);
 
   const form = useForm<z.infer<typeof FormSchema>>({
@@ -100,71 +82,21 @@ export function SignInForm() {
     mode: "onChange",
   });
 
-  // Password strength calculator
-  const calculatePasswordStrength = (password: string): number => {
-    if (!password) return 0;
-
-    let strength = 0;
-
-    // Length check
-    if (password.length >= 12) strength += 25;
-    else if (password.length >= 8) strength += 15;
-
-    // Character type checks
-    if (/[A-Z]/.test(password)) strength += 25; // Uppercase
-    if (/[a-z]/.test(password)) strength += 15; // Lowercase
-    if (/[0-9]/.test(password)) strength += 15; // Numbers
-    if (/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) strength += 20; // Special chars
-
-    // Prevent exceeding 100%
-    return Math.min(strength, 100);
-  };
-
-  // Update password strength when the password field changes
-  useEffect(() => {
-    const subscription = form.watch((value, { name }) => {
-      if (name === "password" || name === undefined) {
-        setPasswordStrength(calculatePasswordStrength(value.password || ""));
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [form.watch]);
-
   const router = useRouter();
+
   const signIn = api.auth.signIn.useMutation();
 
+  console.log(signIn);
+
   function onSubmit(data: z.infer<typeof FormSchema>) {
-    setIsSubmitting(true);
-    setErrorMessage(null);
-
-    const requestedData = {
-      ...data,
-      _csrf: csrfToken,
-    };
-
-    signIn.mutate(requestedData, {
-      onSuccess: (result) => {
-        form.reset();
-        toast.success("Sign In Successful", {
-          description: "Redirecting to your dashboard...",
-        });
-        setTimeout(() => router.push("/dashboard"), 1000);
-      },
+    signIn.mutate(data, {
       onError: (error) => {
-        // Remove console.error for production
-        const errorMsg =
-          error instanceof Error
-            ? error.message
-            : "Invalid email or password. Please try again.";
-        setErrorMessage(errorMsg);
-        toast.error("Sign In Failed", {
-          description: errorMsg,
-        });
-        setIsSubmitting(false);
+        console.error("SignIn error:", error);
       },
-      onSettled: () => {
-        setIsSubmitting(false);
+      onSuccess: (result) => {
+        toast.success("Login successful");
+        form.reset();
+        router.push("/");
       },
     });
   }
@@ -211,40 +143,6 @@ export function SignInForm() {
               initial="hidden"
               animate="visible"
             >
-              {/* Hidden CSRF token field */}
-              {csrfToken && (
-                <input type="hidden" name="_csrf" value={csrfToken} />
-              )}
-
-              {errorMessage && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <Alert className="bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-400">
-                    <svg
-                      className="h-5 w-5 text-red-400"
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <AlertTitle className="ml-2 text-base font-medium">
-                      Sign In Failed
-                    </AlertTitle>
-                    <AlertDescription className="ml-2 mt-2 text-sm">
-                      {errorMessage}
-                    </AlertDescription>
-                  </Alert>
-                </motion.div>
-              )}
-
               <motion.div variants={itemVariants}>
                 <FormField
                   control={form.control}

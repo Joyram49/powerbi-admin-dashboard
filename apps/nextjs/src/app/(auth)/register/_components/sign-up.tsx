@@ -77,32 +77,20 @@ const buttonVariants = {
   hover: { scale: 1.03, transition: { duration: 0.2 } },
   tap: { scale: 0.97 },
 };
-
+interface requestedDataType {
+  role: "user" | "admin" | "superAdmin";
+  userName: string;
+  email: string;
+  password: string;
+}
 export function SignUpForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState(0);
-  const [csrfToken, setCsrfToken] = useState<string | null>(null);
 
-  // Handle hydration issues with theme
   useEffect(() => {
     setMounted(true);
-
-    // Fetch CSRF token
-    const fetchCsrfToken = async () => {
-      try {
-        const response = await fetch("/api/csrf-token");
-        const data = await response.json();
-        setCsrfToken(data.csrfToken);
-      } catch (error) {
-        console.error("Failed to fetch CSRF token:", error);
-      }
-    };
-
-    fetchCsrfToken();
   }, []);
-
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
@@ -114,7 +102,6 @@ export function SignUpForm() {
   });
 
   const router = useRouter();
-  const signUp = api.auth.signUp.useMutation();
 
   // Password strength calculator
   const calculatePasswordStrength = (password: string): number => {
@@ -148,43 +135,25 @@ export function SignUpForm() {
     return () => subscription.unsubscribe();
   }, [form.watch]);
 
+  const register = api.auth.signUp.useMutation();
+
+  
+  console.log(">>>Register", register);
   function onSubmit(data: z.infer<typeof FormSchema>) {
-    setIsSubmitting(true);
-    setErrorMessage(null);
-
-    const requestedData = {
+    const requestedData: requestedDataType = {
       ...data,
-      role: "superAdmin",
-      _csrf: csrfToken, // Include CSRF token
+      role: "user",
+      companyId: "890cb7d9-9a78-47dc-9550-c474949e46a8",
     };
-
-    signUp.mutate(requestedData, {
+    register.mutate(requestedData, {
       onError: (error) => {
-        console.error("Signup error:", error);
-        const errorMsg =
-          error instanceof Error
-            ? error.message
-            : "Registration failed. Please try again.";
-        setErrorMessage(errorMsg);
-        toast.error("Sign Up Failed", {
-          description: errorMsg,
-        });
-        setIsSubmitting(false);
+        toast.error(`${error.message}`);
       },
       onSuccess: (result) => {
+        toast.success(`Signup successful, Verify your email`);
         console.log("Signup success:", result);
         form.reset();
-        toast.success("Sign Up Successful", {
-          description: "Verify your email to continue",
-        });
-        setTimeout(
-          () =>
-            router.push(`/verify-otp?email=${encodeURIComponent(data.email)}`),
-          1000,
-        );
-      },
-      onSettled: () => {
-        setIsSubmitting(false);
+        router.push(`/verify-otp?email=${encodeURIComponent(data.email)}`);
       },
     });
   }
@@ -248,41 +217,6 @@ export function SignUpForm() {
               initial="hidden"
               animate="visible"
             >
-              {/* Hidden CSRF token field */}
-              {csrfToken && (
-                <input type="hidden" name="_csrf" value={csrfToken} />
-              )}
-
-              {errorMessage && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <Alert className="bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-400">
-                    <svg
-                      className="h-5 w-5 text-red-400"
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                      aria-hidden="true"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <AlertTitle className="ml-2 text-base font-medium">
-                      Sign Up Failed
-                    </AlertTitle>
-                    <AlertDescription className="ml-2 mt-2 text-sm">
-                      {errorMessage}
-                    </AlertDescription>
-                  </Alert>
-                </motion.div>
-              )}
-
               <motion.div variants={itemVariants}>
                 <FormField
                   control={form.control}
@@ -424,11 +358,14 @@ export function SignUpForm() {
                         </div>
                         <Progress
                           value={passwordStrength}
-                          className="h-2 bg-gray-200 dark:bg-gray-700"
-                          style={{
-                            backgroundSize: `${passwordStrength}% 100%`,
-                            backgroundImage: `linear-gradient(to right, ${getStrengthColor()})`,
-                          }}
+                          className="mt-1 h-2"
+                          style={
+                            {
+                              backgroundColor: "#e5e7eb",
+                              "--progress-value": `${passwordStrength}%`,
+                              "--progress-color": getStrengthColor(),
+                            } as React.CSSProperties
+                          }
                         />
                       </div>
                       <FormMessage className="text-xs dark:text-red-400" />

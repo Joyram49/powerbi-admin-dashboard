@@ -1,17 +1,19 @@
 import type { Metadata, Viewport } from "next";
-import { Suspense } from "react";
+import React, { Suspense } from "react";
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 
 import { cn } from "@acme/ui";
-import { ThemeProvider, ThemeToggle } from "@acme/ui/theme";
+import { ThemeProvider } from "@acme/ui/theme";
 import { Toaster } from "@acme/ui/toast";
 
 import { TRPCReactProvider } from "~/trpc/react";
 
 import "~/app/globals.css";
 
+
 import { env } from "~/env";
+import Loading from "./_components/Loader";
 
 export const metadata: Metadata = {
   metadataBase: new URL(
@@ -19,19 +21,8 @@ export const metadata: Metadata = {
       ? "https://turbo.t3.gg"
       : "http://localhost:3000",
   ),
-  title: "Create T3 Turbo",
+  title: "JOC Analytics",
   description: "Simple monorepo with shared backend for web & mobile apps",
-  openGraph: {
-    title: "Create T3 Turbo",
-    description: "Simple monorepo with shared backend for web & mobile apps",
-    url: "https://create-t3-turbo.vercel.app",
-    siteName: "Create T3 Turbo",
-  },
-  twitter: {
-    card: "summary_large_image",
-    site: "@jullerino",
-    creator: "@jullerino",
-  },
 };
 
 export const viewport: Viewport = {
@@ -41,7 +32,11 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout(props: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body
@@ -58,11 +53,8 @@ export default function RootLayout(props: { children: React.ReactNode }) {
           disableTransitionOnChange
         >
           <TRPCReactProvider>
-            <Suspense fallback={<div>Loading...</div>}>
-              {props.children}
-            </Suspense>
+            <Suspense fallback={<Loading />}>{children}</Suspense>
           </TRPCReactProvider>
-
           <Toaster richColors closeButton position="top-right" />
         </ThemeProvider>
       </body>
