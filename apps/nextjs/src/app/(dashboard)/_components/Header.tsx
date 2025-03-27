@@ -1,15 +1,17 @@
 "use client";
 
-
 import Link from "next/link";
-
 import { motion } from "framer-motion";
 import { Plus } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@acme/ui/avatar";
 import { ThemeToggle } from "@acme/ui/theme";
 
-export default function Header({ userRole }: { userRole: string | undefined }) {
+import { api } from "~/trpc/react";
+
+export default function Header() {
+  const { data } = api.auth.getProfile.useQuery();
+  const userRole = data?.user.user_metadata.role as string;
 
   return (
     <header className="border-b border-gray-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">

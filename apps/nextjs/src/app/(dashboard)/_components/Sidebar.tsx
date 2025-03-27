@@ -1,13 +1,21 @@
 "use client";
-
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Activity, BarChart3, BriefcaseBusiness, FileText, Home, KeyRound, LogOut, ShieldPlus, UserPlus, Users } from "lucide-react";
+import {
+  Activity,
+  BarChart3,
+  BriefcaseBusiness,
+  FileText,
+  Home,
+  KeyRound,
+  LogOut,
+  ShieldPlus,
+  UserPlus,
+  Users,
+} from "lucide-react";
 
-
-
-
+import { api } from "~/trpc/react";
 
 // Animation Variants
 const sidebarVariants = {
@@ -20,9 +28,9 @@ const sidebarVariants = {
 };
 
 const navigationItems = {
-  superAdmin  : [
+  superAdmin: [
     {
-      href: "/dashboard/super-admin",
+      href: "/super-admin",
       icon: <Home className="mr-3 h-5 w-5" />,
       label: "Home",
     },
@@ -32,22 +40,22 @@ const navigationItems = {
     //   label: "Company List",
     // },
     {
-      href: "/dashboard/super-admin/companies/add",
+      href: "/super-admin/companies/add",
       icon: <BriefcaseBusiness className="mr-3 h-5 w-5" />,
       label: "Add Company",
     },
     {
-      href: "/dashboard/super-admin/users",
+      href: "/super-admin/users",
       icon: <Users className="mr-3 h-5 w-5" />,
       label: "Super Admins",
     },
     {
-      href: "/dashboard/super-admin/users/add",
+      href: "/super-admin/users/add",
       icon: <ShieldPlus className="mr-3 h-5 w-5" />,
       label: "Add Super Admin",
     },
     {
-      href: "/dashboard/super-admin/users/add",
+      href: "/super-admin/users/add",
       icon: <Activity className="mr-3 h-5 w-5" />,
       label: "Track Logins",
     },
@@ -64,7 +72,7 @@ const navigationItems = {
   ],
   admin: [
     {
-      href: "/dashboard/admin",
+      href: "/admin",
       icon: <Home className="mr-3 h-5 w-5" />,
       label: "Home",
     },
@@ -74,12 +82,12 @@ const navigationItems = {
     //   label: "Report List",
     // },
     {
-      href: "/dashboard/admin/users",
+      href: "/admin/users",
       icon: <Users className="mr-3 h-5 w-5" />,
       label: "Users List",
     },
     {
-      href: "/dashboard/admin/users/add",
+      href: "/admin/users/add",
       icon: <UserPlus className="mr-3 h-5 w-5" />,
       label: "Add User",
     },
@@ -96,12 +104,12 @@ const navigationItems = {
   ],
   user: [
     {
-      href: "/dashboard/user",
+      href: "/user",
       icon: <Home className="mr-3 h-5 w-5" />,
       label: "Home",
     },
     {
-      href: "/dashboard/user/reports",
+      href: "/user/reports",
       icon: <FileText className="mr-3 h-5 w-5" />,
       label: "Reports",
     },
@@ -118,19 +126,18 @@ const navigationItems = {
   ],
 };
 
-export default function Sidebar({
-  userRole,
-}: {
-  userRole: string | undefined;
-}) {
+export default function Sidebar() {
   const pathname = usePathname();
+  const { data } = api.auth.getProfile.useQuery();
+  const userRole = data?.user.user_metadata.role as string;
+
 
   // Default to USER navigation items if userRole is undefined
   // or if the userRole doesn't match any key in navigationItems
   const items =
     userRole && Object.keys(navigationItems).includes(userRole)
       ? navigationItems[userRole as keyof typeof navigationItems]
-        : navigationItems.user;
+      : navigationItems.user;
 
   return (
     <motion.aside

@@ -11,8 +11,6 @@ import { TRPCReactProvider } from "~/trpc/react";
 
 import "~/app/globals.css";
 
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
 
 import { env } from "~/env";
 import Loading from "./_components/Loader";
@@ -34,30 +32,11 @@ export const viewport: Viewport = {
   ],
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const cookieStore = cookies();
-  const supabase = createServerClient(
-    env.NEXT_PUBLIC_SUPABASE_URL,
-    env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        getAll: () =>
-          cookieStore.getAll().map(({ name, value }) => ({ name, value })),
-      },
-    },
-  );
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // Prepare user role
-  const userRole = user?.user_metadata.role as string | undefined;
-
   return (
     <html lang="en" suppressHydrationWarning>
       <body
@@ -74,15 +53,7 @@ export default async function RootLayout({
           disableTransitionOnChange
         >
           <TRPCReactProvider>
-            <Suspense fallback={<Loading />}>
-              {React.Children.map(children, (child) =>
-                React.isValidElement(child) && userRole
-                  ? React.cloneElement(child as React.ReactElement, {
-                      userRole,
-                    })
-                  : child,
-              )}
-            </Suspense>
+            <Suspense fallback={<Loading />}>{children}</Suspense>
           </TRPCReactProvider>
           <Toaster richColors closeButton position="top-right" />
         </ThemeProvider>
