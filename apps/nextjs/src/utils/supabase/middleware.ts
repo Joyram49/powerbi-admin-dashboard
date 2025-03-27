@@ -38,7 +38,7 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathName = request.nextUrl.pathname;
-  const userRole = user?.role; 
+  const userRole = user?.user_metadata.role;
   console.log("User role:", userRole);
 
   // If not logged in and accessing private route → redirect to login
