@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import React, { Suspense } from "react";
+import React from "react";
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 
@@ -11,9 +11,7 @@ import { TRPCReactProvider } from "~/trpc/react";
 
 import "~/app/globals.css";
 
-
 import { env } from "~/env";
-import Loading from "./_components/Loader";
 
 export const metadata: Metadata = {
   metadataBase: new URL(
@@ -52,9 +50,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <TRPCReactProvider>
-            <Suspense fallback={<Loading />}>{children}</Suspense>
-          </TRPCReactProvider>
+          <TRPCReactProvider>{children}</TRPCReactProvider>
           <Toaster richColors closeButton position="top-right" />
         </ThemeProvider>
       </body>

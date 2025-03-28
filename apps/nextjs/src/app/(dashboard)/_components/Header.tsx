@@ -27,7 +27,7 @@ export default function Header() {
               whileTap={{ scale: 0.95 }}
             >
               <Link
-                href="/dashboard/super-admin/companies/add"
+                href="/super-admin/companies/add"
                 className="flex items-center"
               >
                 <Plus className="mr-2 h-4 w-4" />
@@ -43,7 +43,7 @@ export default function Header() {
               whileTap={{ scale: 0.95 }}
             >
               <Link
-                href="/dashboard/admin/users/add"
+                href="/admin/users/add"
                 className="flex items-center"
               >
                 <Plus className="mr-2 h-4 w-4" />

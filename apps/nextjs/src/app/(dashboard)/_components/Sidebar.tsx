@@ -1,11 +1,13 @@
 "use client";
+
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   Activity,
   BarChart3,
   BriefcaseBusiness,
+  Building,
   FileText,
   Home,
   KeyRound,
@@ -34,11 +36,11 @@ const navigationItems = {
       icon: <Home className="mr-3 h-5 w-5" />,
       label: "Home",
     },
-    // {
-    //   href: "/dashboard/super-admin/companies",
-    //   icon: <Building className="mr-3 h-5 w-5" />,
-    //   label: "Company List",
-    // },
+    {
+      href: "/super-admin/companies",
+      icon: <Building className="mr-3 h-5 w-5" />,
+      label: "Company List",
+    },
     {
       href: "/super-admin/companies/add",
       icon: <BriefcaseBusiness className="mr-3 h-5 w-5" />,
@@ -59,16 +61,6 @@ const navigationItems = {
       icon: <Activity className="mr-3 h-5 w-5" />,
       label: "Track Logins",
     },
-    {
-      href: "/auth/change-password",
-      icon: <KeyRound className="mr-3 h-5 w-5" />,
-      label: "Change Password",
-    },
-    {
-      href: "/auth/logout",
-      icon: <LogOut className="mr-3 h-5 w-5" />,
-      label: "Log Out",
-    },
   ],
   admin: [
     {
@@ -76,11 +68,6 @@ const navigationItems = {
       icon: <Home className="mr-3 h-5 w-5" />,
       label: "Home",
     },
-    // {
-    //   href: "/dashboard/admin/reports",
-    //   icon: <FileText className="mr-3 h-5 w-5" />,
-    //   label: "Report List",
-    // },
     {
       href: "/admin/users",
       icon: <Users className="mr-3 h-5 w-5" />,
@@ -90,16 +77,6 @@ const navigationItems = {
       href: "/admin/users/add",
       icon: <UserPlus className="mr-3 h-5 w-5" />,
       label: "Add User",
-    },
-    {
-      href: "/auth/change-password",
-      icon: <KeyRound className="mr-3 h-5 w-5" />,
-      label: "Change Password",
-    },
-    {
-      href: "/auth/logout",
-      icon: <LogOut className="mr-3 h-5 w-5" />,
-      label: "Log Out",
     },
   ],
   user: [
@@ -113,27 +90,25 @@ const navigationItems = {
       icon: <FileText className="mr-3 h-5 w-5" />,
       label: "Reports",
     },
-    {
-      href: "/auth/change-password",
-      icon: <KeyRound className="mr-3 h-5 w-5" />,
-      label: "Change Password",
-    },
-    {
-      href: "/auth/logout",
-      icon: <LogOut className="mr-3 h-5 w-5" />,
-      label: "Log Out",
-    },
   ],
 };
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { data } = api.auth.getProfile.useQuery();
   const userRole = data?.user.user_metadata.role as string;
 
+  const logoutMutation = api.auth.signOut.useMutation({
+    onSuccess: () => {
+      router.push("/login");
+    },
+  });
 
-  // Default to USER navigation items if userRole is undefined
-  // or if the userRole doesn't match any key in navigationItems
+  const handleLogout = async () => {
+    await logoutMutation.mutateAsync();
+  };
+
   const items =
     userRole && Object.keys(navigationItems).includes(userRole)
       ? navigationItems[userRole as keyof typeof navigationItems]
@@ -165,6 +140,21 @@ export default function Sidebar() {
             <span>{item.label}</span>
           </Link>
         ))}
+        <Link
+          href="/forgot-password"
+          className={`flex items-center px-4 py-2 text-slate-300 hover:bg-slate-800 hover:text-white`}
+        >
+          <KeyRound className="mr-3 h-5 w-5" />
+          <span>Change password</span>
+        </Link>
+        {/* Logout Button */}
+        <button
+          onClick={handleLogout}
+          className="flex w-full items-center px-4 py-2 text-left text-slate-300 hover:bg-slate-800 hover:text-white"
+        >
+          <LogOut className="mr-3 h-5 w-5" />
+          <span>Log Out</span>
+        </button>
       </nav>
     </motion.aside>
   );

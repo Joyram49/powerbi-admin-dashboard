@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AnimatePresence, motion } from "framer-motion";
 import { useForm } from "react-hook-form";
@@ -35,15 +36,22 @@ import {
 import { Separator } from "@acme/ui/separator";
 import { toast, Toaster } from "@acme/ui/toast";
 
-// Form validation schemas
+import { api } from "~/trpc/react";
+
+const PHONE_NUMBER_REGEX =
+  /^(?:(?:\+|00)?\d{1,4}[-.\s]?)?(?:\(?\d{1,4}\)?[-.\s]?)?[\d\s-]{6,20}$/;
+// Form validation schemas (updated to match backend expectations)
 const formSchema = z.object({
-  companyName: z.string().min(2, "Company name is required"),
-  companyAddress: z.string().min(2, "Company address is required"),
-  contactName: z.string().min(2, "Contact name is required"),
+  companyName: z.string().min(3, "Company name must be at least 3 characters"),
+  companyAddress: z.string(),
   contactPhone: z
     .string()
-    .min(10, "Valid phone number is required")
-    .refine((val) => /^[0-9+\-\s()]*$/.test(val), "Invalid phone format"),
+    .optional()
+    .refine(
+      (val) =>
+        val === undefined || val.trim() === "" || PHONE_NUMBER_REGEX.test(val),
+      "Invalid phone number format",
+    ),
   contactEmail: z.string().email("Valid email is required"),
   usersAllowed: z.number().int().min(1, "At least 1 user required"),
   companyAdmin: z.string().optional(),
@@ -51,26 +59,26 @@ const formSchema = z.object({
 
 const adminFormSchema = z
   .object({
-    username: z
+    userName: z
       .string()
       .min(2, "Username is required")
       .refine((val) => !val.includes(" "), "Username cannot contain spaces"),
+    email: z.string().email("Valid email is required"),
     password: z
       .string()
-      .min(8, "Password must be at least 8 characters")
+      .min(12, "Password must be at least 12 characters")
       .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
       .regex(/[a-z]/, "Password must contain at least one lowercase letter")
       .regex(/[0-9]/, "Password must contain at least one number"),
-    confirmPassword: z.string().min(8, "Confirm your password"),
-    email: z.string().email("Valid email is required"),
-    fullName: z.string().min(2, "Full name is required"),
-    adminType: z.string().min(1, "Admin type is required"),
+    confirmPassword: z
+      .string()
+      .min(12, "Password must be at least 12 characters"),
+    role: z.literal("admin"),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
   });
-
 // Animation variants
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -102,7 +110,8 @@ const CompanyAdminForm = () => {
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [formStep, setFormStep] = useState(0);
-
+  const [existingAdmins, setExistingAdmins] = useState([]);
+  const router = useRouter();
   // Handle hydration issues with theme
   useEffect(() => {
     setMounted(true);
@@ -114,11 +123,10 @@ const CompanyAdminForm = () => {
     defaultValues: {
       companyName: "",
       companyAddress: "",
-      contactName: "",
       contactPhone: "",
       contactEmail: "",
       usersAllowed: 10,
-      companyAdmin: "David Heitman",
+      companyAdmin: "",
     },
     mode: "onChange",
   });
@@ -127,54 +135,97 @@ const CompanyAdminForm = () => {
   const adminForm = useForm({
     resolver: zodResolver(adminFormSchema),
     defaultValues: {
-      username: "",
+      userName: "",
+      email: "",
       password: "",
       confirmPassword: "",
-      email: "",
-      fullName: "",
-      adminType: "Company Administrator",
+      role: "admin" as const,
     },
     mode: "onChange",
   });
 
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
-    setFormSubmitted(true);
-    console.log("Form submitted:", values);
+  // Create company admin mutation
+  const createCompanyAdminMutation = api.auth.createUser.useMutation({
+    onSuccess: (adminUser) => {
+      // Once admin user is created, create the company
+      createCompanyMutation.mutate({
+        companyName: form.getValues("companyName"),
+        address: form.getValues("companyAddress"),
+        phone: form.getValues("contactPhone"),
+        email: form.getValues("contactEmail"),
+        companyAdminId: adminUser.user?.id ?? "", // Ensure we pass a valid UUID
+      });
+      router.push("/super-admin/companies");
+      router.refresh();
+    },
+    onError: (error) => {
+      setFormSubmitted(false);
+      toast.error("Administrator Creation Failed", {
+        description: error.message || "Unable to create company administrator",
+      });
+    },
+  });
 
-    // Simulating API call
-    setTimeout(() => {
+  // Mutation for creating company
+  const createCompanyMutation = api.company.create.useMutation({
+    onSuccess: (data) => {
       setFormSubmitted(false);
       toast.success("Company Added", {
-        description: "New company has been successfully created.",
+        description: `${data.company?.companyName} has been successfully created.`,
       });
-
       form.reset();
       setFormStep(0);
-    }, 1500);
+    },
+    onError: (error) => {
+      setFormSubmitted(false);
+      toast.error("Company Creation Failed", {
+        description: error.message || "Unable to create company",
+      });
+    },
+  });
+
+  const onSubmit = (values: z.infer<typeof formSchema>) => {
+    setFormSubmitted(true);
+
+    try {
+      // Create company admin user first
+      createCompanyAdminMutation.mutate({
+        userName: values.companyName.toLowerCase().replace(/\s+/g, ""),
+        email: values.contactEmail,
+        password: adminForm.getValues("password"),
+        role: "admin",
+      });
+    } catch (error) {
+      setFormSubmitted(false);
+      toast.error("Submission Error", {
+        description: "Failed to create company and admin",
+      });
+    }
   };
 
   const onAdminSubmit = (values: z.infer<typeof adminFormSchema>) => {
-    console.log("Admin form submitted:", values);
-    setShowAdminForm(false);
-
-    // Show success notification
-    toast.success("Administrator Added", {
-      description: `${values.fullName} has been added as ${values.adminType}.`,
+    // Create a new admin user
+    createCompanyAdminMutation.mutate({
+      ...values,
+      role: "admin", // Ensure role is always admin for this form
     });
 
-    // Update the company admin field in the main form
-    form.setValue("companyAdmin", values.fullName);
+    setShowAdminForm(false);
   };
 
   const handleNextStep = async () => {
+    console.log("Continue button clicked");
     const isValid = await form.trigger([
       "companyName",
-      "companyAddress",
-      "contactName",
+      "contactEmail",
+      "contactPhone",
     ]);
 
     if (isValid) {
       setFormStep(1);
+    } else {
+      console.log("Validation failed, see errors below:");
+      console.log(form.formState.errors); // Log validation errors for debugging
     }
   };
 
@@ -241,7 +292,7 @@ const CompanyAdminForm = () => {
                             <Input
                               placeholder="Enter company name"
                               {...field}
-                              className="dark:border-gray-700 dark:bg-gray-800 dark:text-white bg-white"
+                              className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                             />
                           </FormControl>
                           <FormMessage className="text-xs dark:text-red-400" />
@@ -265,7 +316,7 @@ const CompanyAdminForm = () => {
                               onChange={(e) =>
                                 field.onChange(parseInt(e.target.value) || 0)
                               }
-                              className="dark:border-gray-700 dark:bg-gray-800 dark:text-white bg-white"
+                              className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                             />
                           </FormControl>
                           <FormDescription className="text-xs text-gray-500 dark:text-gray-400">
@@ -290,7 +341,7 @@ const CompanyAdminForm = () => {
                             <Input
                               placeholder="Enter full address"
                               {...field}
-                              className="dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white"
+                              className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                             />
                           </FormControl>
                           <FormMessage className="text-xs dark:text-red-400" />
@@ -302,7 +353,26 @@ const CompanyAdminForm = () => {
                   <motion.div variants={itemVariants}>
                     <FormField
                       control={form.control}
-                      name="contactName"
+                      name="contactEmail"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium dark:text-gray-300">
+                            Email
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="Enter contact person name"
+                              {...field}
+                              className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                            />
+                          </FormControl>
+                          <FormMessage className="text-xs dark:text-red-400" />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="contactPhone"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-sm font-medium dark:text-gray-300">
@@ -312,7 +382,7 @@ const CompanyAdminForm = () => {
                             <Input
                               placeholder="Enter contact person name"
                               {...field}
-                              className="dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white"
+                              className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                             />
                           </FormControl>
                           <FormMessage className="text-xs dark:text-red-400" />
@@ -412,36 +482,36 @@ const CompanyAdminForm = () => {
                           <FormLabel className="text-sm font-medium dark:text-gray-300">
                             Company Administrator
                           </FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger className="dark:border-gray-700 dark:bg-gray-800 dark:text-white">
-                                <SelectValue placeholder="Select an administrator" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent className="dark:border-gray-700 dark:bg-gray-800">
-                              <SelectItem
-                                value="David Heitman"
-                                className="dark:text-white dark:focus:bg-gray-700"
-                              >
-                                David Heitman
-                              </SelectItem>
-                              <SelectItem
-                                value="John Doe"
-                                className="dark:text-white dark:focus:bg-gray-700"
-                              >
-                                John Doe
-                              </SelectItem>
-                              <SelectItem
-                                value="Jane Smith"
-                                className="dark:text-white dark:focus:bg-gray-700"
-                              >
-                                Jane Smith
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
+                          {existingAdmins.length > 0 ? (
+                            <Select
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger className="dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                                  <SelectValue placeholder="Select an administrator" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent className="dark:border-gray-700 dark:bg-gray-800">
+                                {existingAdmins.map(
+                                  (admin: { id: string; name: string }) => (
+                                    <SelectItem
+                                      key={admin.id} // Use an appropriate unique identifier
+                                      value={admin.name} // Assuming admin object has these properties
+                                      className="dark:text-white dark:focus:bg-gray-700"
+                                    >
+                                      {admin.name}
+                                    </SelectItem>
+                                  ),
+                                )}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <p className="text-gray-500 dark:text-gray-400">
+                              No existing company administrators found. Please
+                              create a new one.
+                            </p>
+                          )}
                           <FormDescription className="text-xs text-gray-500 dark:text-gray-400">
                             Select existing admin or create a new one
                           </FormDescription>
@@ -617,27 +687,7 @@ const CompanyAdminForm = () => {
                   >
                     <FormField
                       control={adminForm.control}
-                      name="fullName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm font-medium dark:text-gray-300">
-                            Full Name
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="Enter full name"
-                              {...field}
-                              className="dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                            />
-                          </FormControl>
-                          <FormMessage className="text-xs dark:text-red-400" />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={adminForm.control}
-                      name="username"
+                      name="userName"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-sm font-medium dark:text-gray-300">
@@ -723,51 +773,14 @@ const CompanyAdminForm = () => {
                         </FormItem>
                       )}
                     />
-                  </motion.div>
-
-                  <motion.div variants={itemVariants}>
                     <FormField
                       control={adminForm.control}
-                      name="adminType"
+                      name="role"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-sm font-medium dark:text-gray-300">
-                            Administrator Type
-                          </FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger className="dark:border-gray-700 dark:bg-gray-800 dark:text-white">
-                                <SelectValue placeholder="Select admin type" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent className="dark:border-gray-800 dark:bg-gray-900">
-                              <SelectItem
-                                value="Company Administrator"
-                                className="dark:text-white dark:focus:bg-gray-700"
-                              >
-                                Company Administrator
-                              </SelectItem>
-                              <SelectItem
-                                value="System Administrator"
-                                className="dark:text-white dark:focus:bg-gray-700"
-                              >
-                                System Administrator
-                              </SelectItem>
-                              <SelectItem
-                                value="Limited Administrator"
-                                className="dark:text-white dark:focus:bg-gray-700"
-                              >
-                                Limited Administrator
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormDescription className="text-xs text-gray-500 dark:text-gray-400">
-                            Determines permission level
-                          </FormDescription>
-                          <FormMessage className="text-xs dark:text-red-400" />
+                          <FormControl>
+                            <Input type="hidden" {...field} value="admin" />
+                          </FormControl>
                         </FormItem>
                       )}
                     />

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -22,6 +22,7 @@ import { Input } from "@acme/ui/input";
 import { toast, Toaster } from "@acme/ui/toast";
 
 import { api } from "~/trpc/react";
+import { ROLE_ROUTES } from "~/utils/routes";
 
 // Form validation schema with updated password requirements
 const FormSchema = z.object({
@@ -38,7 +39,7 @@ const FormSchema = z.object({
     }),
 });
 
-// Animation variants
+// Animation variants (kept from previous version)
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
@@ -65,13 +66,7 @@ const buttonVariants = {
 };
 
 export function SignInForm() {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  // Handle hydration issues with theme
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
@@ -82,26 +77,31 @@ export function SignInForm() {
     mode: "onChange",
   });
 
-  const router = useRouter();
+  const signIn = api.auth.signIn.useMutation({
+    onError: (error) => {
+      const errorMessage = error.message || "Login failed. Please try again.";
+      toast.error(errorMessage);
+    },
+    onSuccess: (result) => {
+      // result contains user role information
+      const userRole = result.user.user_metadata.role as string;
 
-  const signIn = api.auth.signIn.useMutation();
+      // Role-based redirection
+      const roleBasedRoute = userRole
+        ? ROLE_ROUTES[userRole as keyof typeof ROLE_ROUTES]
+        : "/";
 
-  console.log(signIn);
+      toast.success("Login successful");
+      form.reset();
+
+      // Redirect to role-specific route
+      router.push(roleBasedRoute);
+    },
+  });
 
   function onSubmit(data: z.infer<typeof FormSchema>) {
-    signIn.mutate(data, {
-      onError: (error) => {
-        console.error("SignIn error:", error);
-      },
-      onSuccess: (result) => {
-        toast.success("Login successful");
-        form.reset();
-        router.push("/");
-      },
-    });
+    signIn.mutate(data);
   }
-
-  if (!mounted) return null;
 
   return (
     <div className="mx-auto w-full max-w-2xl p-4 md:p-6">
@@ -143,6 +143,7 @@ export function SignInForm() {
               initial="hidden"
               animate="visible"
             >
+              {/* Email Field */}
               <motion.div variants={itemVariants}>
                 <FormField
                   control={form.control}
@@ -150,21 +151,6 @@ export function SignInForm() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="mr-2"
-                        >
-                          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                          <polyline points="22,6 12,13 2,6"></polyline>
-                        </svg>
                         Email address
                       </FormLabel>
                       <FormControl>
@@ -183,6 +169,7 @@ export function SignInForm() {
                 />
               </motion.div>
 
+              {/* Password Field */}
               <motion.div variants={itemVariants}>
                 <FormField
                   control={form.control}
@@ -190,28 +177,6 @@ export function SignInForm() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="mr-2"
-                        >
-                          <rect
-                            width="18"
-                            height="11"
-                            x="3"
-                            y="11"
-                            rx="2"
-                            ry="2"
-                          />
-                          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                        </svg>
                         Password
                       </FormLabel>
                       <FormControl>
@@ -224,46 +189,13 @@ export function SignInForm() {
                           className="bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                         />
                       </FormControl>
-
                       <FormMessage className="text-xs dark:text-red-400" />
                     </FormItem>
                   )}
                 />
               </motion.div>
 
-              <motion.div
-                variants={itemVariants}
-                className="flex items-center justify-between"
-              >
-                <Link
-                  href="/forgot-password"
-                  className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                >
-                  <motion.span
-                    whileHover={{ x: 3 }}
-                    className="flex items-center"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="mr-1"
-                    >
-                      <circle cx="12" cy="12" r="10" />
-                      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-                      <line x1="12" y1="17" x2="12.01" y2="17" />
-                    </svg>
-                    Forgot your password?
-                  </motion.span>
-                </Link>
-              </motion.div>
-
+              {/* Submit Button */}
               <motion.div variants={itemVariants} className="pt-4">
                 <motion.div
                   variants={buttonVariants}
@@ -273,10 +205,10 @@ export function SignInForm() {
                   <Button
                     type="submit"
                     className="w-full bg-blue-500 px-6 py-3 text-base text-background hover:bg-blue-600 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-200"
-                    disabled={isSubmitting}
+                    disabled={signIn.isPending}
                     aria-label="Sign in button"
                   >
-                    {isSubmitting ? (
+                    {signIn.isPending ? (
                       <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -330,6 +262,7 @@ export function SignInForm() {
                 </motion.div>
               </motion.div>
 
+              {/* Sign Up Link */}
               <motion.div variants={itemVariants} className="pt-4 text-center">
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   Don't have an account?{" "}

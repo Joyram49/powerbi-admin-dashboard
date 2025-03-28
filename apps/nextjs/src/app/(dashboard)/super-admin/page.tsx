@@ -138,10 +138,6 @@ export default function SuperAdminDashboard() {
                     }}
                   />
                 </div>
-                <Button className="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700">
-                  <Plus className="mr-2 h-4 w-4" />
-                  New Company
-                </Button>
               </div>
             </div>
           </CardHeader>
