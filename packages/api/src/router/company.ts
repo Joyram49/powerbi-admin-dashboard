@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { ilike } from "drizzle-orm";
+import { desc, eq, ilike } from "drizzle-orm";
 import { z } from "zod";
 
 import { companies, db } from "@acme/db";
@@ -61,7 +61,11 @@ export const companyRouter = createTRPCRouter({
   getAllCompanies: protectedProcedure
     .input(
       z
-        .object({ searched: z.string().toLowerCase().optional().default("") })
+        .object({
+          searched: z.string().toLowerCase().optional().default(""),
+          limit: z.number().default(10),
+          page: z.number().default(1),
+        })
         .optional(),
     )
     .query(async ({ ctx, input }) => {
@@ -72,19 +76,28 @@ export const companyRouter = createTRPCRouter({
           message: "You must be logged in to view companies",
         });
       }
-
-      const searched = input?.searched ?? "";
+      const { limit = 10, page = 1, searched = "" } = input ?? {};
 
       try {
-        const allCompanies = await db
-          .select()
-          .from(companies)
-          .where(ilike(companies.companyName, `%${searched}%`))
-          .limit(50);
+        const totalCompanies = await db.$count(
+          companies,
+          ilike(companies.companyName, `%${searched}%`),
+        );
+
+        const allCompanies = await db.query.companies.findMany({
+          where: ilike(companies.companyName, `%${searched}%`),
+          limit: limit,
+          offset: (page - 1) * limit,
+          orderBy: [desc(companies.dateJoined)],
+        });
 
         return {
           success: true,
-          companies: allCompanies,
+          message: "Active companies fetched successfully",
+          total: totalCompanies,
+          limit,
+          page,
+          data: allCompanies,
         };
       } catch (error) {
         console.error("Error fetching companies:", error);
@@ -92,6 +105,61 @@ export const companyRouter = createTRPCRouter({
           success: false,
           error: error instanceof Error ? error.message : "Unknown error",
         };
+      }
+    }),
+
+  // get all active companies
+  getAllActiveCompanies: protectedProcedure
+    .input(
+      z
+        .object({ limit: z.number().default(10), page: z.number().default(1) })
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      if (ctx.session.user.role !== "superAdmin") {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You are not authorized to view active companies",
+        });
+      }
+
+      const { limit = 10, page = 1 } = input ?? {};
+
+      try {
+        // Fetch total count only on the first page
+        const totalCompanies = await db.$count(
+          companies,
+          eq(companies.status, "active"),
+        );
+
+        // Fetch paginated data
+        const activeCompanies = await db.query.companies.findMany({
+          with: {
+            admin: true,
+          },
+          where: eq(companies.status, "active"),
+          limit,
+          offset: (page - 1) * limit,
+          orderBy: [desc(companies.dateJoined)],
+        });
+
+        return {
+          success: true,
+          message: "Active companies fetched successfully",
+          total: totalCompanies,
+          limit,
+          page,
+          data: activeCompanies,
+        };
+      } catch (error) {
+        console.error("Error fetching active companies:", error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: String(error),
+        });
       }
     }),
 
