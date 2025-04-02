@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, ilike, inArray, sql } from "drizzle-orm";
+import { and, count, desc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { companies, db, reports, userReports } from "@acme/db";
@@ -53,7 +53,11 @@ export const reportRouter = createTRPCRouter({
           );
         }
 
-        return { success: true, report: newReport };
+        return {
+          success: true,
+          message: "Report created successfully",
+          report: newReport,
+        };
       } catch (error) {
         if (error instanceof TRPCError) {
           throw error;
@@ -104,23 +108,17 @@ export const reportRouter = createTRPCRouter({
                 companyName: true,
               },
             },
-            userReports: {
-              columns: {
-                userId: true,
-              },
-            },
+          },
+          extras: {
+            userCounts:
+              sql<number>`(SELECT COUNT(*)::int FROM "user_to_reports" WHERE "user_to_reports"."report_id" = reports.id)`.as(
+                "user_counts",
+              ),
           },
           orderBy: desc(reports.dateCreated),
           limit,
           offset: (page - 1) * limit,
         });
-
-        const formattedReports = reportsWithUserCounts.map(
-          ({ userReports, ...report }) => ({
-            ...report,
-            userCounts: userReports.length,
-          }),
-        );
 
         return {
           success: true,
@@ -128,7 +126,7 @@ export const reportRouter = createTRPCRouter({
           total: totalReports,
           limit,
           page,
-          data: formattedReports,
+          data: reportsWithUserCounts,
         };
       } catch (error) {
         console.log(">>> error in getAllReports", error);
@@ -208,23 +206,17 @@ export const reportRouter = createTRPCRouter({
                 companyName: true,
               },
             },
-            userReports: {
-              columns: {
-                userId: true,
-              },
-            },
           },
-          orderBy: desc(reports.dateCreated),
+          extras: {
+            userCounts:
+              sql<number>`(SELECT COUNT(*)::int FROM "user_to_reports" WHERE "user_to_reports"."report_id" = reports.id)`.as(
+                "user_counts",
+              ),
+          },
           limit,
           offset: (page - 1) * limit,
+          orderBy: desc(reports.dateCreated),
         });
-
-        const formattedReports = reportsWithUserCounts.map(
-          ({ userReports, ...report }) => ({
-            ...report,
-            userCounts: userReports.length,
-          }),
-        );
 
         return {
           success: true,
@@ -232,7 +224,7 @@ export const reportRouter = createTRPCRouter({
           limit,
           page,
           total: totalReports,
-          reports: formattedReports,
+          reports: reportsWithUserCounts,
         };
       } catch (error) {
         console.log(">>> error in getAllReportsAdmin", error);
@@ -251,7 +243,7 @@ export const reportRouter = createTRPCRouter({
     .input(
       z
         .object({
-          searched: z.string().toLowerCase().optional().default(""),
+          searched: z.string().optional().default(""),
           limit: z.number().optional().default(10),
           page: z.number().optional().default(1),
         })
@@ -266,55 +258,65 @@ export const reportRouter = createTRPCRouter({
       }
 
       const { searched = "", limit = 10, page = 1 } = input ?? {};
-
       const { id: userId } = ctx.session.user;
 
       try {
-        const totalReports = await db.$count(
-          reports,
-          sql`${reports.id} IN (
-            SELECT ${userReports.reportId} FROM ${userReports}
-            WHERE ${userReports.userId} = ${userId}
-          ) AND ${reports.reportName} ILIKE ${`%${searched}%`}`,
-        );
+        const searchCondition = searched
+          ? ilike(reports.reportName, `%${searched}%`)
+          : undefined;
 
-        const reportsWithUser = await db.query.reports.findMany({
-          where: sql`${reports.id} IN (
-            SELECT ${userReports.reportId} FROM ${userReports}
-            WHERE ${userReports.userId} = ${userId}
-          ) AND ${reports.reportName} ILIKE ${`%${searched}%`}`,
-          with: {
+        // Fetch total reports count with search condition
+        const totalReports = await db
+          .select({ count: count() })
+          .from(reports)
+          .innerJoin(userReports, eq(userReports.reportId, reports.id))
+          .where(
+            searchCondition
+              ? and(eq(userReports.userId, userId), searchCondition)
+              : eq(userReports.userId, userId),
+          )
+          .execute();
+
+        const reportsWithUserCounts = await db
+          .select({
+            reportId: reports.id,
+            reportName: reports.reportName,
+            dateCreated: reports.dateCreated,
+            modifiedBy: reports.modifiedBy,
+            lastModifiedAt: reports.lastModifiedAt,
+            status: reports.status,
+            reportUrl: reports.reportUrl,
+            accessCount: reports.accessCount,
+            userCount: db.$count(
+              userReports,
+              eq(userReports.reportId, reports.id),
+            ),
             company: {
-              columns: {
-                id: true,
-                companyName: true,
-              },
+              id: companies.id,
+              companyName: companies.companyName,
             },
-            userReports: {
-              columns: {
-                userId: true,
-              },
-            },
-          },
-          orderBy: desc(reports.dateCreated),
-          limit,
-          offset: (page - 1) * limit,
-        });
-
-        const formattedReports = reportsWithUser.map(
-          ({ userReports, ...report }) => ({
-            ...report,
-            userCounts: userReports.length,
-          }),
-        );
+          })
+          .from(reports)
+          .innerJoin(companies, eq(reports.companyId, companies.id))
+          .leftJoin(userReports, eq(userReports.reportId, reports.id))
+          .where(
+            searchCondition
+              ? and(eq(userReports.userId, userId), searchCondition)
+              : eq(userReports.userId, userId),
+          )
+          .groupBy(reports.id, companies.id)
+          .orderBy(desc(reports.dateCreated))
+          .limit(limit)
+          .offset((page - 1) * limit)
+          .execute();
 
         return {
           success: true,
-          message: "all reports fetched successfully",
+          message: "All reports fetched successfully",
           limit,
           page,
-          total: totalReports,
-          reports: formattedReports,
+          total: totalReports[0]?.count,
+          reports: reportsWithUserCounts,
         };
       } catch (error) {
         console.log(">>> error in getAllReportsUser", error);
@@ -328,14 +330,14 @@ export const reportRouter = createTRPCRouter({
       }
     }),
 
-  // this is the route for the super admin to get all reports for a company
+  // this is the route for the super admin to get all reports for a company by company id
   getAllReportsForCompany: protectedProcedure
     .input(
       z.object({
         companyId: z.string().uuid(),
-        searched: z.string().optional().default(""),
-        limit: z.number().default(10),
-        page: z.number().default(1),
+        searched: z.string().toLowerCase().optional().default(""),
+        limit: z.number().optional().default(10),
+        page: z.number().optional().default(1),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -368,23 +370,17 @@ export const reportRouter = createTRPCRouter({
                 companyName: true,
               },
             },
-            userReports: {
-              columns: {
-                userId: true,
-              },
-            },
+          },
+          extras: {
+            userCounts:
+              sql<number>`(SELECT COUNT(*)::int FROM "user_to_reports" WHERE "user_to_reports"."report_id" = reports.id)`.as(
+                "user_counts",
+              ),
           },
           orderBy: desc(reports.dateCreated),
           limit,
           offset: (page - 1) * limit,
         });
-
-        const formattedReports = allReports.map(
-          ({ userReports, ...report }) => ({
-            ...report,
-            userCounts: userReports.length,
-          }),
-        );
 
         return {
           success: true,
@@ -392,10 +388,94 @@ export const reportRouter = createTRPCRouter({
           limit,
           page,
           total: totalReports,
-          reports: formattedReports,
+          reports: allReports,
         };
       } catch (error) {
         console.error("Error fetching reports for company:", error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: String(error),
+        });
+      }
+    }),
+
+  // this is the route for all type of users to get report by report id
+  getReportById: protectedProcedure
+    .input(z.object({ reportId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const { reportId } = input;
+      const { id: userId, role: userRole } = ctx.session.user;
+      try {
+        let report;
+
+        if (userRole === "user") {
+          report = await db.query.userReports.findFirst({
+            columns: {},
+            where: and(
+              eq(userReports.reportId, reportId),
+              eq(userReports.userId, userId),
+            ),
+            with: {
+              report: {
+                columns: {
+                  companyId: false,
+                },
+                with: {
+                  company: {
+                    columns: {
+                      id: true,
+                      companyName: true,
+                    },
+                  },
+                },
+              },
+            },
+          });
+          if (!report) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Report not found",
+            });
+          }
+        }
+
+        report = await db.query.reports.findFirst({
+          columns: {
+            companyId: false,
+          },
+          where: eq(reports.id, reportId),
+          with: {
+            company: {
+              columns: {
+                id: true,
+                companyName: true,
+              },
+            },
+          },
+          extras: {
+            userCounts:
+              sql<number>`(SELECT COUNT(*)::int FROM "user_to_reports" WHERE "user_to_reports"."report_id" = reports.id)`.as(
+                "user_counts",
+              ),
+          },
+        });
+
+        if (!report) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Report not found",
+          });
+        }
+        return {
+          success: true,
+          message: "Report fetched successfully",
+          report,
+        };
+      } catch (error) {
+        console.error("Error fetching report by id:", error);
         if (error instanceof TRPCError) {
           throw error;
         }
