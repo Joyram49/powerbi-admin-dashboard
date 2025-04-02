@@ -312,35 +312,81 @@ tiny-t3-turbo
 │     ├─ postcss.config.cjs
 │     ├─ public
 │     │  ├─ favicon.ico
+│     │  ├─ joc-logo-color.png
+│     │  ├─ joc-logo.png
 │     │  └─ t3-icon.svg
 │     ├─ README.md
 │     ├─ src
 │     │  ├─ app
 │     │  │  ├─ (auth)
 │     │  │  │  ├─ forgot-password
-│     │  │  │  │  └─ page.tsx
+│     │  │  │  │  ├─ page.tsx
+│     │  │  │  │  └─ _components
+│     │  │  │  │     └─ forgot-password-form.tsx
 │     │  │  │  ├─ layout.tsx
 │     │  │  │  ├─ login
 │     │  │  │  │  ├─ page.tsx
 │     │  │  │  │  └─ _components
 │     │  │  │  │     └─ sign-in-form.tsx
+│     │  │  │  ├─ register
+│     │  │  │  │  ├─ page.tsx
+│     │  │  │  │  └─ _components
+│     │  │  │  │     └─ sign-up.tsx
+│     │  │  │  ├─ verify-otp
+│     │  │  │  │  ├─ page.tsx
+│     │  │  │  │  └─ _components
+│     │  │  │  │     └─ token-verify-form.tsx
 │     │  │  │  └─ _components
 │     │  │  │     └─ auth_footer.tsx
 │     │  │  ├─ (dashboard)
-│     │  │  │  └─ dashboard
-│     │  │  │     └─ page.tsx
-│     │  │  ├─ actions
-│     │  │  │  └─ navigate.ts
+│     │  │  │  ├─ admin
+│     │  │  │  │  ├─ page.tsx
+│     │  │  │  │  └─ users
+│     │  │  │  │     ├─ add
+│     │  │  │  │     │  └─ page.tsx
+│     │  │  │  │     └─ page.tsx
+│     │  │  │  ├─ layout.tsx
+│     │  │  │  ├─ super-admin
+│     │  │  │  │  ├─ companies
+│     │  │  │  │  │  ├─ add
+│     │  │  │  │  │  │  └─ page.tsx
+│     │  │  │  │  │  └─ page.tsx
+│     │  │  │  │  └─ page.tsx
+│     │  │  │  ├─ user
+│     │  │  │  │  └─ page.tsx
+│     │  │  │  └─ _components
+│     │  │  │     ├─ AddUserForm.tsx
+│     │  │  │     ├─ CompanyForm.tsx
+│     │  │  │     ├─ DashboardLayout.tsx
+│     │  │  │     ├─ Header.tsx
+│     │  │  │     ├─ Sidebar.tsx
+│     │  │  │     └─ SignOutButton.tsx
 │     │  │  ├─ api
+│     │  │  │  ├─ auth
+│     │  │  │  │  └─ confirm
+│     │  │  │  │     └─ route.ts
 │     │  │  │  └─ trpc
 │     │  │  │     └─ [trpc]
 │     │  │  │        └─ route.ts
+│     │  │  ├─ company
+│     │  │  │  ├─ page.tsx
+│     │  │  │  └─ _components
+│     │  │  │     └─ add-company-form.tsx
+│     │  │  ├─ error.tsx
 │     │  │  ├─ globals.css
 │     │  │  ├─ layout.tsx
-│     │  │  ├─ page.tsx
-│     │  │  └─ _components
-│     │  │     ├─ auth-showcase.tsx
-│     │  │     └─ powerbi.tsx
+│     │  │  ├─ private
+│     │  │  │  ├─ page.tsx
+│     │  │  │  └─ _components
+│     │  │  │     ├─ delete-user-btn.tsx
+│     │  │  │     ├─ sign-out.tsx
+│     │  │  │     └─ update-company-btn.tsx
+│     │  │  ├─ report
+│     │  │  │  ├─ page.tsx
+│     │  │  │  └─ _components
+│     │  │  │     └─ add-report-form.tsx
+│     │  │  └─ _actions
+│     │  │     └─ navigate.ts
 │     │  ├─ env.ts
 │     │  ├─ middleware.ts
 │     │  ├─ trpc
@@ -354,6 +400,11 @@ tiny-t3-turbo
 │     ├─ tailwind.config.ts
 │     ├─ tsconfig.json
 │     └─ turbo.json
+├─ changes.md
+├─ docs
+│  ├─ account-locking-implementation.md
+│  ├─ cookie-persistence-solution.md
+│  └─ pdf
 ├─ LICENSE
 ├─ package.json
 ├─ packages
@@ -365,7 +416,10 @@ tiny-t3-turbo
 │  │  │  ├─ root.ts
 │  │  │  ├─ router
 │  │  │  │  ├─ auth.ts
-│  │  │  │  └─ post.ts
+│  │  │  │  ├─ company.ts
+│  │  │  │  ├─ post.ts
+│  │  │  │  ├─ report.ts
+│  │  │  │  └─ user.ts
 │  │  │  └─ trpc.ts
 │  │  └─ tsconfig.json
 │  ├─ auth
@@ -379,14 +433,21 @@ tiny-t3-turbo
 │  │  ├─ drizzle.config.ts
 │  │  ├─ env.ts
 │  │  ├─ eslint.config.js
+│  │  ├─ migrations
 │  │  ├─ package.json
 │  │  ├─ src
 │  │  │  ├─ index.ts
 │  │  │  ├─ schema
 │  │  │  │  ├─ company.ts
 │  │  │  │  ├─ index.ts
+│  │  │  │  ├─ login-attempts.ts
+│  │  │  │  ├─ mouse-activity.ts
 │  │  │  │  ├─ post.ts
-│  │  │  │  └─ user.ts
+│  │  │  │  ├─ report-metrics.ts
+│  │  │  │  ├─ report.ts
+│  │  │  │  ├─ user.ts
+│  │  │  │  ├─ userReports.ts
+│  │  │  │  └─ userSessions.ts
 │  │  │  └─ supabase
 │  │  │     ├─ client.ts
 │  │  │     └─ server.ts

@@ -160,7 +160,7 @@ export function AddCompanyForm() {
                     <SelectItem value="loading" disabled>
                       Loading users...
                     </SelectItem>
-                  ) : usersData?.users && usersData.users.length > 0 ? (
+                  ) : usersData.users && usersData.users.length > 0 ? (
                     usersData.users.map((user) => (
                       <SelectItem key={user.id} value={user.id}>
                         {user.userName} ({user.email}) - {user.role}
