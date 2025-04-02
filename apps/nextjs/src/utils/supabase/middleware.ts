@@ -1,6 +1,6 @@
+import { createServerClient } from "@supabase/ssr";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
 
 import { env } from "~/env";
 import { LOGIN, PRIVATE_ROUTES, PUBLIC_ROUTES, ROLE_ROUTES } from "../routes";
