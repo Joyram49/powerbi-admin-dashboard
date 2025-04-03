@@ -64,7 +64,6 @@ export function AddCompanyForm() {
   const createCompany = api.company.create.useMutation({
     onSuccess: (result) => {
       if (result.success) {
-        console.log("Company created successfully", result.company);
         form.reset();
         router.push("/company");
       }
@@ -160,8 +159,8 @@ export function AddCompanyForm() {
                     <SelectItem value="loading" disabled>
                       Loading users...
                     </SelectItem>
-                  ) : usersData?.users && usersData.users.length > 0 ? (
-                    usersData.users.map((user) => (
+                  ) : usersData?.success && usersData.data.length > 0 ? (
+                    usersData.data.map((user) => (
                       <SelectItem key={user.id} value={user.id}>
                         {user.userName} ({user.email}) - {user.role}
                       </SelectItem>

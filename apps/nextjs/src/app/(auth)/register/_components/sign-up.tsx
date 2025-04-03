@@ -8,7 +8,6 @@ import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { Alert, AlertDescription, AlertTitle } from "@acme/ui/alert";
 import { Button } from "@acme/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@acme/ui/card";
 import {
@@ -133,12 +132,10 @@ export function SignUpForm() {
     });
 
     return () => subscription.unsubscribe();
-  }, [form.watch]);
+  }, [form]);
 
   const register = api.auth.signUp.useMutation();
 
-  
-  console.log(">>>Register", register);
   function onSubmit(data: z.infer<typeof FormSchema>) {
     const requestedData: requestedDataType = {
       ...data,
@@ -149,9 +146,9 @@ export function SignUpForm() {
       onError: (error) => {
         toast.error(`${error.message}`);
       },
-      onSuccess: (result) => {
+      onSuccess: () => {
         toast.success(`Signup successful, Verify your email`);
-        console.log("Signup success:", result);
+
         form.reset();
         router.push(`/verify-otp?email=${encodeURIComponent(data.email)}`);
       },

@@ -1,7 +1,6 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { motion } from "framer-motion";
 import {
   Activity,
   BarChart3,
@@ -16,17 +15,19 @@ import {
   Users,
 } from "lucide-react";
 
+import { Sidebar } from "@acme/ui/sidebar";
+
 import { api } from "~/trpc/react";
 
 // Animation Variants
-const sidebarVariants = {
-  hidden: { x: -250, opacity: 0 },
-  visible: {
-    x: 0,
-    opacity: 1,
-    transition: { duration: 0.5, ease: "easeInOut" },
-  },
-};
+// const sidebarVariants = {
+//   hidden: { x: -250, opacity: 0 },
+//   visible: {
+//     x: 0,
+//     opacity: 1,
+//     transition: { duration: 0.5, ease: "easeInOut" },
+//   },
+// };
 
 const navigationItems = {
   superAdmin: [
@@ -92,7 +93,7 @@ const navigationItems = {
   ],
 };
 
-export default function Sidebar() {
+export default function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { data } = api.auth.getProfile.useQuery();
@@ -114,12 +115,7 @@ export default function Sidebar() {
       : navigationItems.user;
 
   return (
-    <motion.aside
-      className="hidden w-64 flex-col bg-slate-900 text-white dark:bg-slate-800 md:flex"
-      initial="hidden"
-      animate="visible"
-      variants={sidebarVariants}
-    >
+    <Sidebar className="hidden w-full max-w-64 flex-col bg-slate-900 text-white dark:bg-slate-800 lg:flex">
       <div className="flex h-16 items-center border-b border-slate-800 px-4">
         <BarChart3 className="h-6 w-6 text-blue-500" />
         <span className="ml-2 text-xl font-bold">JOC Analytics</span>
@@ -155,6 +151,6 @@ export default function Sidebar() {
           <span>Log Out</span>
         </button>
       </nav>
-    </motion.aside>
+    </Sidebar>
   );
 }
