@@ -6,14 +6,9 @@ import { httpBatchLink, loggerLink } from "@trpc/client";
 import { createTRPCReact } from "@trpc/react-query";
 import SuperJSON from "superjson";
 
-
-
 import type { AppRouter } from "@acme/api";
 
-
-
 import { env } from "~/env";
-
 
 /**
 1) Uses httpBatchLink from  current version (it's more stable than the unstable_httpBatchStreamLink in the previous version)
@@ -58,42 +53,15 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
             // Add timeout header if needed
             headers.set("timeout", "10000"); // 10 seconds timeout
 
-            // Log current cookies for debugging
-            if (typeof window !== "undefined") {
-              console.log(
-                "Current cookies when making tRPC request:",
-                document.cookie,
-              );
-            }
-
             return Object.fromEntries(headers);
           },
           fetch(url, options) {
-            // Log request for debugging
-            console.log(`tRPC fetch to ${url}`);
-
             return fetch(url, {
               ...options,
               credentials: "include", // Ensure cookies are sent
             }).then((response) => {
               // Log response for debugging
               console.log("tRPC response received");
-
-              // Check if cookies were set after the response
-              if (typeof window !== "undefined") {
-                setTimeout(() => {
-                  console.log("Cookies after tRPC response:", document.cookie);
-                }, 100); // Small delay to ensure cookies are processed
-
-                // Also log all response headers for debugging
-                console.log(
-                  "Response headers:",
-                  Array.from(response.headers.entries())
-                    .map(([key, value]) => `${key}: ${value}`)
-                    .join("\n"),
-                );
-              }
-
               return response;
             });
           },

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AnimatePresence, motion } from "framer-motion";
@@ -196,6 +196,7 @@ const CompanyAdminForm = () => {
         role: "admin",
       });
     } catch (error) {
+      console.log(">>> create company error", error);
       setFormSubmitted(false);
       toast.error("Submission Error", {
         description: "Failed to create company and admin",
@@ -214,7 +215,6 @@ const CompanyAdminForm = () => {
   };
 
   const handleNextStep = async () => {
-    console.log("Continue button clicked");
     const isValid = await form.trigger([
       "companyName",
       "contactEmail",
@@ -224,7 +224,6 @@ const CompanyAdminForm = () => {
     if (isValid) {
       setFormStep(1);
     } else {
-      console.log("Validation failed, see errors below:");
       console.log(form.formState.errors); // Log validation errors for debugging
     }
   };

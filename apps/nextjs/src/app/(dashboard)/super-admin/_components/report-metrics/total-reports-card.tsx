@@ -17,7 +17,7 @@ async function TotalReportsCard() {
   // Check if the response is successful and contains total
   if (!totalReports.success) {
     return (
-      <Card className="@container/card">
+      <Card className="@container/card dark:bg-slate-900">
         <CardHeader className="relative">
           <CardDescription>Error fetching data</CardDescription>{" "}
           {/* Display an error message */}
@@ -32,7 +32,7 @@ async function TotalReportsCard() {
   }
 
   return (
-    <Card className="@container/card">
+    <Card className="@container/card dark:bg-slate-900">
       <CardHeader className="relative">
         <CardDescription>Total Reports</CardDescription>
         <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">

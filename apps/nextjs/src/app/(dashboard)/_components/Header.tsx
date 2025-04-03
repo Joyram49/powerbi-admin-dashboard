@@ -2,6 +2,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@acme/ui/avatar";
 import { ThemeToggle } from "@acme/ui/theme";
 
 import { api } from "~/trpc/server";
+import { CustomTrigger } from "./sidebar-trigger";
 
 interface UserMetadata {
   firstLetter: string | null;
@@ -20,11 +21,18 @@ export default async function Header() {
   return (
     <header className="border-b border-gray-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
       <div className="flex h-16 items-center justify-between px-6">
-        <h1 className="text-xl font-semibold dark:text-white">Dashboard</h1>
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center justify-center gap-x-4 justify-self-start">
+          <CustomTrigger />
+          <h1 className="hidden text-xl font-semibold dark:text-white lg:block">
+            Dashboard
+          </h1>
+        </div>
+        <div className="flex items-center space-x-2">
           <ThemeToggle />
           <div>
-            <p className="font-medium text-slate-800">{userMetadata.email}</p>
+            <p className="hidden font-medium text-slate-800 dark:text-white md:block">
+              {userMetadata.email}
+            </p>
           </div>
           <Avatar className="h-8 w-8">
             <AvatarImage src={userMetadata.profileImage} />

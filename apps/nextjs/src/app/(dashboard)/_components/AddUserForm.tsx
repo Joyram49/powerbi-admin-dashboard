@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
@@ -95,7 +95,6 @@ const AddUserForm = () => {
 
   const onSubmit = (values: z.infer<typeof userFormSchema>) => {
     setFormSubmitted(true);
-    console.log("User form submitted:", values);
 
     // Simulating API call
     setTimeout(() => {
@@ -190,7 +189,7 @@ const AddUserForm = () => {
                         <Input
                           placeholder="Type User Full Name"
                           {...field}
-                          className="dark:border-gray-700 dark:bg-gray-800 dark:text-white bg-white"
+                          className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                         />
                       </FormControl>
                       <FormMessage className="text-xs dark:text-red-400" />
@@ -227,7 +226,7 @@ const AddUserForm = () => {
                         <Input
                           placeholder="Type Username"
                           {...field}
-                          className="dark:border-gray-700 dark:bg-gray-800 dark:text-white bg-white"
+                          className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                         />
                       </FormControl>
                       <FormMessage className="text-xs dark:text-red-400" />
@@ -272,7 +271,7 @@ const AddUserForm = () => {
                           type="password"
                           placeholder="Type Password"
                           {...field}
-                          className="dark:border-gray-700 dark:bg-gray-800 dark:text-white bg-white "
+                          className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                         />
                       </FormControl>
                       <FormMessage className="text-xs dark:text-red-400" />
@@ -317,7 +316,7 @@ const AddUserForm = () => {
                           type="password"
                           placeholder="Confirm Password"
                           {...field}
-                          className="dark:border-gray-700 dark:bg-gray-800 dark:text-white bg-white "
+                          className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                         />
                       </FormControl>
                       <FormMessage className="text-xs dark:text-red-400" />
@@ -355,7 +354,7 @@ const AddUserForm = () => {
                           type="email"
                           placeholder="Type User E-mail"
                           {...field}
-                          className="dark:border-gray-700 dark:bg-gray-800 dark:text-white bg-white "
+                          className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                         />
                       </FormControl>
                       <FormMessage className="text-xs dark:text-red-400" />
@@ -374,7 +373,7 @@ const AddUserForm = () => {
                         <Checkbox
                           checked={field.value}
                           onCheckedChange={field.onChange}
-                          className="data-[state=checked]:bg-blue-500 data-[state=checked]:text-white dark:border-gray-600 border-blue-600"
+                          className="border-blue-600 data-[state=checked]:bg-blue-500 data-[state=checked]:text-white dark:border-gray-600"
                         />
                       </FormControl>
                       <div className="space-y-1 leading-none">
@@ -390,12 +389,12 @@ const AddUserForm = () => {
                   control={form.control}
                   name="mustChangePassword"
                   render={({ field }) => (
-                    <FormItem className="flex flex-row space-x-3 space-y-0 items-center">
+                    <FormItem className="flex flex-row items-center space-x-3 space-y-0">
                       <FormControl>
                         <Checkbox
                           checked={field.value}
                           onCheckedChange={field.onChange}
-                          className="data-[state=checked]:bg-blue-500 data-[state=checked]:text-white dark:border-gray-600 border-blue-600"
+                          className="border-blue-600 data-[state=checked]:bg-blue-500 data-[state=checked]:text-white dark:border-gray-600"
                         />
                       </FormControl>
                       <div className="space-y-1 leading-none">

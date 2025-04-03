@@ -17,7 +17,7 @@ function ReportMetrics() {
     <div className="*:data-[slot=card]:shadow-xs grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card md:grid-cols-2 lg:px-6 xl:grid-cols-4">
       <TotalUsersCard />
       <TotalReportsCard />
-      <Card className="@container/card">
+      <Card className="@container/card dark:bg-slate-900">
         <CardHeader className="relative">
           <CardDescription>Active Accounts</CardDescription>
           <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
@@ -37,7 +37,7 @@ function ReportMetrics() {
           <div className="text-muted-foreground">Engagement exceed targets</div>
         </CardFooter>
       </Card>
-      <Card className="@container/card">
+      <Card className="@container/card dark:bg-slate-900">
         <CardHeader className="relative">
           <CardDescription>Growth Rate</CardDescription>
           <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
