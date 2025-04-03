@@ -2,10 +2,9 @@
 
 import type { VariantProps } from "class-variance-authority";
 import * as React from "react";
-import { ViewVerticalIcon } from "@radix-ui/react-icons";
 import { Slot } from "@radix-ui/react-slot";
 import { cva } from "class-variance-authority";
-
+import { PanelLeftClose } from "lucide-react";
 import { cn } from ".";
 import { useIsMobile } from "../hooks/use-mobile";
 import { Button } from "./button";
@@ -297,7 +296,7 @@ const SidebarTrigger = React.forwardRef<
       }}
       {...props}
     >
-      <ViewVerticalIcon />
+      <PanelLeftClose />
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   );

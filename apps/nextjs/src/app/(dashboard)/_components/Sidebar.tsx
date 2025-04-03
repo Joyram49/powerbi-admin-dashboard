@@ -1,4 +1,5 @@
 "use client";
+
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -15,19 +16,9 @@ import {
   Users,
 } from "lucide-react";
 
-import { Sidebar } from "@acme/ui/sidebar";
+import { Sidebar, SidebarTrigger } from "@acme/ui/sidebar";
 
 import { api } from "~/trpc/react";
-
-// Animation Variants
-// const sidebarVariants = {
-//   hidden: { x: -250, opacity: 0 },
-//   visible: {
-//     x: 0,
-//     opacity: 1,
-//     transition: { duration: 0.5, ease: "easeInOut" },
-//   },
-// };
 
 const navigationItems = {
   superAdmin: [
@@ -116,11 +107,16 @@ export default function AppSidebar() {
 
   return (
     <Sidebar className="hidden w-full max-w-64 flex-col bg-slate-900 text-white dark:bg-slate-800 lg:flex">
-      <div className="flex h-16 items-center border-b border-slate-800 px-4">
-        <BarChart3 className="h-6 w-6 text-blue-500" />
-        <span className="ml-2 text-xl font-bold">JOC Analytics</span>
+      <div className="flex h-16 items-center justify-between border-b border-slate-800 bg-slate-900 px-4">
+        <div className="flex items-center">
+          <BarChart3 className="h-6 w-6 text-blue-500" />
+          <span className="ml-2 text-xl font-bold text-white">
+            JOC Analytics
+          </span>
+        </div>
+        <SidebarTrigger className="size-7 p-1 !text-white hover:bg-slate-800" />
       </div>
-      <nav className="flex-1 overflow-y-auto py-4">
+      <nav className="flex-1 overflow-y-auto bg-slate-900 py-4">
         {items.map((item, index) => (
           <Link
             key={index}
