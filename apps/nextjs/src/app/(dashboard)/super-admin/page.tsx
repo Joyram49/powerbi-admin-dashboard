@@ -8,7 +8,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Plus,
+
   Search,
 } from "lucide-react";
 

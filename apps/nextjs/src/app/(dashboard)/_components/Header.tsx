@@ -42,10 +42,7 @@ export default function Header() {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              <Link
-                href="/admin/users/add"
-                className="flex items-center"
-              >
+              <Link href="/admin/users/add" className="flex items-center">
                 <Plus className="mr-2 h-4 w-4" />
                 Add User
               </Link>

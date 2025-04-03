@@ -45,7 +45,28 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse;
   }
 
-  // Scenario 2: Redirect to login if not authenticated and trying to access private routes
+  // Scenario 2: Always redirect to login if accessing root path and not authenticated
+  if (pathName === "/" && !user) {
+    const url = request.nextUrl.clone();
+    url.pathname = LOGIN;
+    return NextResponse.redirect(url);
+  }
+
+  // Scenario 3: Redirect to role-specific route if accessing root path and authenticated
+  if (pathName === "/" && user && userRole) {
+    const url = request.nextUrl.clone();
+    url.pathname = ROLE_ROUTES[userRole as keyof typeof ROLE_ROUTES] || LOGIN;
+    return NextResponse.redirect(url);
+  }
+
+  // Scenario 4: Redirect to login if user role is undefined/null
+  if (user && (!userRole || userRole.trim() === "")) {
+    const url = request.nextUrl.clone();
+    url.pathname = LOGIN;
+    return NextResponse.redirect(url);
+  }
+
+  // Scenario 5: Redirect to login if not authenticated and trying to access private routes
   const isPrivateRoute = PRIVATE_ROUTES.some((route) =>
     pathName.startsWith(route),
   );
@@ -55,21 +76,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Scenario 3: Redirect to login if user role is undefined/null
-  if (user && (!userRole || userRole.trim() === "")) {
-    const url = request.nextUrl.clone();
-    url.pathname = LOGIN;
-    return NextResponse.redirect(url);
-  }
-
-  // Scenario 4: Role-based redirection after login
-  if (user && pathName === "/") {
-    const url = request.nextUrl.clone();
-    url.pathname = ROLE_ROUTES[userRole as keyof typeof ROLE_ROUTES] || "/";
-    return NextResponse.redirect(url);
-  }
-
-  // Scenario 5: Prevent access to routes not matching user's role
+  // Scenario 6: Prevent access to routes not matching user's role
   if (user && userRole) {
     const isAuthorizedRoute = Object.entries(ROLE_ROUTES).some(
       ([role, routePrefix]) =>
@@ -78,7 +85,7 @@ export async function updateSession(request: NextRequest) {
 
     if (!isAuthorizedRoute) {
       const url = request.nextUrl.clone();
-      url.pathname = ROLE_ROUTES[userRole as keyof typeof ROLE_ROUTES] || "/";
+      url.pathname = ROLE_ROUTES[userRole as keyof typeof ROLE_ROUTES] || LOGIN;
       return NextResponse.redirect(url);
     }
   }
