@@ -1,6 +1,7 @@
 "use client";
 
-import type { ColumnDef } from "@tanstack/react-table";
+import type { ColumnDef, Row, Table } from "@tanstack/react-table";
+import React from "react";
 import { ArrowUpDown, MoreHorizontal } from "lucide-react";
 
 import { Button } from "@acme/ui/button";
@@ -14,29 +15,18 @@ import {
   DropdownMenuTrigger,
 } from "@acme/ui/dropdown-menu";
 
-interface Admin {
-  id: string;
-  userName: string;
-}
-
-interface Company {
-  companyName: string;
-  address: string;
-  phone: string;
-  email: string;
-  dateJoined: string;
-  status: "active" | "inactive" | "suspended" | "pending";
-  lastActivity: string | null;
-  modifiedBy: string;
-  employeeCount: number;
-  reportCount: number;
-  admin: Admin;
-}
+// Status color mapping for better UI
+const STATUS_COLORS: Record<CompanyStatus, string> = {
+  active: "text-green-600",
+  inactive: "text-gray-500",
+  suspended: "text-red-600",
+  pending: "text-yellow-600",
+};
 
 export const columns: ColumnDef<Company>[] = [
   {
     id: "select",
-    header: ({ table }) => (
+    header: ({ table }: { table: Table<Company> }) => (
       <Checkbox
         checked={
           table.getIsAllPageRowsSelected() ||
@@ -47,7 +37,7 @@ export const columns: ColumnDef<Company>[] = [
         className="border border-slate-800 checked:border-blue-500 checked:bg-white dark:border-slate-50 dark:checked:bg-slate-800"
       />
     ),
-    cell: ({ row }) => (
+    cell: ({ row }: { row: Row<Company> }) => (
       <Checkbox
         checked={row.getIsSelected()}
         onCheckedChange={(value) => row.toggleSelected(!!value)}
@@ -62,7 +52,7 @@ export const columns: ColumnDef<Company>[] = [
     accessorKey: "id",
     header: () => <div className="text-left font-medium">Company ID</div>,
     cell: ({ row }) => {
-      const { id }: { id: string } = row.original;
+      const { id } = row.original;
       return (
         <div className="text-left">
           <span className="hidden xl:inline">{id}</span>
@@ -86,7 +76,9 @@ export const columns: ColumnDef<Company>[] = [
       );
     },
     cell: ({ row }) => (
-      <div className="text-center">{row.original.companyName}</div>
+      <div className="text-center font-semibold">
+        {row.original.companyName}
+      </div>
     ),
   },
   {
@@ -112,13 +104,42 @@ export const columns: ColumnDef<Company>[] = [
   },
   {
     accessorKey: "dateJoined",
-    header: () => <div className="text-center font-medium">Created At</div>,
-    cell: ({ row }) => new Date(row.original.dateJoined).toLocaleDateString(),
+    header: ({ column }) => (
+      <Button
+        variant="ghost"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        className="text-center font-medium"
+      >
+        Created At
+        <ArrowUpDown className="ml-2 h-4 w-4" />
+      </Button>
+    ),
+    cell: ({ row }) => (
+      <div className="text-center">
+        {new Date(row.original.dateJoined).toLocaleDateString()}
+      </div>
+    ),
   },
   {
     accessorKey: "status",
-    header: () => <div className="text-center font-medium">Status</div>,
-    cell: ({ row }) => <div className="text-center">{row.original.status}</div>,
+    header: ({ column }) => (
+      <Button
+        variant="ghost"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        className="text-center font-medium"
+      >
+        Status
+        <ArrowUpDown className="ml-2 h-4 w-4" />
+      </Button>
+    ),
+    cell: ({ row }) => {
+      const status = row.original.status;
+      return (
+        <div className={`text-center font-semibold ${STATUS_COLORS[status]}`}>
+          {status.charAt(0).toUpperCase() + status.slice(1)}
+        </div>
+      );
+    },
   },
   {
     id: "actions",
@@ -136,16 +157,22 @@ export const columns: ColumnDef<Company>[] = [
           <DropdownMenuContent align="end" className="dark:bg-slate-800">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuItem
+              onClick={() => navigator.clipboard.writeText(company.id)}
+              className="cursor-pointer hover:dark:bg-slate-900"
+            >
+              Copy Company ID
+            </DropdownMenuItem>
+            <DropdownMenuItem
               onClick={() => navigator.clipboard.writeText(company.admin.id)}
-              className="hover:dark:bg-slate-900"
+              className="cursor-pointer hover:dark:bg-slate-900"
             >
               Copy Company Admin ID
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="hover:dark:bg-slate-900">
-              View customer
+            <DropdownMenuItem className="cursor-pointer hover:dark:bg-slate-900">
+              View company details
             </DropdownMenuItem>
-            <DropdownMenuItem className="hover:dark:bg-slate-900">
+            <DropdownMenuItem className="cursor-pointer hover:dark:bg-slate-900">
               View payment details
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -154,3 +181,5 @@ export const columns: ColumnDef<Company>[] = [
     },
   },
 ];
+
+export default columns;
