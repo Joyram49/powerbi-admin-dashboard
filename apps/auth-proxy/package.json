@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@auth/core": "0.34.2"
+    "@auth/core": "0.37.2",
+    "jquery": "^3.7.1"
   },
   "devDependencies": {
     "@acme/eslint-config": "workspace:*",

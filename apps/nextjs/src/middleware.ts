@@ -1,11 +1,13 @@
-export { auth as middleware } from "@acme/auth";
+import type { NextRequest } from "next/server";
 
-// Or like this if you need to do something here.
-// export default auth((req) => {
-//   console.log(req.auth) //  { session: { user: { ... } } }
-// })
+import { updateSession } from "./utils/supabase/middleware";
 
-// Read more: https://nextjs.org/docs/app/building-your-application/routing/middleware#matcher
+export async function middleware(request: NextRequest) {
+  return await updateSession(request);
+}
+
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$|api/trpc/.*|api/auth/.*).*)",
+  ],
 };

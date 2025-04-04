@@ -1,14 +1,24 @@
-import type { Config } from "drizzle-kit";
+import { defineConfig } from "drizzle-kit";
 
 if (!process.env.POSTGRES_URL) {
   throw new Error("Missing POSTGRES_URL");
 }
 
-const nonPoolingUrl = process.env.POSTGRES_URL.replace(":6543", ":5432");
-
-export default {
-  schema: "./src/schema.ts",
+export default defineConfig({
+  schema: [
+    "./src/schema/company.ts",
+    "./src/schema/user.ts",
+    "./src/schema/post.ts",
+    "./src/schema/login-attempts.ts",
+    "./src/schema/report.ts",
+    "./src/schema/userReports.ts",
+    "./src/schema/userSessions.ts",
+    "./src/schema/report-metrics.ts",
+    "./src/schema/mouse-activity.ts",
+  ],
+  out: "./migrations",
   dialect: "postgresql",
-  dbCredentials: { url: nonPoolingUrl },
-  casing: "snake_case",
-} satisfies Config;
+  dbCredentials: {
+    url: process.env.POSTGRES_URL,
+  },
+});

@@ -1,40 +1,37 @@
 import type { TRPCRouterRecord } from "@trpc/server";
+import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 
-import { desc, eq } from "@acme/db";
-import { CreatePostSchema, Post } from "@acme/db/schema";
+import type { Post } from "@acme/db";
+import { createPostSchema, posts } from "@acme/db";
 
 import { protectedProcedure, publicProcedure } from "../trpc";
 
 export const postRouter = {
-  all: publicProcedure.query(({ ctx }) => {
-    // return ctx.db.select().from(schema.post).orderBy(desc(schema.post.id));
-    return ctx.db.query.Post.findMany({
-      orderBy: desc(Post.id),
-      limit: 10,
-    });
+  all: publicProcedure.query(async ({ ctx }): Promise<Post[]> => {
+    return ctx.db.select().from(posts).orderBy(desc(posts.id)).limit(10);
   }),
 
   byId: publicProcedure
     .input(z.object({ id: z.string() }))
-    .query(({ ctx, input }) => {
-      // return ctx.db
-      //   .select()
-      //   .from(schema.post)
-      //   .where(eq(schema.post.id, input.id));
-
-      return ctx.db.query.Post.findFirst({
-        where: eq(Post.id, input.id),
-      });
+    .query(async ({ ctx, input }): Promise<Post | null> => {
+      const result = await ctx.db
+        .select()
+        .from(posts)
+        .where(eq(posts.id, input.id))
+        .limit(1);
+      return result[0] ?? null;
     }),
 
   create: protectedProcedure
-    .input(CreatePostSchema)
-    .mutation(({ ctx, input }) => {
-      return ctx.db.insert(Post).values(input);
+    .input(createPostSchema)
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.insert(posts).values(input).returning();
     }),
 
-  delete: protectedProcedure.input(z.string()).mutation(({ ctx, input }) => {
-    return ctx.db.delete(Post).where(eq(Post.id, input));
-  }),
+  delete: protectedProcedure
+    .input(z.string())
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.delete(posts).where(eq(posts.id, input)).returning();
+    }),
 } satisfies TRPCRouterRecord;

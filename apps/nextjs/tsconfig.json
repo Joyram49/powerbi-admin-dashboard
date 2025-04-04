@@ -5,7 +5,9 @@
     "jsx": "preserve",
     "baseUrl": ".",
     "paths": {
-      "~/*": ["./src/*"]
+      "~/*": ["./src/*"],
+      "@acme/auth": ["packages/auth/src/index.ts"],
+      "@acme/api": ["packages/api/src/index.ts"]
     },
     "plugins": [{ "name": "next" }],
     "module": "esnext"

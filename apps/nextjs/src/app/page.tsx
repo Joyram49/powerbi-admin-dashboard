@@ -1,44 +1,49 @@
-import { Suspense } from "react";
+import { api } from "~/trpc/server";
 
-import { api, HydrateClient } from "~/trpc/server";
-import { AuthShowcase } from "./_components/auth-showcase";
-import {
-  CreatePostForm,
-  PostCardSkeleton,
-  PostList,
-} from "./_components/posts";
+export default async function HomePage() {
+  // const supabase = createClientServer();
+  // const user = await supabase.auth.getUser();
+  // console.log(">>> user information", user);
 
-export const runtime = "edge";
+  // const user = await api.user.getUserById({
+  //   userId: "3813bcaf-99d1-4852-9ebf-fdb456c2aadf",
+  // });
 
-export default function HomePage() {
-  // You can await this here if you don't want to show Suspense fallback below
-  void api.post.all.prefetch();
+  // console.log(">>> user from home page", user);
+
+  // const users: User[] = await api.user.getAllUsers();
+  // console.log(">>> all users ", users);
+
+  // const adminUsers = await api.user.getAdminUsers();
+  // console.log(">>> admin users", adminUsers);
+
+  // const activeUsers = await api.user.getAllActiveUsers();
+  // console.log(">>> active users", activeUsers);
+
+  const reports = await api.report.getAllReports({
+    searched: "",
+    limit: 5,
+    page: 2,
+  });
+  console.log(">>> reports", reports);
+
+  // const adminReports = await api.report.getAllReportsAdmin();
+  // console.log(">>> admin reports", adminReports);
+
+  // const userReports = await api.report.getAllReportsUser();
+  // console.log(">>> user reports", userReports);
+
+  // const allCompanies = await api.company.getAllActiveCompanies({
+  //   limit: 10,
+  //   page: 1,
+  // });
+  // console.log(">>> all active companies", allCompanies);
 
   return (
-    <HydrateClient>
-      <main className="container h-screen py-16">
-        <div className="flex flex-col items-center justify-center gap-4">
-          <h1 className="text-5xl font-extrabold tracking-tight sm:text-[5rem]">
-            Create <span className="text-primary">T3</span> Turbo
-          </h1>
-          <AuthShowcase />
-
-          <CreatePostForm />
-          <div className="w-full max-w-2xl overflow-y-scroll">
-            <Suspense
-              fallback={
-                <div className="flex w-full flex-col gap-4">
-                  <PostCardSkeleton />
-                  <PostCardSkeleton />
-                  <PostCardSkeleton />
-                </div>
-              }
-            >
-              <PostList />
-            </Suspense>
-          </div>
-        </div>
-      </main>
-    </HydrateClient>
+    <main className="container h-screen px-4 py-0">
+      <div className="flex h-full flex-col items-center justify-center">
+        <div>Welcome to Home page.</div>
+      </div>
+    </main>
   );
 }
