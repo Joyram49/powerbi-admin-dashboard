@@ -78,6 +78,7 @@ export function ResetPasswordForm() {
     try {
       await updatePassword.mutateAsync({
         password: data.password,
+        email: "joyram2020@gmail.com",
       });
     } catch (err) {
       // Error is handled in the mutation callbacks

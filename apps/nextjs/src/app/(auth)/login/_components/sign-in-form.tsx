@@ -43,8 +43,10 @@ export function SignInForm() {
   });
 
   const router = useRouter();
+  const utils = api.useUtils();
 
   const signIn = api.auth.signIn.useMutation();
+  const createSession = api.session.createOrUpdateSession.useMutation();
 
   function onSubmit(data: z.infer<typeof FormSchema>) {
     signIn.mutate(data, {
@@ -53,8 +55,19 @@ export function SignInForm() {
       },
       onSuccess: (result) => {
         console.log("signIn success:", result);
-        form.reset();
-        router.push("/dashboard");
+        createSession
+          .mutateAsync()
+          .then(async () => {
+            console.log("Session created/updated successfully");
+            await utils.session.getSessionByUserId.invalidate();
+
+            form.reset();
+            router.push("/dashboard");
+          })
+          .catch((error) => {
+            console.error("Error creating/updating session:", error);
+            alert("Session creation failed. Please try again.");
+          });
       },
     });
   }

@@ -1,6 +1,4 @@
-import { api } from "~/trpc/server";
-
-export default async function HomePage() {
+export default function HomePage() {
   // const supabase = createClientServer();
   // const user = await supabase.auth.getUser();
   // console.log(">>> user information", user);
@@ -20,12 +18,12 @@ export default async function HomePage() {
   // const activeUsers = await api.user.getAllActiveUsers();
   // console.log(">>> active users", activeUsers);
 
-  const reports = await api.report.getAllReports({
-    searched: "",
-    limit: 5,
-    page: 2,
-  });
-  console.log(">>> reports", reports);
+  // const reports = await api.report.getAllReports({
+  //   searched: "",
+  //   limit: 5,
+  //   page: 2,
+  // });
+  // console.log(">>> reports", reports);
 
   // const adminReports = await api.report.getAllReportsAdmin();
   // console.log(">>> admin reports", adminReports);

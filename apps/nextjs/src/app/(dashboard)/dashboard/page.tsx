@@ -3,6 +3,9 @@ import { Suspense } from "react";
 import { SignOutButton } from "./_components/SignOutButton";
 
 export default function DashboardPage() {
+  // const totalActiveTime = await api.session.getTotalActiveTime();
+  // const formattedTime = formatDuration(totalActiveTime.data);
+  // console.log(formattedTime);
   return (
     <div className="container mx-auto p-4">
       <div className="mb-6 flex items-center justify-between">
