@@ -1,21 +1,13 @@
 "use client";
 
-import type {
-  ColumnDef,
-  ColumnFiltersState,
-  SortingState,
-  VisibilityState,
-} from "@tanstack/react-table";
+import type { ColumnDef, VisibilityState } from "@tanstack/react-table";
 import * as React from "react";
 import {
   flexRender,
   getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { SlidersHorizontal } from "lucide-react";
+import { Loader2, SlidersHorizontal } from "lucide-react";
 
 import { Button } from "@acme/ui/button";
 import {
@@ -34,42 +26,69 @@ import {
   TableRow,
 } from "@acme/ui/table";
 
+import CompanyModalButton from "../../_components/CompanyModal";
 import { DataTablePagination } from "./data-table-pagination";
 
-interface DataTableProps<TData, TValue> {
+interface DataTableProps<TData extends Company, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
+  pagination: {
+    pageCount: number;
+    page: number;
+    onPageChange: (page: number) => void;
+  };
+  sorting: {
+    sortBy: "companyName" | "dateJoined";
+    onSortChange: (sortBy: "companyName" | "dateJoined") => void;
+  };
+  search: {
+    value: string;
+    onChange: (value: string) => void;
+  };
+  isLoading?: boolean;
 }
 
-export function DataTable<TData, TValue>({
+export function DataTable<TData extends Company, TValue>({
   columns,
-  data,
+  data = [],
+  pagination,
+  sorting,
+  search,
+  isLoading = false,
 }: DataTableProps<TData, TValue>) {
-  const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    [],
-  );
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
 
+  // We don't need client-side sorting and filtering anymore
   const table = useReactTable({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    onSortingChange: setSorting,
-    getSortedRowModel: getSortedRowModel(),
-    onColumnFiltersChange: setColumnFilters,
-    getFilteredRowModel: getFilteredRowModel(),
-    onColumnVisibilityChange: setColumnVisibility,
-    onRowSelectionChange: setRowSelection,
+    // Using manual pagination since we'll handle it server-side
+    manualPagination: true,
+    pageCount: pagination.pageCount,
     state: {
-      sorting,
-      columnFilters,
+      pagination: {
+        pageIndex: pagination.page - 1, // TanStack uses 0-indexed pages
+        pageSize: 10,
+      },
       columnVisibility,
       rowSelection,
     },
+    meta: {
+      sorting,
+    },
+    onPaginationChange: (updater) => {
+      // Only manage page selection server-side
+      const newState =
+        updater instanceof Function
+          ? updater({ pageIndex: pagination.page - 1, pageSize: 10 })
+          : updater;
+      pagination.onPageChange(newState.pageIndex + 1);
+    },
+    onColumnVisibilityChange: setColumnVisibility,
+    onRowSelectionChange: setRowSelection,
   });
 
   return (
@@ -77,30 +96,29 @@ export function DataTable<TData, TValue>({
       <div className="flex w-full items-center justify-between">
         <div className="flex items-center py-4">
           <Input
-            placeholder="search for company by name..."
-            value={table.getColumn("companyName")?.getFilterValue() as string}
-            onChange={(event) =>
-              table.getColumn("companyName")?.setFilterValue(event.target.value)
-            }
-            className="max-w-sm"
+            placeholder="Search for company by name..."
+            value={search.value}
+            onChange={(event) => search.onChange(event.target.value)}
+            className="max-w-sm bg-white"
           />
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              className="ml-auto flex items-center gap-x-2 dark:bg-slate-900"
-            >
-              <SlidersHorizontal className="h-4 w-4" />
-              <span>Columns</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="dark:bg-slate-800">
-            {table
-              .getAllColumns()
-              .filter((column) => column.getCanHide())
-              .map((column) => {
-                return (
+        <div className="flex items-center gap-4">
+          <CompanyModalButton />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                className="flex items-center gap-x-2 dark:bg-slate-900"
+              >
+                <SlidersHorizontal className="h-4 w-4" />
+                <span>Columns</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="dark:bg-slate-800">
+              {table
+                .getAllColumns()
+                .filter((column) => column.getCanHide())
+                .map((column) => (
                   <DropdownMenuCheckboxItem
                     key={column.id}
                     className="capitalize hover:dark:bg-slate-900"
@@ -111,37 +129,46 @@ export function DataTable<TData, TValue>({
                   >
                     {column.id}
                   </DropdownMenuCheckboxItem>
-                );
-              })}
-          </DropdownMenuContent>
-        </DropdownMenu>
+                ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
       <div className="rounded-md border-[1px] border-slate-900/10 drop-shadow-sm dark:border-white/10">
         <Table className="rounded-md hover:bg-transparent">
           <TableHeader className="bg-white hover:bg-transparent dark:bg-slate-800">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  return (
-                    <TableHead key={header.id}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext(),
-                          )}
-                    </TableHead>
-                  );
-                })}
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id}>
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
+                  </TableHead>
+                ))}
               </TableRow>
             ))}
           </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows.length ? (
+          <TableBody className="bg-gray-50 hover:bg-gray-200">
+            {isLoading ? (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  <div className="flex justify-center">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
+                  data-state={row.getIsSelected() ? "selected" : undefined}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

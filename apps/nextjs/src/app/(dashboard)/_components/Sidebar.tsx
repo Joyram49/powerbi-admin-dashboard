@@ -3,10 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Activity,
   BarChart3,
-  BriefcaseBusiness,
-  Building,
   FileText,
   Home,
   KeyRound,
@@ -29,11 +26,7 @@ const navigationItems = {
       icon: <Home className="mr-3 h-5 w-5" />,
       label: "Home",
     },
-    // {
-    //   href: "/super-admin/companies/add",
-    //   icon: <BriefcaseBusiness className="mr-3 h-5 w-5" />,
-    //   label: "Add Company",
-    // },
+
     {
       href: "/super-admin/users",
       icon: <Users className="mr-3 h-5 w-5" />,
@@ -79,7 +72,7 @@ const navigationItems = {
       label: "Home",
     },
     {
-      href: "/user/reports",
+      href: "/report",
       icon: <FileText className="mr-3 h-5 w-5" />,
       label: "Reports",
     },
@@ -133,6 +126,13 @@ export default function AppSidebar() {
             <span>{item.label}</span>
           </Link>
         ))}
+        <Link
+          href="/report"
+          className={`flex items-center px-4 py-2 text-slate-300 hover:bg-slate-800 hover:text-white`}
+        >
+          <FileText className="mr-3 h-5 w-5" />
+          <span>Reports</span>
+        </Link>
         <Link
           href="/forgot-password"
           className={`flex items-center px-4 py-2 text-slate-300 hover:bg-slate-800 hover:text-white`}

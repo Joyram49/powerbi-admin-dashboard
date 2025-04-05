@@ -15,8 +15,10 @@ import {
   DropdownMenuTrigger,
 } from "@acme/ui/dropdown-menu";
 
+import { CompanyActions } from "../../_components/CompanyActions";
+
 // Status color mapping for better UI
-const STATUS_COLORS: Record<CompanyStatus, string> = {
+const STATUS_COLORS = {
   active: "text-green-600",
   inactive: "text-gray-500",
   suspended: "text-red-600",
@@ -63,11 +65,20 @@ export const columns: ColumnDef<Company>[] = [
   },
   {
     accessorKey: "companyName",
-    header: ({ column }) => {
+    header: ({ column, table }) => {
+      const { sorting } = table.options.meta ?? {};
       return (
         <Button
           variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          onClick={() => {
+            // If sorting is available, use it
+            if (sorting.onSortChange) {
+              sorting.onSortChange("companyName");
+            } else {
+              // Fallback to the default column sorting
+              column.toggleSorting(column.getIsSorted() === "asc");
+            }
+          }}
           className="text-center font-medium"
         >
           Company Name
@@ -104,16 +115,27 @@ export const columns: ColumnDef<Company>[] = [
   },
   {
     accessorKey: "dateJoined",
-    header: ({ column }) => (
-      <Button
-        variant="ghost"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        className="text-center font-medium"
-      >
-        Created At
-        <ArrowUpDown className="ml-2 h-4 w-4" />
-      </Button>
-    ),
+    header: ({ column, table }) => {
+      const { sorting } = table.options.meta ?? {};
+      return (
+        <Button
+          variant="ghost"
+          className="text-center font-medium"
+          onClick={() => {
+            // If sorting is available, use it
+            if (sorting.onSortChange) {
+              sorting.onSortChange("dateJoined");
+            } else {
+              // Fallback to the default column sorting
+              column.toggleSorting(column.getIsSorted() === "asc");
+            }
+          }}
+        >
+          Created At
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      );
+    },
     cell: ({ row }) => (
       <div className="text-center">
         {new Date(row.original.dateJoined).toLocaleDateString()}
@@ -147,36 +169,39 @@ export const columns: ColumnDef<Company>[] = [
       const company = row.original;
 
       return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Open menu</span>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="dark:bg-slate-800">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(company.id)}
-              className="cursor-pointer hover:dark:bg-slate-900"
-            >
-              Copy Company ID
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(company.admin.id)}
-              className="cursor-pointer hover:dark:bg-slate-900"
-            >
-              Copy Company Admin ID
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer hover:dark:bg-slate-900">
-              View company details
-            </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer hover:dark:bg-slate-900">
-              View payment details
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        // <DropdownMenu>
+        //   <DropdownMenuTrigger asChild>
+        //     <Button variant="ghost" className="h-8 w-8 p-0">
+        //       <span className="sr-only">Open menu</span>
+        //       <MoreHorizontal className="h-4 w-4" />
+        //     </Button>
+        //   </DropdownMenuTrigger>
+        //   <DropdownMenuContent align="end" className="dark:bg-slate-800">
+        //     <DropdownMenuLabel>Actions</DropdownMenuLabel>
+        //     <DropdownMenuItem
+        //       onClick={() => navigator.clipboard.writeText(company.id)}
+        //       className="cursor-pointer hover:dark:bg-slate-900"
+        //     >
+        //       Copy Company ID
+        //     </DropdownMenuItem>
+        //     <DropdownMenuItem
+        //       onClick={() => navigator.clipboard.writeText(company.admin.id)}
+        //       className="cursor-pointer hover:dark:bg-slate-900"
+        //     >
+        //       Copy Company Admin ID
+        //     </DropdownMenuItem>
+        //     <DropdownMenuSeparator />
+        //     <DropdownMenuItem className="cursor-pointer hover:dark:bg-slate-900">
+        //       View company details
+        //     </DropdownMenuItem>
+        //     <DropdownMenuItem className="cursor-pointer hover:dark:bg-slate-900">
+        //       View payment details
+        //     </DropdownMenuItem>
+        //   </DropdownMenuContent>
+        // </DropdownMenu>
+        <>
+          <CompanyActions company={company} />
+        </>
       );
     },
   },

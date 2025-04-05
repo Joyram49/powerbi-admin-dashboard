@@ -1,6 +1,6 @@
-import { createServerClient } from "@supabase/ssr";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
 
 import { env } from "~/env";
 import { LOGIN, PRIVATE_ROUTES, PUBLIC_ROUTES, ROLE_ROUTES } from "../routes";
@@ -78,12 +78,17 @@ export async function updateSession(request: NextRequest) {
 
   // Scenario 6: Prevent access to routes not matching user's role
   if (user && userRole) {
+    const isPrivateRoute = PRIVATE_ROUTES.some((route) =>
+      pathName.startsWith(route),
+    );
+
     const isAuthorizedRoute = Object.entries(ROLE_ROUTES).some(
       ([role, routePrefix]) =>
         role === userRole && pathName.startsWith(routePrefix as string),
     );
 
-    if (!isAuthorizedRoute) {
+    // Only redirect if it's not a private route AND not an authorized route
+    if (!isPrivateRoute && !isAuthorizedRoute) {
       const url = request.nextUrl.clone();
       url.pathname = ROLE_ROUTES[userRole as keyof typeof ROLE_ROUTES] || LOGIN;
       return NextResponse.redirect(url);

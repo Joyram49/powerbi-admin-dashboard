@@ -53,7 +53,6 @@ const formSchema = z.object({
       "Invalid phone number format",
     ),
   contactEmail: z.string().email("Valid email is required"),
-  usersAllowed: z.number().int().min(1, "At least 1 user required"),
   companyAdmin: z.string().optional(),
 });
 
@@ -105,13 +104,28 @@ const buttonVariants = {
   tap: { scale: 0.97 },
 };
 
-const CompanyAdminForm = () => {
+const CompanyAdminForm = ({
+  onClose,
+  initialData,
+}: {
+  onClose?: () => void;
+  initialData?: Company;
+}) => {
   const [showAdminForm, setShowAdminForm] = useState(false);
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [formStep, setFormStep] = useState(0);
-  const [existingAdmins, setExistingAdmins] = useState([]);
+  const [existingAdmins, setExistingAdmins] = useState<User[]>([]);
   const router = useRouter();
+
+  const { data: admins } = api.user.getAdminUsers.useQuery();
+
+  useEffect(() => {
+    if (admins) {
+      setExistingAdmins(admins.data);
+    }
+  }, [admins]);
+
   // Handle hydration issues with theme
   useEffect(() => {
     setMounted(true);
@@ -121,12 +135,11 @@ const CompanyAdminForm = () => {
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      companyName: "",
-      companyAddress: "",
-      contactPhone: "",
-      contactEmail: "",
-      usersAllowed: 10,
-      companyAdmin: "",
+      companyName: initialData?.companyName ?? "",
+      companyAddress: initialData?.address ?? "",
+      contactPhone: initialData?.phone ?? "",
+      contactEmail: initialData?.email ?? "",
+      companyAdmin: initialData?.admin.id ?? "",
     },
     mode: "onChange",
   });
@@ -139,9 +152,27 @@ const CompanyAdminForm = () => {
       email: "",
       password: "",
       confirmPassword: "",
-      role: "admin" as const,
+      role: "admin",
     },
     mode: "onChange",
+  });
+
+  // Add an update mutation
+  const updateCompanyMutation = api.company.updateCompany.useMutation({
+    onSuccess: (data) => {
+      toast.success("Company Updated", {
+        description: `${data.data?.companyName} has been successfully updated.`,
+      });
+      form.reset();
+      router.refresh();
+      if (onClose) onClose();
+    },
+    onError: (error) => {
+      toast.error("Update Failed", {
+        description: error.message || "Unable to update company",
+      });
+      setFormSubmitted(false);
+    },
   });
 
   // Create company admin mutation
@@ -155,8 +186,9 @@ const CompanyAdminForm = () => {
         email: form.getValues("contactEmail"),
         companyAdminId: adminUser.user?.id ?? "", // Ensure we pass a valid UUID
       });
-      router.push("/super-admin/companies");
+
       router.refresh();
+      if (onClose) onClose(); // Close modal on success
     },
     onError: (error) => {
       setFormSubmitted(false);
@@ -175,6 +207,8 @@ const CompanyAdminForm = () => {
       });
       form.reset();
       setFormStep(0);
+      router.refresh();
+      if (onClose) setTimeout(onClose, 1500); // Close modal after showing success toast
     },
     onError: (error) => {
       setFormSubmitted(false);
@@ -184,31 +218,55 @@ const CompanyAdminForm = () => {
     },
   });
 
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
+  const onSubmit = (values: Company) => {
     setFormSubmitted(true);
 
     try {
-      // Create company admin user first
-      createCompanyAdminMutation.mutate({
-        userName: values.companyName.toLowerCase().replace(/\s+/g, ""),
-        email: values.contactEmail,
-        password: adminForm.getValues("password"),
-        role: "admin",
-      });
+      if (initialData) {
+        // Update existing company
+        updateCompanyMutation.mutate({
+          companyId: initialData.id,
+          companyName: values.companyName,
+          address: values.address,
+          phone: values.phone,
+          email: values.email,
+          companyAdminId: values.admin.id || initialData.admin.id,
+        });
+      } else {
+        // For new company, we need admin information
+        if (values.admin.id) {
+          // If existing admin selected
+          createCompanyMutation.mutate({
+            companyName: values.companyName,
+            address: values.address,
+            phone: values.phone,
+            email: values.email,
+            companyAdminId: values.admin.id,
+          });
+        } else {
+          // Create new admin first
+          createCompanyAdminMutation.mutate({
+            userName: adminForm.getValues("userName"),
+            email: adminForm.getValues("email"),
+            password: adminForm.getValues("password"),
+            role: "admin",
+          });
+        }
+      }
     } catch (error) {
-      console.log(">>> create company error", error);
+      console.log(">>> create/update company error", error);
       setFormSubmitted(false);
       toast.error("Submission Error", {
-        description: "Failed to create company and admin",
+        description: "Failed to process company data",
       });
     }
   };
 
-  const onAdminSubmit = (values: z.infer<typeof adminFormSchema>) => {
+  const onAdminSubmit = (values: any) => {
     // Create a new admin user
     createCompanyAdminMutation.mutate({
       ...values,
-      role: "admin", // Ensure role is always admin for this form
+      role: "admin",
     });
 
     setShowAdminForm(false);
@@ -219,6 +277,7 @@ const CompanyAdminForm = () => {
       "companyName",
       "contactEmail",
       "contactPhone",
+      "companyAddress",
     ]);
 
     if (isValid) {
@@ -229,10 +288,9 @@ const CompanyAdminForm = () => {
   };
 
   if (!mounted) return null;
-
   return (
-    <div className="mx-auto max-w-4xl p-4 md:p-6">
-      <Card className="border bg-gray-100 dark:border-gray-800 dark:bg-gray-900">
+    <div className="mx-auto max-w-4xl p-2 sm:p-4 md:p-6">
+      <Card className="overflow-hidden border bg-gray-100 dark:border-gray-800 dark:bg-gray-900">
         <CardHeader className="border-b bg-gray-50 dark:border-gray-800 dark:bg-gray-900">
           <div className="flex items-center justify-between">
             <motion.div
@@ -241,7 +299,11 @@ const CompanyAdminForm = () => {
               transition={{ duration: 0.5 }}
             >
               <CardTitle className="text-xl font-bold sm:text-2xl">
-                {formStep === 0 ? "Add New Company" : "Contact Details"}
+                {initialData
+                  ? "Edit Company"
+                  : formStep === 0
+                    ? "Add New Company"
+                    : "Contact Details"}
               </CardTitle>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                 {formStep === 0
@@ -264,11 +326,11 @@ const CompanyAdminForm = () => {
           </div>
         </CardHeader>
 
-        <CardContent className="pt-6">
+        <CardContent className="p-4 sm:pt-6">
           <Form {...form}>
             <motion.form
               onSubmit={form.handleSubmit(onSubmit)}
-              className="space-y-5"
+              className="space-y-4 sm:space-y-5"
               variants={containerVariants}
               initial="hidden"
               animate="visible"
@@ -277,7 +339,7 @@ const CompanyAdminForm = () => {
                 <>
                   <motion.div
                     variants={itemVariants}
-                    className="grid grid-cols-1 gap-5 md:grid-cols-2"
+                    className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5"
                   >
                     <FormField
                       control={form.control}
@@ -298,36 +360,6 @@ const CompanyAdminForm = () => {
                         </FormItem>
                       )}
                     />
-
-                    <FormField
-                      control={form.control}
-                      name="usersAllowed"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm font-medium dark:text-gray-300">
-                            Users Allowed
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="1"
-                              {...field}
-                              onChange={(e) =>
-                                field.onChange(parseInt(e.target.value) || 0)
-                              }
-                              className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                            />
-                          </FormControl>
-                          <FormDescription className="text-xs text-gray-500 dark:text-gray-400">
-                            Maximum number of user accounts
-                          </FormDescription>
-                          <FormMessage className="text-xs dark:text-red-400" />
-                        </FormItem>
-                      )}
-                    />
-                  </motion.div>
-
-                  <motion.div variants={itemVariants}>
                     <FormField
                       control={form.control}
                       name="companyAddress"
@@ -349,7 +381,10 @@ const CompanyAdminForm = () => {
                     />
                   </motion.div>
 
-                  <motion.div variants={itemVariants}>
+                  <motion.div
+                    variants={itemVariants}
+                    className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5"
+                  >
                     <FormField
                       control={form.control}
                       name="contactEmail"
@@ -360,7 +395,8 @@ const CompanyAdminForm = () => {
                           </FormLabel>
                           <FormControl>
                             <Input
-                              placeholder="Enter contact person name"
+                              placeholder="Enter contact email"
+                              type="email"
                               {...field}
                               className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                             />
@@ -375,11 +411,11 @@ const CompanyAdminForm = () => {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-sm font-medium dark:text-gray-300">
-                            Primary Contact
+                            Phone Number
                           </FormLabel>
                           <FormControl>
                             <Input
-                              placeholder="Enter contact person name"
+                              placeholder="Enter phone number"
                               {...field}
                               className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                             />
@@ -394,84 +430,103 @@ const CompanyAdminForm = () => {
                     className="flex justify-end pt-2"
                     variants={itemVariants}
                   >
-                    <motion.div
-                      variants={buttonVariants}
-                      whileHover="hover"
-                      whileTap="tap"
-                    >
-                      <Button
-                        type="button"
-                        onClick={handleNextStep}
-                        className="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
+                    {initialData ? (
+                      <motion.div
+                        variants={buttonVariants}
+                        whileHover="hover"
+                        whileTap="tap"
                       >
-                        Continue
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="ml-1"
+                        <Button
+                          type="submit"
+                          className="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
+                          disabled={formSubmitted}
                         >
-                          <path d="M9 18l6-6-6-6" />
-                        </svg>
-                      </Button>
-                    </motion.div>
+                          {formSubmitted ? (
+                            <motion.div
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              className="flex items-center"
+                            >
+                              <svg
+                                className="mr-2 h-4 w-4 animate-spin text-white"
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                              >
+                                <circle
+                                  className="opacity-25"
+                                  cx="12"
+                                  cy="12"
+                                  r="10"
+                                  stroke="currentColor"
+                                  strokeWidth="4"
+                                ></circle>
+                                <path
+                                  className="opacity-75"
+                                  fill="currentColor"
+                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                ></path>
+                              </svg>
+                              Updating...
+                            </motion.div>
+                          ) : (
+                            <>
+                              Update Company
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="ml-1"
+                              >
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                <polyline points="7 3 7 8 15 8"></polyline>
+                              </svg>
+                            </>
+                          )}
+                        </Button>
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        variants={buttonVariants}
+                        whileHover="hover"
+                        whileTap="tap"
+                      >
+                        <Button
+                          type="button"
+                          onClick={handleNextStep}
+                          className="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
+                        >
+                          Continue
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="ml-1"
+                          >
+                            <path d="M9 18l6-6-6-6" />
+                          </svg>
+                        </Button>
+                      </motion.div>
+                    )}
                   </motion.div>
                 </>
               )}
 
-              {formStep === 1 && (
+              {formStep === 1 && !initialData && (
                 <>
-                  <motion.div
-                    variants={itemVariants}
-                    className="grid grid-cols-1 gap-5 md:grid-cols-2"
-                  >
-                    <FormField
-                      control={form.control}
-                      name="contactPhone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm font-medium dark:text-gray-300">
-                            Contact Phone
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="Enter phone number"
-                              {...field}
-                              className="dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                            />
-                          </FormControl>
-                          <FormMessage className="text-xs dark:text-red-400" />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="contactEmail"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm font-medium dark:text-gray-300">
-                            Contact Email
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="Enter email address"
-                              {...field}
-                              className="dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                            />
-                          </FormControl>
-                          <FormMessage className="text-xs dark:text-red-400" />
-                        </FormItem>
-                      )}
-                    />
-                  </motion.div>
-
                   <motion.div variants={itemVariants}>
                     <FormField
                       control={form.control}
@@ -487,29 +542,27 @@ const CompanyAdminForm = () => {
                               defaultValue={field.value}
                             >
                               <FormControl>
-                                <SelectTrigger className="dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                                <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">
                                   <SelectValue placeholder="Select an administrator" />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent className="dark:border-gray-700 dark:bg-gray-800">
-                                {existingAdmins.map(
-                                  (admin: { id: string; name: string }) => (
-                                    <SelectItem
-                                      key={admin.id} // Use an appropriate unique identifier
-                                      value={admin.name} // Assuming admin object has these properties
-                                      className="dark:text-white dark:focus:bg-gray-700"
-                                    >
-                                      {admin.name}
-                                    </SelectItem>
-                                  ),
-                                )}
+                                {existingAdmins.map((admin: User) => (
+                                  <SelectItem
+                                    key={admin.id}
+                                    value={admin.id}
+                                    className="dark:text-white dark:focus:bg-gray-700"
+                                  >
+                                    {admin.userName}
+                                  </SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                           ) : (
-                            <p className="text-gray-500 dark:text-gray-400">
+                            <div className="rounded-md bg-white p-3 text-sm dark:bg-gray-800 dark:text-gray-300">
                               No existing company administrators found. Please
                               create a new one.
-                            </p>
+                            </div>
                           )}
                           <FormDescription className="text-xs text-gray-500 dark:text-gray-400">
                             Select existing admin or create a new one
@@ -680,10 +733,7 @@ const CompanyAdminForm = () => {
                   initial="hidden"
                   animate="visible"
                 >
-                  <motion.div
-                    variants={itemVariants}
-                    className="grid grid-cols-1 gap-4 sm:grid-cols-2"
-                  >
+                  <motion.div variants={itemVariants}>
                     <FormField
                       control={adminForm.control}
                       name="userName"
@@ -696,7 +746,7 @@ const CompanyAdminForm = () => {
                             <Input
                               placeholder="Create username"
                               {...field}
-                              className="dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                              className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                             />
                           </FormControl>
                           <FormMessage className="text-xs dark:text-red-400" />
@@ -717,8 +767,9 @@ const CompanyAdminForm = () => {
                           <FormControl>
                             <Input
                               placeholder="Enter email address"
+                              type="email"
                               {...field}
-                              className="dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                              className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                             />
                           </FormControl>
                           <FormMessage className="text-xs dark:text-red-400" />
@@ -742,16 +793,18 @@ const CompanyAdminForm = () => {
                           <FormControl>
                             <Input
                               type="password"
-                              placeholder="Create password"
+                              placeholder="Enter your password..."
                               {...field}
-                              className="dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                              className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                             />
                           </FormControl>
+                          <FormDescription className="text-xs text-gray-500 dark:text-gray-400">
+                            Min 12 chars with uppercase, lowercase & number
+                          </FormDescription>
                           <FormMessage className="text-xs dark:text-red-400" />
                         </FormItem>
                       )}
                     />
-
                     <FormField
                       control={adminForm.control}
                       name="confirmPassword"
@@ -763,30 +816,19 @@ const CompanyAdminForm = () => {
                           <FormControl>
                             <Input
                               type="password"
-                              placeholder="Confirm password"
+                              placeholder="Confirm your password..."
                               {...field}
-                              className="dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                              className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                             />
                           </FormControl>
                           <FormMessage className="text-xs dark:text-red-400" />
                         </FormItem>
                       )}
                     />
-                    <FormField
-                      control={adminForm.control}
-                      name="role"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormControl>
-                            <Input type="hidden" {...field} value="admin" />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
                   </motion.div>
 
                   <motion.div
-                    className="mt-4 flex justify-end gap-2"
+                    className="flex justify-end gap-2 pt-4"
                     variants={itemVariants}
                   >
                     <motion.div
@@ -813,7 +855,7 @@ const CompanyAdminForm = () => {
                         type="submit"
                         className="bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
                       >
-                        Create Admin
+                        {`${initialData ? "Update" : "Create"} Admin`}
                       </Button>
                     </motion.div>
                   </motion.div>
