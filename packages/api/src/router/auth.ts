@@ -186,6 +186,7 @@ export const authRouter = createTRPCRouter({
               isLocked: false,
               attempts: 0,
               updatedAt: now,
+              lockedUntil: null,
             })
             .where(eq(loginAttempts.email, input.email));
         }
@@ -213,7 +214,7 @@ export const authRouter = createTRPCRouter({
               const LOCK_DURATION_MINUTES = 30;
 
               // Check if we need to lock the account
-              if (attempts >= MAX_ATTEMPTS) {
+              if (attempts > MAX_ATTEMPTS) {
                 const lockedUntil = new Date();
                 lockedUntil.setMinutes(
                   lockedUntil.getMinutes() + LOCK_DURATION_MINUTES,
@@ -513,7 +514,7 @@ export const authRouter = createTRPCRouter({
       }
     }),
 
-  // update password
+  // update password only use when need to change own password
   updatePassword: protectedProcedure
     .input(
       z.object({
@@ -525,6 +526,7 @@ export const authRouter = createTRPCRouter({
             message:
               "Password must include at least one uppercase letter, one number, and one special character",
           }),
+        email: z.string().email({ message: "Email is required!" }),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -576,7 +578,7 @@ export const authRouter = createTRPCRouter({
         // Update the password history (keep at most 3 passwords)
         const updatedHistory = [hashedPassword, ...passwordHistory];
         if (updatedHistory.length > 3) {
-          updatedHistory.length = 3; // Truncate to max 3 elements
+          updatedHistory.length = 3;
         }
 
         // Update the password history in the database
@@ -586,6 +588,17 @@ export const authRouter = createTRPCRouter({
             passwordHistory: updatedHistory,
           })
           .where(eq(users.id, ctx.session.user.id));
+
+        // reset user login attempts and unblock
+        await db
+          .update(loginAttempts)
+          .set({
+            attempts: 0,
+            isLocked: false,
+            lockedUntil: null,
+            updatedAt: new Date(),
+          })
+          .where(eq(loginAttempts.email, input.email));
 
         // Sign out from all devices
         await supabase.auth.signOut({ scope: "global" });
@@ -606,6 +619,137 @@ export const authRouter = createTRPCRouter({
             error instanceof Error
               ? error.message
               : "Failed to update password",
+        });
+      }
+    }),
+
+  // reset user password for admin and super admin only
+  resetUserPassword: protectedProcedure
+    .input(
+      z.object({
+        userId: z.string().uuid(),
+        password: z
+          .string()
+          .min(12, { message: "Password must be within 12-20 characters" })
+          .max(20, { message: "Password must be within 12-20 characters" })
+          .regex(/^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/, {
+            message:
+              "Password must include at least one uppercase letter, one number, and one special character",
+          }),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const supabase = createAdminClient();
+
+        const { id: currentUserId, role: currentUserRole } = ctx.session.user;
+
+        if (currentUserRole === "user") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You are not allowed to reset user password",
+          });
+        }
+
+        // fetch targeted user and handle errors
+        const targetUser = await db
+          .select()
+          .from(users)
+          .where(eq(users.id, input.userId))
+          .limit(1);
+
+        if (!targetUser.length) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "User not found!",
+          });
+        }
+
+        const targetUserRole = targetUser[0]?.role;
+        const passwordHistory = targetUser[0]?.passwordHistory ?? [];
+        const targetUserEmail: string = targetUser[0]?.email ?? "";
+        const modifiedBy = targetUser[0]?.modifiedBy;
+
+        if (currentUserRole === "admin" && targetUserRole === "superAdmin") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Admins cannot reset Super Admin passwords.",
+          });
+        }
+
+        if (currentUserRole === "admin" && currentUserId !== modifiedBy) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Admins cannot reset other user password",
+          });
+        }
+
+        // check if the new password was used before
+        const isPasswordExist = passwordHistory.some((password) =>
+          compareSync(password, input.password),
+        );
+
+        if (isPasswordExist) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Password cannot match the last 3 historical passwords",
+          });
+        }
+
+        // Update password in Supabase
+        const { error } = await supabase.auth.admin.updateUserById(
+          input.userId,
+          {
+            password: input.password,
+          },
+        );
+
+        if (error) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: error.message || "Failed to reset password",
+          });
+        }
+
+        // hashed and store the updated password
+        const hashedPassword = await hash(input.password, 10);
+        const updatedPasswordHistory = [
+          hashedPassword,
+          ...passwordHistory,
+        ].slice(0, 3);
+
+        await db
+          .update(users)
+          .set({
+            passwordHistory: updatedPasswordHistory,
+            modifiedBy: currentUserId,
+          })
+          .where(eq(users.id, input.userId));
+
+        // reset the login attempts
+        await db
+          .update(loginAttempts)
+          .set({
+            attempts: 0,
+            isLocked: false,
+            lockedUntil: null,
+            updatedAt: new Date(),
+          })
+          .where(eq(loginAttempts.email, targetUserEmail));
+
+        return {
+          success: true,
+          message:
+            "Password reset successfully. Login attempts have been cleared.",
+        };
+      } catch (err) {
+        if (err instanceof TRPCError) {
+          throw err;
+        }
+
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Authentication failed",
         });
       }
     }),
