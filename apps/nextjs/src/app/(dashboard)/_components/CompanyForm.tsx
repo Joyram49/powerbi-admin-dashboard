@@ -164,6 +164,7 @@ const CompanyAdminForm = ({
         description: `${data.data?.companyName} has been successfully updated.`,
       });
       form.reset();
+
       router.refresh();
       if (onClose) onClose();
     },
@@ -230,7 +231,6 @@ const CompanyAdminForm = ({
           address: values.address,
           phone: values.phone,
           email: values.email,
-          companyAdminId: values.admin.id || initialData.admin.id,
         });
       } else {
         // For new company, we need admin information
