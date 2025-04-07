@@ -27,7 +27,7 @@ import {
 } from "@acme/ui/table";
 
 import CompanyModalButton from "../../_components/CompanyModal";
-import { DataTablePagination } from "./data-table-pagination";
+import { Pagination } from "../../_components/Pagination";
 
 interface DataTableProps<TData extends Company, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -193,7 +193,14 @@ export function DataTable<TData extends Company, TValue>({
           </TableBody>
         </Table>
       </div>
-      <DataTablePagination table={table} />
+      <Pagination
+        currentPage={pagination.page}
+        totalPages={pagination.pageCount}
+        onPageChange={pagination.onPageChange}
+        pageSizeOptions={[10, 20, 30, 40, 50]}
+        onPageSizeChange={(size) => table.setPageSize(size)}
+        showSelectedRowsCount={false}
+      />
     </div>
   );
 }

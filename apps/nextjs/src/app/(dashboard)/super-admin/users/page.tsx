@@ -1,16 +1,15 @@
-import type { Metadata } from "next";
+"use client";
 
-import { UsersDataTable } from "../_components/user-data-table";
-
-export const metadata: Metadata = {
-  title: "User Management",
-  description: "Manage all system users",
-};
+import { api } from "~/trpc/react";
+import { UsersDataTable } from "../../_components/user-data-table";
 
 export default function UsersPage() {
+  const { data } = api.auth.getProfile.useQuery();
+  const userRole = data?.user.user_metadata.role as string;
+
   return (
     <div className="container mx-auto py-10">
-      <UsersDataTable />
+      <UsersDataTable userRole={userRole} />
     </div>
   );
 }

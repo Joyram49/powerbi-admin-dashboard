@@ -43,8 +43,8 @@ const PHONE_NUMBER_REGEX =
 // Form validation schemas (updated to match backend expectations)
 const formSchema = z.object({
   companyName: z.string().min(3, "Company name must be at least 3 characters"),
-  companyAddress: z.string(),
-  contactPhone: z
+  address: z.string(),
+  phone: z
     .string()
     .optional()
     .refine(
@@ -52,8 +52,10 @@ const formSchema = z.object({
         val === undefined || val.trim() === "" || PHONE_NUMBER_REGEX.test(val),
       "Invalid phone number format",
     ),
-  contactEmail: z.string().email("Valid email is required"),
-  companyAdmin: z.string().optional(),
+  email: z.string().email("Valid email is required"),
+  admin: z.object({
+    id: z.string().min(1, "Admin ID is required"),
+  }),
 });
 
 const adminFormSchema = z
@@ -219,7 +221,7 @@ const CompanyAdminForm = ({
     },
   });
 
-  const onSubmit = (values: Company) => {
+  const onSubmit = (values: z.infer<typeof formSchema>) => {
     setFormSubmitted(true);
 
     try {

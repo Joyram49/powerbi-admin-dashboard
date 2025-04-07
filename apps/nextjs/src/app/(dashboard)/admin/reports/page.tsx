@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, FileText, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Search } from "lucide-react";
 
+import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@acme/ui/card";
 import { Input } from "@acme/ui/input";
@@ -16,38 +17,66 @@ import {
   TableRow,
 } from "@acme/ui/table";
 
-// Dummy data function for user reports
-const getUserReports = () => {
+// Dummy data function for reports
+const getReports = () => {
   return [
     {
       id: 1,
       name: "Sample demo report",
-      lastAccessed: "2025-03-18",
-      status: "Available",
+      createdBy: "Admin",
+      createdDate: "2025-03-10",
+      users: 8,
+      active: true,
+    },
+    {
+      id: 2,
+      name: "Monthly sales report",
+      createdBy: "Admin",
+      createdDate: "2025-03-05",
+      users: 5,
+      active: true,
+    },
+    {
+      id: 3,
+      name: "User activity log",
+      createdBy: "System",
+      createdDate: "2025-02-28",
+      users: 3,
+      active: false,
+    },
+    {
+      id: 4,
+      name: "Quarterly performance",
+      createdBy: "Admin",
+      createdDate: "2025-01-15",
+      users: 10,
+      active: true,
     },
   ];
 };
 
 // Animation variants
-const pageVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
-};
-
 const rowVariants = {
   hidden: { opacity: 0, scale: 0.95 },
   visible: { opacity: 1, scale: 1, transition: { duration: 0.3 } },
 };
 
-export default function UserDashboard() {
-  const reports = getUserReports();
+const pageVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
+};
+
+export default function AdminDashboard() {
+  const allReports = getReports();
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 3;
 
-  // Filter reports
-  const filteredReports = reports.filter((report) =>
-    report.name.toLowerCase().includes(searchQuery.toLowerCase()),
+  // Search filter
+  const filteredReports = allReports.filter(
+    (report) =>
+      report.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      report.createdBy.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   // Pagination
@@ -59,7 +88,7 @@ export default function UserDashboard() {
     indexOfLastItem,
   );
 
-  // Page navigation handlers
+  // Page change handlers
   const goToNextPage = () => {
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
   };
@@ -77,24 +106,30 @@ export default function UserDashboard() {
     >
       <div className="mx-auto max-w-7xl">
         <h2 className="text-2xl font-bold dark:text-white">
-          Available Reports
+          Report Management
         </h2>
         <Card className="mt-4 dark:border-slate-700 dark:bg-slate-800">
           <CardHeader className="border-b border-slate-100 bg-slate-50 dark:border-slate-700 dark:bg-slate-700">
             <div className="flex items-center justify-between">
               <CardTitle className="dark:text-white">Reports</CardTitle>
-              <div className="relative w-64">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
-                <Input
-                  type="text"
-                  placeholder="Search reports..."
-                  className="pl-8 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder:text-slate-400"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                />
+              <div className="flex items-center space-x-2">
+                <div className="relative w-64">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
+                  <Input
+                    type="text"
+                    placeholder="Search reports..."
+                    className="pl-8 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder:text-slate-400"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setCurrentPage(1); // Reset to first page on search
+                    }}
+                  />
+                </div>
+                <Button className="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700">
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Report
+                </Button>
               </div>
             </div>
           </CardHeader>
@@ -106,10 +141,17 @@ export default function UserDashboard() {
                     Report Name
                   </TableHead>
                   <TableHead className="dark:text-slate-300">
-                    Last Accessed
+                    Created By
                   </TableHead>
-                  <TableHead className="dark:text-slate-300">Status</TableHead>
-                  <TableHead className="dark:text-slate-300">Action</TableHead>
+                  <TableHead className="dark:text-slate-300">
+                    Date Created
+                  </TableHead>
+                  <TableHead className="text-center dark:text-slate-300">
+                    Users
+                  </TableHead>
+                  <TableHead className="text-center dark:text-slate-300">
+                    Status
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -123,24 +165,30 @@ export default function UserDashboard() {
                     className="dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                   >
                     <TableCell className="font-medium">{report.name}</TableCell>
-                    <TableCell>{report.lastAccessed}</TableCell>
-                    <TableCell>{report.status}</TableCell>
-                    <TableCell>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600"
+                    <TableCell>{report.createdBy}</TableCell>
+                    <TableCell>{report.createdDate}</TableCell>
+                    <TableCell className="text-center">
+                      <Badge className="bg-blue-50 dark:bg-blue-900 dark:text-blue-100">
+                        {report.users}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge
+                        className={
+                          report.active
+                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
+                            : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100"
+                        }
                       >
-                        <FileText className="mr-2 h-4 w-4" />
-                        View Report
-                      </Button>
+                        {report.active ? "Active" : "Inactive"}
+                      </Badge>
                     </TableCell>
                   </motion.tr>
                 ))}
                 {filteredReports.length === 0 && (
                   <TableRow className="dark:border-slate-700 dark:bg-slate-800">
                     <TableCell
-                      colSpan={4}
+                      colSpan={5}
                       className="h-24 text-center text-slate-500 dark:text-slate-400"
                     >
                       No reports found.
@@ -150,7 +198,7 @@ export default function UserDashboard() {
               </TableBody>
             </Table>
           </CardContent>
-          {filteredReports.length > 0 && totalPages > 1 && (
+          {filteredReports.length > 0 && (
             <div className="flex items-center justify-between border-t border-slate-100 p-4 dark:border-slate-700">
               <div className="text-sm text-slate-500 dark:text-slate-400">
                 Showing {indexOfFirstItem + 1} to{" "}

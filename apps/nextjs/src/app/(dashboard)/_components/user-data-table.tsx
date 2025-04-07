@@ -6,7 +6,7 @@ import type {
   SortingState,
   VisibilityState,
 } from "@tanstack/react-table";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   flexRender,
@@ -48,8 +48,10 @@ import {
 } from "@acme/ui/table";
 
 import { api } from "~/trpc/react";
+import AddUserModal from "./AddUserModal";
+import { Pagination } from "./Pagination";
 
-export function UsersDataTable() {
+export function UsersDataTable({ userRole }: { userRole: string }) {
   const router = useRouter();
   const [pagination, setPagination] = useState({
     pageIndex: 0,
@@ -60,44 +62,72 @@ export function UsersDataTable() {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [userType, setUserType] = useState<"all" | "admin" | "general">("all");
 
-  // Fetch users based on the selected user type
-  const { data: usersData, isLoading } = api.user.getAllUsers.useQuery(
-    {
-      page: pagination.pageIndex + 1,
-      limit: pagination.pageSize,
-    },
-    {
-      enabled: userType === "all",
-    },
-  );
+  // Determine which queries should be enabled based on user role
+  const isSuperAdmin = userRole === "superAdmin";
+  const isAdmin = userRole === "admin";
 
-  const { data: adminUsersData } = api.user.getAdminUsers.useQuery(
-    {
-      page: pagination.pageIndex + 1,
-      limit: pagination.pageSize,
-    },
-    {
-      enabled: userType === "admin",
-    },
-  );
+  // For superAdmin, fetch all users when userType is "all"
+  const { data: allUsersData, isLoading: isLoadingAllUsers } =
+    api.user.getAllUsers.useQuery(
+      {
+        page: pagination.pageIndex + 1,
+        limit: pagination.pageSize,
+      },
+      {
+        enabled: isSuperAdmin && userType === "all",
+      },
+    );
 
-  const { data: generalUsersData } = api.user.getAllGeneralUser.useQuery(
-    {
-      page: pagination.pageIndex + 1,
-      limit: pagination.pageSize,
-    },
-    {
-      enabled: userType === "general",
-    },
-  );
+  // Fetch admin users for both superAdmin and admin roles when userType is "admin"
+  const { data: adminUsersData, isLoading: isLoadingAdminUsers } =
+    api.user.getAdminUsers.useQuery(
+      {
+        page: pagination.pageIndex + 1,
+        limit: pagination.pageSize,
+      },
+      {
+        enabled: (isSuperAdmin || isAdmin) && userType === "admin",
+      },
+    );
 
-  // Get the appropriate data based on the selected user type
-  const currentData =
-    userType === "all"
-      ? usersData
-      : userType === "admin"
-        ? adminUsersData
-        : generalUsersData;
+  // Fetch general users when userType is "general"
+  const { data: generalUsersData, isLoading: isLoadingGeneralUsers } =
+    api.user.getAllGeneralUser.useQuery(
+      {
+        page: pagination.pageIndex + 1,
+        limit: pagination.pageSize,
+      },
+      {
+        enabled: (isSuperAdmin || isAdmin) && userType === "general",
+      },
+    );
+
+  // Set defaults based on role
+  useEffect(() => {
+    if (isAdmin) {
+      // If admin, default to admin users
+      setUserType("admin");
+    }
+  }, [isAdmin]);
+
+  // Determine which data to use based on user role and selected user type
+  const currentData = (() => {
+    if (isSuperAdmin) {
+      // SuperAdmin can see all types
+      return userType === "all"
+        ? allUsersData
+        : userType === "admin"
+          ? adminUsersData
+          : generalUsersData;
+    } else if (isAdmin) {
+      // Admin can only see admin and general users
+      return userType === "admin" ? adminUsersData : generalUsersData;
+    }
+    return null;
+  })();
+
+  const isLoading =
+    isLoadingAllUsers || isLoadingAdminUsers || isLoadingGeneralUsers;
 
   const deleteUserMutation = api.user.deleteUser.useMutation({
     onSuccess: () => {
@@ -250,29 +280,45 @@ export function UsersDataTable() {
               }
               className="max-w-sm"
             />
-            <Select
-              value={userType}
-              onValueChange={(value) => {
-                setUserType(value as "all" | "admin" | "general");
-                setPagination({ pageIndex: 0, pageSize: 10 });
-              }}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="User Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Users</SelectItem>
-                <SelectItem value="admin">Admin Users</SelectItem>
-                <SelectItem value="general">General Users</SelectItem>
-              </SelectContent>
-            </Select>
+            {/* Only show the user type selector for superAdmin */}
+            {isSuperAdmin && (
+              <Select
+                value={userType}
+                onValueChange={(value) => {
+                  setUserType(value as "all" | "admin" | "general");
+                  setPagination({ pageIndex: 0, pageSize: 10 });
+                }}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="User Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Users</SelectItem>
+                  <SelectItem value="admin">Admin Users</SelectItem>
+                  <SelectItem value="general">General Users</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+            {/* For admin, show a simplified selector */}
+            {isAdmin && (
+              <Select
+                value={userType}
+                onValueChange={(value) => {
+                  setUserType(value as "admin" | "general");
+                  setPagination({ pageIndex: 0, pageSize: 10 });
+                }}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="User Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin Users</SelectItem>
+                  <SelectItem value="general">General Users</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
           </div>
-          <Button
-            className="bg-blue-500 text-white hover:bg-blue-600"
-            onClick={() => router.push("/super-admin/users/add")}
-          >
-            Add User
-          </Button>
+          <AddUserModal />
         </div>
         <div className="rounded-md border">
           <Table>
@@ -334,14 +380,16 @@ export function UsersDataTable() {
           </Table>
         </div>
         <div className="flex items-center justify-end space-x-2 py-4">
-          <div className="flex-1 text-sm text-muted-foreground">
-            {currentData?.total
-              ? `Showing ${pagination.pageIndex * pagination.pageSize + 1} to ${Math.min(
-                  (pagination.pageIndex + 1) * pagination.pageSize,
-                  currentData.total,
-                )} of ${currentData.total} users`
-              : "No users found"}
-          </div>
+          <Pagination
+            currentPage={pagination.pageIndex + 1}
+            totalPages={table.getPageCount()}
+            totalItems={currentData?.total}
+            pageSize={pagination.pageSize}
+            onPageChange={(page) => table.setPageIndex(page - 1)}
+            onPageSizeChange={(size) => table.setPageSize(size)}
+            showSelectedRowsCount={false}
+            pageSizeOptions={[10, 20, 30, 40, 50]}
+          />
           <div className="space-x-2">
             <Button
               variant="outline"

@@ -55,11 +55,6 @@ const navigationItems = {
       label: "Home",
     },
     {
-      href: "/admin/users",
-      icon: <Users className="mr-3 h-5 w-5" />,
-      label: "Users List",
-    },
-    {
       href: "/admin/users/add",
       icon: <UserPlus className="mr-3 h-5 w-5" />,
       label: "Add User",
