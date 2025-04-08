@@ -17,19 +17,21 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { format } from "date-fns";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { data } from "tailwindcss/defaultTheme";
 
 import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@acme/ui/card";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@acme/ui/dropdown-menu";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@acme/ui/dialog";
 import { Input } from "@acme/ui/input";
 import {
   Select,
@@ -46,13 +48,14 @@ import {
   TableHeader,
   TableRow,
 } from "@acme/ui/table";
+import { toast } from "@acme/ui/toast";
 
 import { api } from "~/trpc/react";
-import AddUserModal from "./AddUserModal";
 import { Pagination } from "./Pagination";
+import AddUserModal from "./UserModal";
+import UserModal from "./UserModal";
 
-export function UsersDataTable({ userRole }: { userRole: string }) {
-  const router = useRouter();
+export function UsersDataTable() {
   const [pagination, setPagination] = useState({
     pageIndex: 0,
     pageSize: 10,
@@ -61,6 +64,9 @@ export function UsersDataTable({ userRole }: { userRole: string }) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [userType, setUserType] = useState<"all" | "admin" | "general">("all");
+  const [deleteUser, setDeleteUser] = useState<User | null>(null);
+  const { data: profileData } = api.auth.getProfile.useQuery();
+  const userRole = profileData?.user.user_metadata.role as string;
 
   // Determine which queries should be enabled based on user role
   const isSuperAdmin = userRole === "superAdmin";
@@ -101,7 +107,18 @@ export function UsersDataTable({ userRole }: { userRole: string }) {
         enabled: (isSuperAdmin || isAdmin) && userType === "general",
       },
     );
-
+  const deleteUserMutation = api.user.deleteUser.useMutation({
+    onSuccess: () => {
+      // Refresh the data after deletion
+      table.resetPageIndex();
+      toast.success("User deleted successfully");
+    },
+    onError: (error) => {
+      toast.error("Failed to delete user", {
+        description: error.message,
+      });
+    },
+  });
   // Set defaults based on role
   useEffect(() => {
     if (isAdmin) {
@@ -129,18 +146,16 @@ export function UsersDataTable({ userRole }: { userRole: string }) {
   const isLoading =
     isLoadingAllUsers || isLoadingAdminUsers || isLoadingGeneralUsers;
 
-  const deleteUserMutation = api.user.deleteUser.useMutation({
-    onSuccess: () => {
-      // Refresh the data after deletion
-      table.resetPageIndex();
-    },
-  });
-
   const columns: ColumnDef<User>[] = [
     {
       accessorKey: "userName",
       header: "Name",
       cell: ({ row }) => <div>{row.original.userName || "Not specified"}</div>,
+    },
+    {
+      accessorKey: "ID",
+      header: "id",
+      cell: ({ row }) => <div>{row.original.id || "Not specified"}</div>,
     },
     {
       accessorKey: "email",
@@ -193,44 +208,68 @@ export function UsersDataTable({ userRole }: { userRole: string }) {
       },
     },
     {
+      accessorKey: "lastLogin",
+      header: "Last login",
+      cell: ({ row }) => {
+        return format(new Date(row.original.lastLogin), "MMM dd, yyyy");
+      },
+    },
+    {
       id: "actions",
       cell: ({ row }) => {
         const user = row.original;
 
         return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="h-4 w-4" />
+          <div className="flex items-center space-x-2">
+            <UserModal user={user}>
+              <Button variant="outline" size="icon" className="h-8 w-8">
+                <Pencil className="h-4 w-4" />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem
-                onClick={() => router.push(`/users/edit/${user.id}`)}
-              >
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-red-600"
-                onClick={() => {
-                  if (
-                    window.confirm("Are you sure you want to delete this user?")
-                  ) {
-                    deleteUserMutation.mutate({
-                      userId: user.id,
-                      modifiedBy: "CURRENT_USER_ID", // Replace with actual ID from context
-                      role: user.role,
-                    });
-                  }
-                }}
-              >
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </UserModal>
+
+            <Dialog
+              open={deleteUser?.id === user.id}
+              onOpenChange={() => setDeleteUser(null)}
+            >
+              <DialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setDeleteUser(user)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Delete User</DialogTitle>
+                  <DialogDescription>
+                    Are you sure you want to delete the user{" "}
+                    <span className="font-bold">{user.userName}</span>? This
+                    action cannot be undone.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setDeleteUser(null)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      deleteUserMutation.mutate({
+                        userId: user.id,
+                        modifiedBy: profileData?.user.id || "SYSTEM",
+                        role: user.role,
+                      });
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         );
       },
     },
@@ -390,24 +429,6 @@ export function UsersDataTable({ userRole }: { userRole: string }) {
             showSelectedRowsCount={false}
             pageSizeOptions={[10, 20, 30, 40, 50]}
           />
-          <div className="space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-            >
-              Next
-            </Button>
-          </div>
         </div>
       </CardContent>
     </Card>

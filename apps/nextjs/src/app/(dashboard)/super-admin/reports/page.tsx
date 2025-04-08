@@ -1,191 +1,149 @@
 "use client";
 
-import React, { useState } from "react";
-import { skipToken } from "@tanstack/react-query";
+import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Plus } from "lucide-react";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@acme/ui/dialog";
+import { Button } from "@acme/ui/button";
+import { Input } from "@acme/ui/input";
 import { toast } from "@acme/ui/toast";
 
+import { useDebounce } from "~/hooks/useDebounce";
 import { api } from "~/trpc/react";
+import { DeleteReportDialog } from "../../_components/DeleteReportDialog";
 import { ReportsDataTable } from "../../_components/report-data-table";
-import ReportForm from "../../_components/ReportFormModal";
-
-const PAGE_SIZE = 10;
+import { ReportModal } from "../../_components/ReportFormModal";
 
 export default function ReportsPage() {
-  const { data: userData } = api.auth.getProfile.useQuery();
-  const userRole = userData?.user.user_metadata.role as string;
+  const { data } = api.auth.getProfile.useQuery();
+  const userRole = data?.user.user_metadata.role as string;
 
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [editingReportId, setEditingReportId] = useState<string | null>(null);
-  const [formOpen, setFormOpen] = useState(false);
+  const searchParams = useSearchParams();
 
-  // Get the appropriate query based on user role
-  const reportsQuery = (() => {
-    const queryInput = { limit: PAGE_SIZE, page, searched: search };
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedReport, setSelectedReport] = useState(null);
 
-    if (userRole === "superAdmin") {
-      return api.report.getAllReports.useQuery(queryInput);
-    } else if (userRole === "admin") {
-      return api.report.getAllReportsAdmin.useQuery(queryInput);
-    } else {
-      return api.report.getAllReportsUser.useQuery(queryInput);
-    }
-  })();
+  const page = Number(searchParams.get("page")) || 1;
+  const limit = Number(searchParams.get("limit")) || 10;
+  const debouncedSearch = useDebounce(searchTerm, 500);
+  // Fetch reports based on user role
+  const reportsQuery =
+    userRole === "superAdmin"
+      ? api.report.getAllReports.useQuery({
+          searched: debouncedSearch,
+          page,
+          limit,
+        })
+      : userRole === "admin"
+        ? api.report.getAllReportsAdmin.useQuery({
+            searched: debouncedSearch,
+            page,
+            limit,
+          })
+        : api.report.getAllReportsUser.useQuery({
+            searched: debouncedSearch,
+            page,
+            limit,
+          });
 
-  const isLoading = reportsQuery.isLoading;
-  const reports = reportsQuery.data;
-
-  // Extract reports data based on the structure returned by your API
-  const formattedData = reports?.data ?? [];
-  const totalCount = reports?.total ?? 0;
-
-  // Mutations
-  const createReportMutation = api.report.create.useMutation({
+  const { mutate: deleteReport } = api.report.deleteReport.useMutation({
     onSuccess: () => {
-      toast.success("Report created successfully");
-      void reportsQuery.refetch();
-      handleCloseModal();
-    },
-    onError: (error) => {
-      toast.error(error.message || "Failed to create report");
-    },
-  });
-
-  const updateReportMutation = api.report.updateReport.useMutation({
-    onSuccess: () => {
-      toast.success("Report updated successfully");
-      handleCloseModal();
-      void reportsQuery.refetch();
-    },
-    onError: (error) => {
-      toast.error(error.message || "Failed to update report");
-    },
-  });
-
-  const deleteReportMutation = api.report.deleteReport.useMutation({
-    onSuccess: () => {
-      toast.success("Report deleted successfully");
-      void reportsQuery.refetch();
-    },
-    onError: (error) => {
-      toast.error(error.message || "Failed to delete report");
-    },
-  });
-
-  // Report data for editing
-  const reportToEditQuery = api.report.getReportById.useQuery(
-    editingReportId ? { reportId: editingReportId } : skipToken,
-  );
-
-  // Handlers
-  const handleSearch = (query: string) => {
-    setSearch(query);
-    setPage(1);
-  };
-
-  const handlePageChange = (newPage: number) => {
-    setPage(newPage);
-  };
-
-  const handleAddReport = () => {
-    setEditingReportId(null);
-    setFormOpen(true);
-  };
-
-  const handleEditReport = (reportId: string) => {
-    setEditingReportId(reportId);
-    setFormOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setFormOpen(false);
-    setEditingReportId(null);
-  };
-
-  const handleDeleteReport = (reportId: string) => {
-    deleteReportMutation.mutate({ reportId });
-  };
-
-  const handleReportClick = (reportId: string) => {
-    // Track access if needed here
-    // For now, we'll just navigate to the report URL
-    if (formattedData.length > 0) {
-      const report = formattedData.find(
-        (r) => (r.id || r.reportId) === reportId,
-      );
-      if (report?.reportUrl) {
-        window.open(report.reportUrl, "_blank", "noopener,noreferrer");
-      }
-    }
-  };
-
-  const handleSubmitReport = (formData: Record<string, unknown>) => {
-    if (editingReportId) {
-      updateReportMutation.mutate({
-        reportId: editingReportId,
-        ...formData,
+      toast.success("Delete successful", {
+        description: "Report deleted successfully",
       });
-    } else {
-      createReportMutation.mutate(formData as any);
+      setIsDeleteDialogOpen(false);
+      reportsQuery.refetch();
+    },
+    onError: (error) => {
+      toast.error("Error", {
+        description: error.message,
+      });
+    },
+  });
+
+  const handleSearch = (e: any) => {
+    setSearchTerm(e.target.value);
+  };
+
+  const handleOpenReportModal = (report = null) => {
+    setSelectedReport(report);
+    setIsReportModalOpen(true);
+  };
+
+  const handleOpenDeleteDialog = (report) => {
+    setSelectedReport(report);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteReport = () => {
+    if (selectedReport) {
+      deleteReport({ reportId: selectedReport.id });
     }
   };
 
-  // Determine page title based on user role
-  let pageTitle = "Reports";
-  if (userRole === "superAdmin") {
-    pageTitle = "All Reports";
-  } else if (userRole === "admin") {
-    pageTitle = "Company Reports";
-  } else {
-    pageTitle = "My Reports";
-  }
+  const handleReportModalClose = (shouldRefetch = false) => {
+    setIsReportModalOpen(false);
+    setSelectedReport(null);
+    if (shouldRefetch) {
+      reportsQuery.refetch();
+    }
+  };
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="mb-6 text-3xl font-bold">{pageTitle}</h1>
+    <div className="container py-10">
+      <div className="mb-8 flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Reports</h1>
+        {userRole === "superAdmin" && (
+          <Button
+            onClick={() => handleOpenReportModal()}
+            className="bg-blue-500 text-white hover:bg-blue-600"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Report
+          </Button>
+        )}
+      </div>
+
+      <div className="mb-6">
+        <Input
+          placeholder="Search reports..."
+          value={searchTerm}
+          onChange={handleSearch}
+          className="max-w-sm"
+          type="search"
+        />
+      </div>
 
       <ReportsDataTable
-        data={formattedData}
+        data={reportsQuery.data?.data || reportsQuery.data?.reports || []}
+        isLoading={reportsQuery.isLoading}
         userRole={userRole}
-        isLoading={isLoading}
-        onAddReport={handleAddReport}
-        onEditReport={handleEditReport}
-        onDeleteReport={handleDeleteReport}
-        onReportClick={handleReportClick}
-        onSearch={handleSearch}
+        onEdit={handleOpenReportModal}
+        onDelete={handleOpenDeleteDialog}
+        totalItems={reportsQuery.data?.total || 0}
+        pageCount={Math.ceil((reportsQuery.data?.total || 0) / limit)}
         currentPage={page}
-        pageSize={PAGE_SIZE}
-        totalItems={totalCount}
-        onPageChange={handlePageChange}
       />
 
-      {/* Add/Edit Report Dialog */}
-      <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {editingReportId ? "Edit Report" : "Add New Report"}
-            </DialogTitle>
-          </DialogHeader>
-          <ReportForm
-            initialData={reportToEditQuery.data?.report}
-            isLoading={
-              reportToEditQuery.isLoading ||
-              createReportMutation.isPending ||
-              updateReportMutation.isPending
-            }
-            onSubmit={handleSubmitReport}
-            onCancel={handleCloseModal}
-          />
-        </DialogContent>
-      </Dialog>
+      {isReportModalOpen && (
+        <ReportModal
+          isOpen={isReportModalOpen}
+          onClose={handleReportModalClose}
+          report={selectedReport}
+          userRole={userRole}
+        />
+      )}
+
+      {isDeleteDialogOpen && (
+        <DeleteReportDialog
+          isOpen={isDeleteDialogOpen}
+          onClose={() => setIsDeleteDialogOpen(false)}
+          onDelete={handleDeleteReport}
+          reportName={selectedReport?.reportName || ""}
+        />
+      )}
     </div>
   );
 }

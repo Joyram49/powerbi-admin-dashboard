@@ -18,17 +18,12 @@ import {
 } from "@acme/ui/select";
 
 interface PaginationProps {
-  // For displaying current pagination state
   currentPage: number;
   totalPages: number;
   totalItems?: number;
   pageSize?: number;
-
-  // Pagination controls
   onPageChange: (page: number) => void;
   onPageSizeChange?: (pageSize: number) => void;
-
-  // Optional configuration
   pageSizeOptions?: number[];
   showPageSizeSelector?: boolean;
   showSelectedRowsCount?: boolean;
@@ -57,30 +52,29 @@ export function Pagination({
   };
 
   return (
-    <div className="flex items-center justify-between px-2 py-4">
-      {showSelectedRowsCount && (
-        <div className="flex-1 text-sm text-muted-foreground">
-          {selectedRows} of {filteredRows} row(s) selected.
-        </div>
-      )}
-
-      {!showSelectedRowsCount && totalItems !== undefined && (
-        <div className="flex-1 text-sm text-muted-foreground">
+    <div className="flex flex-col gap-4 p-4">
+      {/* Items count */}
+      {totalItems !== undefined && (
+        <div className="text-sm text-muted-foreground">
           Showing {Math.min((currentPage - 1) * pageSize + 1, totalItems)} to{" "}
           {Math.min(currentPage * pageSize, totalItems)} of {totalItems} items
         </div>
       )}
 
-      {!showSelectedRowsCount && totalItems === undefined && (
-        <div className="flex-1" />
+      {/* Selected rows count - only shown when selected */}
+      {showSelectedRowsCount && selectedRows > 0 && (
+        <div className="text-sm text-muted-foreground">
+          {selectedRows} of {filteredRows} row(s) selected.
+        </div>
       )}
 
-      <div className="flex items-center space-x-6 lg:space-x-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        {/* Rows per page selector */}
         {showPageSizeSelector && onPageSizeChange && (
-          <div className="flex items-center space-x-2">
-            <p className="text-sm font-medium">Rows per page</p>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">Rows per page</span>
             <Select value={`${pageSize}`} onValueChange={handlePageSizeChange}>
-              <SelectTrigger className="h-8 w-[70px]">
+              <SelectTrigger className="h-8 w-16">
                 <SelectValue placeholder={pageSize} />
               </SelectTrigger>
               <SelectContent>
@@ -94,47 +88,76 @@ export function Pagination({
           </div>
         )}
 
-        <div className="flex w-[100px] items-center justify-center text-sm font-medium">
-          Page {currentPage} of {totalPages || 1}
-        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          {/* Page indicator */}
+          <div className="text-sm font-medium">
+            Page {currentPage} of {totalPages || 1}
+          </div>
 
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            className="hidden h-8 w-8 p-0 lg:flex"
-            onClick={() => onPageChange(1)}
-            disabled={currentPage <= 1}
-          >
-            <span className="sr-only">Go to first page</span>
-            <ChevronsLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            className="h-8 w-8 p-0"
-            onClick={() => onPageChange(currentPage - 1)}
-            disabled={currentPage <= 1}
-          >
-            <span className="sr-only">Go to previous page</span>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            className="h-8 w-8 p-0"
-            onClick={() => onPageChange(currentPage + 1)}
-            disabled={currentPage >= totalPages}
-          >
-            <span className="sr-only">Go to next page</span>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            className="hidden h-8 w-8 p-0 lg:flex"
-            onClick={() => onPageChange(totalPages)}
-            disabled={currentPage >= totalPages}
-          >
-            <span className="sr-only">Go to last page</span>
-            <ChevronsRight className="h-4 w-4" />
-          </Button>
+          {/* Navigation buttons group */}
+          <div className="flex items-center gap-1">
+            {/* Previous/Next buttons for larger screens */}
+            <div className="hidden sm:flex sm:items-center sm:gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onPageChange(currentPage - 1)}
+                disabled={currentPage <= 1}
+                className="h-8 px-4"
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onPageChange(currentPage + 1)}
+                disabled={currentPage >= totalPages}
+                className="h-8 px-4"
+              >
+                Next
+              </Button>
+            </div>
+
+            {/* Icon buttons for all screens */}
+            <div className="flex items-center">
+              <Button
+                variant="outline"
+                className="h-8 w-8 rounded-l p-0"
+                onClick={() => onPageChange(1)}
+                disabled={currentPage <= 1}
+              >
+                <span className="sr-only">Go to first page</span>
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="h-8 w-8 border-l-0 p-0"
+                onClick={() => onPageChange(currentPage - 1)}
+                disabled={currentPage <= 1}
+              >
+                <span className="sr-only">Go to previous page</span>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="h-8 w-8 border-l-0 p-0"
+                onClick={() => onPageChange(currentPage + 1)}
+                disabled={currentPage >= totalPages}
+              >
+                <span className="sr-only">Go to next page</span>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="h-8 w-8 rounded-r border-l-0 p-0"
+                onClick={() => onPageChange(totalPages)}
+                disabled={currentPage >= totalPages}
+              >
+                <span className="sr-only">Go to last page</span>
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

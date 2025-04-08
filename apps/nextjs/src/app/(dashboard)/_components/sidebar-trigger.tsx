@@ -8,7 +8,10 @@ export function CustomTrigger() {
   const { toggleSidebar, open } = useSidebar();
 
   return (
-    <button onClick={toggleSidebar} className={open ? "hidden" : "block"}>
+    <button
+      onClick={toggleSidebar}
+      className={open ? "block md:hidden" : "block"}
+    >
       <PanelLeftOpen className="size-5" />
     </button>
   );

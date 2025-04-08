@@ -81,6 +81,7 @@ interface requestedDataType {
   userName: string;
   email: string;
   password: string;
+  companyId: string;
 }
 export function SignUpForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);

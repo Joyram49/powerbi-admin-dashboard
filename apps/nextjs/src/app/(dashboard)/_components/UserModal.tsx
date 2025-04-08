@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
-import { X } from "lucide-react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
@@ -38,8 +37,9 @@ import { toast } from "@acme/ui/toast";
 import { api } from "~/trpc/react";
 
 // Form validation schema
-const createUserSchema = z
+const userSchema = z
   .object({
+    id: z.string().optional(),
     userName: z
       .string()
       .min(2, "Username is required")
@@ -49,17 +49,23 @@ const createUserSchema = z
       .min(8, "Password must be at least 8 characters")
       .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
       .regex(/[a-z]/, "Password must contain at least one lowercase letter")
-      .regex(/[0-9]/, "Password must contain at least one number"),
-    confirmPassword: z.string().min(8, "Confirm your password"),
+      .regex(/[0-9]/, "Password must contain at least one number")
+      .optional(),
+    confirmPassword: z.string().optional(),
     email: z.string().email("Valid email is required"),
     role: z.enum(["user", "admin", "superAdmin"]).default("user"),
     companyId: z.string().uuid().optional(),
     sendWelcomeEmail: z.boolean().default(true),
   })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords do not match",
-    path: ["confirmPassword"],
-  });
+  .refine(
+    (data) =>
+      !data.id ||
+      (data.password ? data.password === data.confirmPassword : true),
+    {
+      message: "Passwords do not match",
+      path: ["confirmPassword"],
+    },
+  );
 
 // Animation variants
 const containerVariants = {
@@ -87,17 +93,24 @@ const buttonVariants = {
   tap: { scale: 0.97 },
 };
 
-const AddUserModal = ({ companies = [] }) => {
+interface UserModalProps {
+  user?: Partial<User>;
+  companies?: string[];
+  children?: React.ReactNode;
+}
+
+const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { data } = api.auth.getProfile.useQuery();
-  const userRole = data?.user.user_metadata.role as string;
-
-  // tRPC mutation for creating a user
+  const { data: companies } = api.company.getAllCompanies.useQuery();
+  // Get current user profile
+  const { data: profileData } = api.auth.getProfile.useQuery();
+  const userRole = profileData?.user.user_metadata.role as string;
+  console.log(companies);
+  // Create and update mutations
   const createUserMutation = api.auth.createUser.useMutation({
     onSuccess: () => {
       toast.success("User added successfully");
-      form.reset();
       setOpen(false);
       setIsSubmitting(false);
     },
@@ -109,51 +122,81 @@ const AddUserModal = ({ companies = [] }) => {
     },
   });
 
+  const updateUserMutation = api.user.updateUser.useMutation({
+    onSuccess: () => {
+      toast.success("User updated successfully");
+      setOpen(false);
+      setIsSubmitting(false);
+    },
+    onError: (error) => {
+      toast.error("Failed to update user", {
+        description: error.message || "An error occurred",
+      });
+      setIsSubmitting(false);
+    },
+  });
+
+  // Initialize form with default or user data
   const form = useForm({
-    resolver: zodResolver(createUserSchema),
+    resolver: zodResolver(userSchema),
     defaultValues: {
-      userName: "",
+      id: user?.id,
+      userName: user?.userName ?? "",
+      email: user?.email ?? "",
+      role: user?.role ?? "user",
+      companyId: user?.companyId,
       password: "",
       confirmPassword: "",
-      email: "",
-      role: "user",
-      companyId: undefined,
       sendWelcomeEmail: true,
     },
     mode: "onChange",
   });
 
-  const onSubmit = (values: z.infer<typeof createUserSchema>) => {
+  // Handle form submission
+  const onSubmit = (values: z.infer<typeof userSchema>) => {
     setIsSubmitting(true);
 
-    // Filter out confirmPassword as it's not needed in the API call
-    const { confirmPassword, sendWelcomeEmail, ...userCreateData } = values;
+    // Prepare data for API call
+    const { confirmPassword, sendWelcomeEmail, ...submitData } = values;
 
-    // Call the tRPC mutation
-    createUserMutation.mutate(userCreateData);
+    // Determine if it's create or update
+    if (submitData.id) {
+      // Update flow - only send password if it's been changed
+      const updateData = submitData.password
+        ? submitData
+        : { ...submitData, password: undefined };
+
+      updateUserMutation.mutate(updateData);
+    } else {
+      // Create flow
+      createUserMutation.mutate(submitData);
+    }
   };
 
+  // Reset form when modal opens
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        id: user?.id,
+        userName: user?.userName ?? "",
+        email: user?.email ?? "",
+        role: user?.role ?? "user",
+        companyId: user?.companyId,
+        password: "",
+        confirmPassword: "",
+        sendWelcomeEmail: true,
+      });
+    }
+  }, [open, user, form]);
+  const role = form.watch("role");
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="mr-2"
-          >
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-          </svg>
-          Add User
-        </Button>
+        {children ?? (
+          <Button className="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700">
+            {user ? "Edit User" : "Add User"}
+          </Button>
+        )}
       </DialogTrigger>
       <DialogPortal>
         <DialogOverlay className="bg-black/50" />
@@ -166,24 +209,7 @@ const AddUserModal = ({ companies = [] }) => {
                 transition={{ duration: 0.5 }}
               >
                 <CardTitle className="flex items-center text-xl font-bold sm:text-2xl">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="mr-2"
-                  >
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="9" cy="7" r="4"></circle>
-                    <line x1="19" y1="8" x2="19" y2="14"></line>
-                    <line x1="16" y1="11" x2="22" y2="11"></line>
-                  </svg>
-                  Add New User
+                  {user ? "Edit User" : "Add New User"}
                 </CardTitle>
               </motion.div>
             </CardHeader>
@@ -204,26 +230,11 @@ const AddUserModal = ({ companies = [] }) => {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="16"
-                              height="16"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              className="mr-2"
-                            >
-                              <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
-                              <circle cx="12" cy="7" r="4"></circle>
-                            </svg>
                             Username
                           </FormLabel>
                           <FormControl>
                             <Input
-                              placeholder="Type Username"
+                              placeholder="Enter username"
                               {...field}
                               className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                             />
@@ -241,27 +252,12 @@ const AddUserModal = ({ companies = [] }) => {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="16"
-                              height="16"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              className="mr-2"
-                            >
-                              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                              <polyline points="22,6 12,13 2,6"></polyline>
-                            </svg>
                             Email
                           </FormLabel>
                           <FormControl>
                             <Input
                               type="email"
-                              placeholder="Type User E-mail"
+                              placeholder="Enter email"
                               {...field}
                               className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                             />
@@ -279,34 +275,16 @@ const AddUserModal = ({ companies = [] }) => {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="16"
-                              height="16"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              className="mr-2"
-                            >
-                              <rect
-                                x="3"
-                                y="11"
-                                width="18"
-                                height="11"
-                                rx="2"
-                                ry="2"
-                              ></rect>
-                              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                            </svg>
-                            Password
+                            {user ? "New Password (optional)" : "Password"}
                           </FormLabel>
                           <FormControl>
                             <Input
                               type="password"
-                              placeholder="Type Password"
+                              placeholder={
+                                user
+                                  ? "Leave blank to keep current password"
+                                  : "Enter password"
+                              }
                               {...field}
                               className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                             />
@@ -317,50 +295,30 @@ const AddUserModal = ({ companies = [] }) => {
                     />
                   </motion.div>
 
-                  <motion.div variants={itemVariants}>
-                    <FormField
-                      control={form.control}
-                      name="confirmPassword"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="16"
-                              height="16"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              className="mr-2"
-                            >
-                              <rect
-                                x="3"
-                                y="11"
-                                width="18"
-                                height="11"
-                                rx="2"
-                                ry="2"
-                              ></rect>
-                              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                            </svg>
-                            Confirm Password
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              type="password"
-                              placeholder="Confirm Password"
-                              {...field}
-                              className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                            />
-                          </FormControl>
-                          <FormMessage className="text-xs dark:text-red-400" />
-                        </FormItem>
-                      )}
-                    />
-                  </motion.div>
+                  {!user && (
+                    <motion.div variants={itemVariants}>
+                      <FormField
+                        control={form.control}
+                        name="confirmPassword"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
+                              Confirm Password
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="password"
+                                placeholder="Confirm password"
+                                {...field}
+                                className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                              />
+                            </FormControl>
+                            <FormMessage className="text-xs dark:text-red-400" />
+                          </FormItem>
+                        )}
+                      />
+                    </motion.div>
+                  )}
 
                   <motion.div variants={itemVariants}>
                     <FormField
@@ -369,23 +327,6 @@ const AddUserModal = ({ companies = [] }) => {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="16"
-                              height="16"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              className="mr-2"
-                            >
-                              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                              <circle cx="8.5" cy="7" r="4"></circle>
-                              <path d="M20 8v6"></path>
-                              <path d="M23 11h-6"></path>
-                            </svg>
                             Role
                           </FormLabel>
                           <Select
@@ -399,12 +340,15 @@ const AddUserModal = ({ companies = [] }) => {
                             </FormControl>
                             <SelectContent>
                               <SelectItem value="user">User</SelectItem>
-                              {userRole === "superAdmin" && (
+                              {(userRole === "superAdmin" ||
+                                userRole === "admin") && (
                                 <>
                                   <SelectItem value="admin">Admin</SelectItem>
-                                  <SelectItem value="superAdmin">
-                                    Super Admin
-                                  </SelectItem>
+                                  {userRole === "superAdmin" && (
+                                    <SelectItem value="superAdmin">
+                                      Super Admin
+                                    </SelectItem>
+                                  )}
                                 </>
                               )}
                             </SelectContent>
@@ -415,7 +359,7 @@ const AddUserModal = ({ companies = [] }) => {
                     />
                   </motion.div>
 
-                  {companies.length > 0 && (
+                  {role === "user" && companies?.data?.length > 0 && (
                     <motion.div variants={itemVariants}>
                       <FormField
                         control={form.control}
@@ -423,28 +367,6 @@ const AddUserModal = ({ companies = [] }) => {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                className="mr-2"
-                              >
-                                <rect
-                                  x="2"
-                                  y="7"
-                                  width="20"
-                                  height="14"
-                                  rx="2"
-                                  ry="2"
-                                ></rect>
-                                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
-                              </svg>
                               Company
                             </FormLabel>
                             <Select
@@ -457,12 +379,12 @@ const AddUserModal = ({ companies = [] }) => {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                {companies.map((company) => (
+                                {companies?.data?.map((company) => (
                                   <SelectItem
                                     key={company.id}
                                     value={company.id}
                                   >
-                                    {company}
+                                    {company.companyName}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
@@ -489,7 +411,7 @@ const AddUserModal = ({ companies = [] }) => {
                           </FormControl>
                           <div className="space-y-1 leading-none">
                             <FormLabel className="text-sm font-medium dark:text-gray-300">
-                              Send Welcome E-mail
+                              Send Welcome Email
                             </FormLabel>
                           </div>
                         </FormItem>
@@ -521,11 +443,7 @@ const AddUserModal = ({ companies = [] }) => {
                         disabled={isSubmitting}
                       >
                         {isSubmitting ? (
-                          <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="flex items-center"
-                          >
+                          <div className="flex items-center">
                             <svg
                               className="mr-2 h-4 w-4 animate-spin text-white"
                               xmlns="http://www.w3.org/2000/svg"
@@ -547,26 +465,10 @@ const AddUserModal = ({ companies = [] }) => {
                               ></path>
                             </svg>
                             Saving...
-                          </motion.div>
+                          </div>
                         ) : (
                           <div className="flex items-center text-white">
-                            Save
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="16"
-                              height="16"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              className="ml-2"
-                            >
-                              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                              <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                              <polyline points="7 3 7 8 15 8"></polyline>
-                            </svg>
+                            {user ? "Update" : "Save"}
                           </div>
                         )}
                       </Button>
@@ -582,4 +484,4 @@ const AddUserModal = ({ companies = [] }) => {
   );
 };
 
-export default AddUserModal;
+export default UserModal;

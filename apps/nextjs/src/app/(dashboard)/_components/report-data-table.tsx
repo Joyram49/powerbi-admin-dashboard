@@ -1,14 +1,15 @@
 "use client";
 
-import type { ColumnDef, SortingState } from "@tanstack/react-table";
-import { useState } from "react";
+import type { ColumnDef } from "@tanstack/react-table";
+import { useRouter } from "next/navigation";
 import {
   flexRender,
   getCoreRowModel,
-  getSortedRowModel,
+  getPaginationRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { EyeIcon, MoreHorizontal, PencilIcon, Trash2Icon } from "lucide-react";
+import { format } from "date-fns";
+import { Edit, ExternalLink, MoreHorizontal, Trash } from "lucide-react";
 
 import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
@@ -18,6 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@acme/ui/dropdown-menu";
+import { Skeleton } from "@acme/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -27,104 +29,111 @@ import {
   TableRow,
 } from "@acme/ui/table";
 
-import { Pagination } from "./Pagination";
+import { api } from "~/trpc/react";
 
-// Detailed interface for the report
-interface Report {
+// Define the shape of a single report
+interface ReportColTypes {
   id: string;
   reportName: string;
-  company: string;
-  dateCreated: string;
-  userCount?: number;
+  reportUrl: string;
   accessCount?: number;
-  status: "active" | "inactive";
-  url: string;
+  userCount?: number;
+  userCounts?: number;
+  company?: {
+    companyName?: string;
+  };
+  dateCreated?: string;
+  status?: string;
+  lastModifiedAt?: string;
 }
 
-// Simplified props interface
-interface ReportsDataTableProps {
-  data: any[]; // API response data
-  userRole: string | undefined;
-  currentPage: number;
-  pageSize: number;
-  totalItems: number;
-  onPageChange: (page: number) => void;
+// Props for the ReportsDataTable component
+interface ReportDataTypes {
+  data: ReportColTypes[];
   isLoading: boolean;
-  onAddReport: () => void;
-  onEditReport: (reportId: string) => void;
-  onDeleteReport: (reportId: string) => void;
-  onReportClick: (reportId: string) => void;
-  onSearch: (query: string) => void;
+  userRole: string;
+  onEdit: (report: ReportColTypes) => void;
+  onDelete: (report: ReportColTypes) => void;
+  totalItems: number;
+  pageCount: number;
+  currentPage: number;
 }
 
 export function ReportsDataTable({
   data,
-  userRole,
-  currentPage,
-  pageSize,
-  totalItems,
-  onPageChange,
   isLoading,
-  onAddReport,
-  onEditReport,
-  onDeleteReport,
-  onReportClick,
-  onSearch,
-}: ReportsDataTableProps) {
-  const [sorting, setSorting] = useState<SortingState>([]);
-  const [searchQuery, setSearchQuery] = useState("");
+  userRole,
+  onEdit,
+  onDelete,
+  totalItems,
+  pageCount,
+  currentPage,
+}: ReportDataTypes) {
+  const router = useRouter();
+  const { mutate: updateReportAccess } = api.report.updateReport.useMutation();
 
-  // Map incoming data to consistent Report structure
-  const mappedData: Report[] = data.map((report) => ({
-    id: report.id || report.reportId,
-    reportName: report.reportName,
-    company:
-      report.company?.companyName || report.company?.name || "No Company",
-    dateCreated: report.dateCreated
-      ? new Date(report.dateCreated).toLocaleDateString()
-      : "N/A",
-    userCount: report.userCounts || report.userCount || 0,
-    accessCount: report.accessCount || 0,
-    status: report.status || "inactive",
-    url: report.reportUrl || report.url || "",
-  }));
-
-  // Handle search input changes
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
+  const handleOpenReport = (report: ReportColTypes) => {
+    if (userRole === "user") {
+      updateReportAccess({
+        reportId: report.id,
+        accessCount: (report.accessCount || 0) + 1,
+      });
+    }
+    window.open(report.reportUrl, "_blank", "noopener noreferrer");
   };
 
-  // Submit search when Enter is pressed
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSearch(searchQuery);
-  };
-
-  // Define columns with type safety
-  const columns: ColumnDef<Report>[] = [
+  const columns: ColumnDef<ReportColTypes>[] = [
+    {
+      accessorKey: "id",
+      header: "ID",
+      cell: ({ row }) => {
+        const id = row.getValue("id");
+        return <div className="font-medium">{id}</div>;
+      },
+    },
+    {
+      accessorKey: "company.companyName",
+      header: "Company Name",
+      cell: ({ row }) => {
+        const company = row.original.company;
+        return <div>{company?.companyName || "N/A"}</div>;
+      },
+    },
     {
       accessorKey: "reportName",
       header: "Report Name",
+    },
+    {
+      id: "reportLink",
+      header: "Report",
       cell: ({ row }) => (
-        <div
-          className="cursor-pointer font-medium hover:text-blue-600"
-          onClick={() => onReportClick(row.original.id)}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => handleOpenReport(row.original)}
+          title="Open Report"
         >
-          {row.getValue("reportName")}
-        </div>
+          <ExternalLink className="h-4 w-4" />
+        </Button>
       ),
     },
     {
-      accessorKey: "company",
-      header: "Company",
+      accessorKey: "userCount",
+      header: "# Users",
+      cell: ({ row }) => {
+        const count = row.original.userCount ?? row.original.userCounts ?? 0;
+        return <div className="text-center">{count}</div>;
+      },
     },
     {
       accessorKey: "dateCreated",
-      header: "Created On",
-    },
-    {
-      accessorKey: userRole === "user" ? "accessCount" : "userCount",
-      header: userRole === "user" ? "Access Count" : "User Count",
+      header: "Created Date",
+      cell: ({ row }) => {
+        const date = row.getValue("dateCreated");
+        return (
+          <div>{date ? format(new Date(date), "MMM dd, yyyy") : "N/A"}</div>
+        );
+      },
     },
     {
       accessorKey: "status",
@@ -132,14 +141,33 @@ export function ReportsDataTable({
       cell: ({ row }) => {
         const status = row.getValue("status");
         return (
-          <Badge variant={status === "active" ? "outline" : "secondary"}>
+          <Badge
+            variant={status === "active" ? "default" : "secondary"}
+            className="bg-green-500 text-green-900 hover:bg-green-400"
+          >
             {status === "active" ? "Active" : "Inactive"}
           </Badge>
         );
       },
     },
     {
+      accessorKey: "lastModifiedAt",
+      header: "Last Accessed",
+      cell: ({ row }) => {
+        const date = row.getValue("lastModifiedAt");
+        return (
+          <div>
+            {date ? format(new Date(date), "MMM dd, yyyy HH:mm") : "N/A"}
+          </div>
+        );
+      },
+    },
+  ];
+
+  if (userRole === "superAdmin") {
+    columns.push({
       id: "actions",
+      header: "Actions",
       cell: ({ row }) => {
         const report = row.original;
 
@@ -151,148 +179,143 @@ export function ReportsDataTable({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onReportClick(report.id)}>
-                <EyeIcon className="mr-2 h-4 w-4" />
-                View Report
+              <DropdownMenuItem onClick={() => onEdit(report)}>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit
               </DropdownMenuItem>
-              {(userRole === "superAdmin" || userRole === "admin") && (
-                <>
-                  <DropdownMenuItem onClick={() => onEditReport(report.id)}>
-                    <PencilIcon className="mr-2 h-4 w-4" />
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="text-red-600"
-                    onClick={() => onDeleteReport(report.id)}
-                  >
-                    <Trash2Icon className="mr-2 h-4 w-4" />
-                    Delete
-                  </DropdownMenuItem>
-                </>
-              )}
+              <DropdownMenuItem onClick={() => onDelete(report)}>
+                <Trash className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         );
       },
-    },
-  ];
+    });
+  }
 
-  // Create table instance
   const table = useReactTable({
-    data: mappedData,
+    data,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    onSortingChange: setSorting,
-    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
     state: {
-      sorting,
+      pagination: {
+        pageIndex: currentPage - 1,
+        pageSize: 10,
+      },
     },
+    manualPagination: true,
+    pageCount,
   });
 
+  const handlePageChange = (page: number) => {
+    router.push(`/reports?page=${page}&limit=10`);
+  };
+
+  if (isLoading) {
+    return <TableSkeleton columns={columns.length} />;
+  }
+
   return (
-    <div className="space-y-4">
-      {/* Search and Add Report Controls */}
-      <div className="flex justify-between">
-        <form onSubmit={handleSearchSubmit} className="relative w-64">
-          <input
-            type="text"
-            placeholder="Search reports..."
-            className="w-full rounded-md border px-4 py-2 pr-10"
-            value={searchQuery}
-            onChange={handleSearchChange}
-          />
-          <button
-            type="submit"
-            className="absolute right-2 top-2.5 text-gray-400"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.3-4.3" />
-            </svg>
-          </button>
-        </form>
-
-        {(userRole === "superAdmin" || userRole === "admin") && (
-          <Button
-            onClick={onAddReport}
-            className="bg-blue-500 text-white hover:bg-blue-600"
-          >
-            Add New Report
-          </Button>
-        )}
-      </div>
-
-      {/* Loading state */}
-      {isLoading ? (
-        <div className="flex h-64 items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
-        </div>
-      ) : (
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext(),
-                          )}
-                    </TableHead>
+    <div>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id}>
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows.length ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow key={row.id}>
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
+                    </TableCell>
                   ))}
                 </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() && "selected"}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={columns.length}
-                    className="h-24 text-center"
-                  >
-                    No reports found
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  No reports found.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
 
-      <Pagination
-        currentPage={currentPage}
-        totalPages={Math.ceil(totalItems / pageSize)}
-        onPageChange={onPageChange}
-      />
+      <div className="flex items-center justify-end space-x-2 py-4">
+        <div className="text-sm text-muted-foreground">
+          Showing {Math.min((currentPage - 1) * 10 + 1, totalItems)} to{" "}
+          {Math.min(currentPage * 10, totalItems)} of {totalItems} entries
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+        >
+          Previous
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={currentPage >= pageCount}
+        >
+          Next
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function TableSkeleton({ columns }: { columns: number }) {
+  return (
+    <div className="rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {Array.from({ length: columns }).map((_, i) => (
+              <TableHead key={i}>
+                <Skeleton className="h-6 w-full" />
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <TableRow key={i}>
+              {Array.from({ length: columns }).map((_, j) => (
+                <TableCell key={j}>
+                  <Skeleton className="h-6 w-full" />
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }

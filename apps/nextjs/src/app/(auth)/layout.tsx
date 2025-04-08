@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense } from "react";
 import Image from "next/image";
 
 import AuthFooter from "./_components/auth_footer";
@@ -14,7 +14,7 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
           height={200}
           className="absolute top-0 mx-auto"
         />
-        {children}
+        <Suspense fallback="Loading...">{children}</Suspense>
       </div>
       <AuthFooter />
     </main>

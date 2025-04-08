@@ -55,16 +55,6 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
 
             return Object.fromEntries(headers);
           },
-          fetch(url, options) {
-            return fetch(url, {
-              ...options,
-              credentials: "include", // Ensure cookies are sent
-            }).then((response) => {
-              // Log response for debugging
-              console.log("tRPC response received");
-              return response;
-            });
-          },
         }),
       ],
     }),

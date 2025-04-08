@@ -1,3 +1,4 @@
+// src/components/ui/multi-select.tsx
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -24,7 +25,7 @@ interface Option {
 interface MultiSelectProps {
   options: Option[];
   selected: string[];
-  setSelected: (selected: string[]) => void;
+  onChange: (selected: string[]) => void;
   placeholder?: string;
   className?: string;
   loading?: boolean;
@@ -34,7 +35,7 @@ interface MultiSelectProps {
 export function MultiSelect({
   options,
   selected,
-  setSelected,
+  onChange,
   placeholder = "Select items",
   className,
   loading = false,
@@ -42,12 +43,12 @@ export function MultiSelect({
 }: MultiSelectProps) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
-
+  console.log(options);
   const handleSelect = (value: string) => {
     if (selected.includes(value)) {
-      setSelected(selected.filter((item) => item !== value));
+      onChange(selected.filter((item) => item !== value));
     } else {
-      setSelected([...selected, value]);
+      onChange([...selected, value]);
     }
   };
 
@@ -56,7 +57,7 @@ export function MultiSelect({
     value: string,
   ) => {
     e.stopPropagation();
-    setSelected(selected.filter((item) => item !== value));
+    onChange(selected.filter((item) => item !== value));
   };
 
   const getLabel = (value: string): string => {
@@ -70,7 +71,7 @@ export function MultiSelect({
         selected.length > 0 &&
         triggerRef.current === document.activeElement
       ) {
-        setSelected(selected.slice(0, -1));
+        onChange(selected.slice(0, -1));
       }
     };
 
@@ -78,7 +79,7 @@ export function MultiSelect({
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [selected, setSelected]);
+  }, [selected, onChange]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

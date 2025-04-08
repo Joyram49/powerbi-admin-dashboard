@@ -265,12 +265,12 @@ export function SignInForm() {
               {/* Sign Up Link */}
               <motion.div variants={itemVariants} className="pt-4 text-center">
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Don't have an account?{" "}
+                  Can't remember password?
                   <Link
-                    href="/register"
+                    href="/forgot-password"
                     className="font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                   >
-                    Sign Up
+                    {""} Forgot password
                   </Link>
                 </p>
               </motion.div>

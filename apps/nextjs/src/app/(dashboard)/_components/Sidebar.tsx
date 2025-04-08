@@ -26,16 +26,10 @@ const navigationItems = {
       icon: <Home className="mr-3 h-5 w-5" />,
       label: "Home",
     },
-
     {
       href: "/super-admin/users",
       icon: <Users className="mr-3 h-5 w-5" />,
       label: "Users",
-    },
-    {
-      href: "/super-admin/users/add",
-      icon: <ShieldPlus className="mr-3 h-5 w-5" />,
-      label: "Add User",
     },
     {
       href: "/super-admin/billing",
@@ -58,6 +52,11 @@ const navigationItems = {
       href: "/admin/users/add",
       icon: <UserPlus className="mr-3 h-5 w-5" />,
       label: "Add User",
+    },
+    {
+      href: "/admin/reports",
+      icon: <FileText className="mr-3 h-5 w-5" />,
+      label: "Reports",
     },
   ],
   user: [
@@ -121,15 +120,9 @@ export default function AppSidebar() {
             <span>{item.label}</span>
           </Link>
         ))}
+
         <Link
-          href="/report"
-          className={`flex items-center px-4 py-2 text-slate-300 hover:bg-slate-800 hover:text-white`}
-        >
-          <FileText className="mr-3 h-5 w-5" />
-          <span>Reports</span>
-        </Link>
-        <Link
-          href="/forgot-password"
+          href="/reset-password"
           className={`flex items-center px-4 py-2 text-slate-300 hover:bg-slate-800 hover:text-white`}
         >
           <KeyRound className="mr-3 h-5 w-5" />
