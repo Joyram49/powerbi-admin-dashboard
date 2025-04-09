@@ -25,15 +25,16 @@ interface Company {
   };
 }
 interface User {
-  id: string;
+  userId: string;
+  id: string | undefined;
   email: string;
   userName: string;
   role: "user" | "admin" | "superAdmin";
   status: "active" | "inactive" | null;
   dateCreated: Date;
 
-  companyId: string | null;
-  modifiedBy: string | null;
+  companyId: string | undefined;
+  modifiedBy: string;
   lastLogin: string | number | Date;
   company?: { companyName: string };
 }

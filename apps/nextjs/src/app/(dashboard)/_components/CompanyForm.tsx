@@ -1,10 +1,16 @@
 "use client";
 
-import { table } from "console";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AnimatePresence, motion } from "framer-motion";
+import {
+  CheckCircle,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Save,
+  User,
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
@@ -41,8 +47,9 @@ import { api } from "~/trpc/react";
 
 const PHONE_NUMBER_REGEX =
   /^(?:(?:\+|00)?\d{1,4}[-.\s]?)?(?:\(?\d{1,4}\)?[-.\s]?)?[\d\s-]{6,20}$/;
-// Form validation schemas (updated to match backend expectations)
-const formSchema = z.object({
+
+// Form validation schemas
+const companyFormSchema = z.object({
   companyName: z.string().min(3, "Company name must be at least 3 characters"),
   address: z.string(),
   phone: z
@@ -54,9 +61,7 @@ const formSchema = z.object({
       "Invalid phone number format",
     ),
   email: z.string().email("Valid email is required"),
-  admin: z.object({
-    id: z.string().min(1, "Admin ID is required"),
-  }),
+  adminId: z.string().optional(),
 });
 
 const adminFormSchema = z
@@ -81,6 +86,7 @@ const adminFormSchema = z
     message: "Passwords do not match",
     path: ["confirmPassword"],
   });
+
 // Animation variants
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -107,6 +113,28 @@ const buttonVariants = {
   tap: { scale: 0.97 },
 };
 
+interface User {
+  id: string;
+  userName: string;
+  email: string;
+  role: string;
+  status?: "active" | "inactive" | null;
+}
+
+interface AdminUser {
+  id: string;
+  userName: string;
+}
+
+interface Company {
+  id: string;
+  companyName: string;
+  address: string;
+  phone?: string;
+  email: string;
+  admin: AdminUser;
+}
+
 const CompanyAdminForm = ({
   onClose,
   initialData,
@@ -115,13 +143,15 @@ const CompanyAdminForm = ({
   initialData?: Company;
 }) => {
   const [showAdminForm, setShowAdminForm] = useState(false);
-  const [formSubmitted, setFormSubmitted] = useState(false);
+  const [companyFormSubmitted, setCompanyFormSubmitted] = useState(false);
+  const [adminFormSubmitted, setAdminFormSubmitted] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [formStep, setFormStep] = useState(0);
   const [existingAdmins, setExistingAdmins] = useState<User[]>([]);
 
   const { data: admins } = api.user.getAdminUsers.useQuery();
   const utils = api.useUtils();
+
   useEffect(() => {
     if (admins) {
       setExistingAdmins(admins.data);
@@ -133,15 +163,15 @@ const CompanyAdminForm = ({
     setMounted(true);
   }, []);
 
-  // Main form
-  const form = useForm({
-    resolver: zodResolver(formSchema),
+  // Company form
+  const companyForm = useForm({
+    resolver: zodResolver(companyFormSchema),
     defaultValues: {
       companyName: initialData?.companyName ?? "",
-      companyAddress: initialData?.address ?? "",
-      contactPhone: initialData?.phone ?? "",
-      contactEmail: initialData?.email ?? "",
-      companyAdmin: initialData?.admin.id ?? "",
+      address: initialData?.address ?? "",
+      phone: initialData?.phone ?? "",
+      email: initialData?.email ?? "",
+      adminId: initialData?.admin.id ?? "",
     },
     mode: "onChange",
   });
@@ -154,18 +184,18 @@ const CompanyAdminForm = ({
       email: "",
       password: "",
       confirmPassword: "",
-      role: "admin",
+      role: "admin" as const,
     },
     mode: "onChange",
   });
 
-  // Add an update mutation
+  // Update company mutation
   const updateCompanyMutation = api.company.updateCompany.useMutation({
     onSuccess: async (data) => {
       toast.success("Company Updated", {
         description: `${data.data?.companyName} has been successfully updated.`,
       });
-      form.reset();
+      companyForm.reset();
 
       await utils.company.getAllCompanies.invalidate();
       if (onClose) onClose();
@@ -174,54 +204,62 @@ const CompanyAdminForm = ({
       toast.error("Update Failed", {
         description: error.message || "Unable to update company",
       });
-      setFormSubmitted(false);
+      setCompanyFormSubmitted(false);
     },
   });
-  // TODO: Separate Admin ad company create logic
-  // Create company admin mutation
-  const createCompanyAdminMutation = api.auth.createUser.useMutation({
+
+  // Create admin user mutation
+  const createAdminMutation = api.auth.createUser.useMutation({
     onSuccess: async (adminUser) => {
-      // Once admin user is created, create the company
-      createCompanyMutation.mutate({
-        companyName: form.getValues("companyName"),
-        address: form.getValues("companyAddress"),
-        phone: form.getValues("contactPhone"),
-        email: form.getValues("contactEmail"),
-        companyAdminId: adminUser.user?.id ?? "", // Ensure we pass a valid UUID
+      toast.success("Administrator Created", {
+        description: "New administrator has been successfully created.",
       });
-      await utils.user.getAllUsers.invalidate();
-      if (onClose) onClose(); // Close modal on success
+
+      // Reset admin form and close the admin dialog
+      setAdminFormSubmitted(false);
+      adminForm.reset();
+      setShowAdminForm(false);
+
+      // Refresh admin users list
+      await utils.user.getAdminUsers.invalidate();
+
+      // Update the company form with the new admin ID
+      if (adminUser.user?.id) {
+        companyForm.setValue("adminId", adminUser.user.id);
+      }
     },
     onError: (error) => {
-      setFormSubmitted(false);
+      setAdminFormSubmitted(false);
       toast.error("Administrator Creation Failed", {
         description: error.message || "Unable to create company administrator",
       });
     },
   });
 
-  // Mutation for creating company
+  // Removed unused updateAdminMutation
+
+  // Create company mutation
   const createCompanyMutation = api.company.create.useMutation({
     onSuccess: async (data) => {
-      setFormSubmitted(false);
+      setCompanyFormSubmitted(false);
       toast.success("Company Added", {
         description: `${data.company?.companyName} has been successfully created.`,
       });
-      form.reset();
+      companyForm.reset();
       setFormStep(0);
       await utils.company.getAllCompanies.invalidate();
       if (onClose) setTimeout(onClose, 1500); // Close modal after showing success toast
     },
     onError: (error) => {
-      setFormSubmitted(false);
+      setCompanyFormSubmitted(false);
       toast.error("Company Creation Failed", {
         description: error.message || "Unable to create company",
       });
     },
   });
 
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
-    setFormSubmitted(true);
+  const onSubmitCompany = (values: z.infer<typeof companyFormSchema>) => {
+    setCompanyFormSubmitted(true);
 
     try {
       if (initialData) {
@@ -235,59 +273,60 @@ const CompanyAdminForm = ({
         });
       } else {
         // For new company, we need admin information
-        if (values.admin.id) {
-          // If existing admin selected
-          createCompanyMutation.mutate({
-            companyName: values.companyName,
-            address: values.address,
-            phone: values.phone,
-            email: values.email,
-            companyAdminId: values.admin.id,
+        if (!values.adminId) {
+          toast.error("Admin Selection Required", {
+            description: "Please select an administrator for this company",
           });
-        } else {
-          // Create new admin first
-          createCompanyAdminMutation.mutate({
-            userName: adminForm.getValues("userName"),
-            email: adminForm.getValues("email"),
-            password: adminForm.getValues("password"),
-            role: "admin",
-          });
+          setCompanyFormSubmitted(false);
+          return;
         }
+
+        // Create company with selected admin
+        createCompanyMutation.mutate({
+          companyName: values.companyName,
+          address: values.address,
+          phone: values.phone,
+          email: values.email,
+          companyAdminId: values.adminId,
+        });
       }
     } catch (error) {
-      setFormSubmitted(false);
+      setCompanyFormSubmitted(false);
       toast.error("Submission Error", {
         description: "Failed to process company data",
       });
     }
   };
 
-  const onAdminSubmit = (values: any) => {
+  const onSubmitAdmin = (values: z.infer<typeof adminFormSchema>) => {
+    setAdminFormSubmitted(true);
+
     // Create a new admin user
-    createCompanyAdminMutation.mutate({
-      ...values,
+    createAdminMutation.mutate({
+      userName: values.userName,
+      email: values.email,
+      password: values.password,
       role: "admin",
     });
-
-    setShowAdminForm(false);
   };
 
   const handleNextStep = async () => {
-    const isValid = await form.trigger([
+    const isValid = await companyForm.trigger([
       "companyName",
-      "contactEmail",
-      "contactPhone",
-      "companyAddress",
+      "email",
+      "phone",
+      "address",
     ]);
 
     if (isValid) {
       setFormStep(1);
     } else {
-      console.log(form.formState.errors); // Log validation errors for debugging
+      console.log(companyForm.formState.errors); // Log validation errors for debugging
     }
   };
 
   if (!mounted) return null;
+
   return (
     <div className="mx-auto max-w-4xl p-2 sm:p-4 md:p-6">
       <Card className="overflow-hidden border bg-gray-100 dark:border-gray-800 dark:bg-gray-900">
@@ -327,9 +366,9 @@ const CompanyAdminForm = ({
         </CardHeader>
 
         <CardContent className="p-4 sm:pt-6">
-          <Form {...form}>
+          <Form {...companyForm}>
             <motion.form
-              onSubmit={form.handleSubmit(onSubmit)}
+              onSubmit={companyForm.handleSubmit(onSubmitCompany)}
               className="space-y-4 sm:space-y-5"
               variants={containerVariants}
               initial="hidden"
@@ -342,7 +381,7 @@ const CompanyAdminForm = ({
                     className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5"
                   >
                     <FormField
-                      control={form.control}
+                      control={companyForm.control}
                       name="companyName"
                       render={({ field }) => (
                         <FormItem>
@@ -361,8 +400,8 @@ const CompanyAdminForm = ({
                       )}
                     />
                     <FormField
-                      control={form.control}
-                      name="companyAddress"
+                      control={companyForm.control}
+                      name="address"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-sm font-medium dark:text-gray-300">
@@ -386,8 +425,8 @@ const CompanyAdminForm = ({
                     className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5"
                   >
                     <FormField
-                      control={form.control}
-                      name="contactEmail"
+                      control={companyForm.control}
+                      name="email"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-sm font-medium dark:text-gray-300">
@@ -406,8 +445,8 @@ const CompanyAdminForm = ({
                       )}
                     />
                     <FormField
-                      control={form.control}
-                      name="contactPhone"
+                      control={companyForm.control}
+                      name="phone"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-sm font-medium dark:text-gray-300">
@@ -430,107 +469,30 @@ const CompanyAdminForm = ({
                     className="flex justify-end pt-2"
                     variants={itemVariants}
                   >
-                    {initialData ? (
-                      <motion.div
-                        variants={buttonVariants}
-                        whileHover="hover"
-                        whileTap="tap"
+                    <motion.div
+                      variants={buttonVariants}
+                      whileHover="hover"
+                      whileTap="tap"
+                    >
+                      <Button
+                        type="button"
+                        onClick={handleNextStep}
+                        className="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
                       >
-                        <Button
-                          type="submit"
-                          className="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
-                          disabled={formSubmitted}
-                        >
-                          {formSubmitted ? (
-                            <motion.div
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              className="flex items-center"
-                            >
-                              <svg
-                                className="mr-2 h-4 w-4 animate-spin text-white"
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                              >
-                                <circle
-                                  className="opacity-25"
-                                  cx="12"
-                                  cy="12"
-                                  r="10"
-                                  stroke="currentColor"
-                                  strokeWidth="4"
-                                ></circle>
-                                <path
-                                  className="opacity-75"
-                                  fill="currentColor"
-                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                ></path>
-                              </svg>
-                              Updating...
-                            </motion.div>
-                          ) : (
-                            <>
-                              Update Company
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                className="ml-1"
-                              >
-                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                                <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                                <polyline points="7 3 7 8 15 8"></polyline>
-                              </svg>
-                            </>
-                          )}
-                        </Button>
-                      </motion.div>
-                    ) : (
-                      <motion.div
-                        variants={buttonVariants}
-                        whileHover="hover"
-                        whileTap="tap"
-                      >
-                        <Button
-                          type="button"
-                          onClick={handleNextStep}
-                          className="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
-                        >
-                          Continue
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="ml-1"
-                          >
-                            <path d="M9 18l6-6-6-6" />
-                          </svg>
-                        </Button>
-                      </motion.div>
-                    )}
+                        Continue
+                        <ChevronRight className="ml-1 h-4 w-4" />
+                      </Button>
+                    </motion.div>
                   </motion.div>
                 </>
               )}
 
-              {formStep === 1 && !initialData && (
+              {formStep === 1 &&  (
                 <>
                   <motion.div variants={itemVariants}>
                     <FormField
-                      control={form.control}
-                      name="companyAdmin"
+                      control={companyForm.control}
+                      name="adminId"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-sm font-medium dark:text-gray-300">
@@ -590,24 +552,8 @@ const CompanyAdminForm = ({
                         onClick={() => setShowAdminForm(true)}
                         className="border-blue-500 text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-400 dark:hover:bg-blue-900/30"
                       >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="mr-1"
-                        >
-                          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
-                          <circle cx="9" cy="7" r="4"></circle>
-                          <line x1="19" y1="8" x2="19" y2="14"></line>
-                          <line x1="16" y1="11" x2="22" y2="11"></line>
-                        </svg>
-                        Add New Admin
+                        <User className="mr-1 h-4 w-4" />
+                        Add new admin
                       </Button>
                     </motion.div>
 
@@ -623,20 +569,7 @@ const CompanyAdminForm = ({
                           onClick={() => setFormStep(0)}
                           className="border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
                         >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="mr-1"
-                          >
-                            <path d="M15 18l-6-6 6-6" />
-                          </svg>
+                          <ChevronLeft className="mr-1 h-4 w-4" />
                           Back
                         </Button>
                       </motion.div>
@@ -649,55 +582,21 @@ const CompanyAdminForm = ({
                         <Button
                           type="submit"
                           className="bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700"
-                          disabled={formSubmitted}
+                          disabled={companyFormSubmitted}
                         >
-                          {formSubmitted ? (
+                          {companyFormSubmitted ? (
                             <motion.div
                               initial={{ opacity: 0 }}
                               animate={{ opacity: 1 }}
                               className="flex items-center"
                             >
-                              <svg
-                                className="mr-2 h-4 w-4 animate-spin text-white"
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                              >
-                                <circle
-                                  className="opacity-25"
-                                  cx="12"
-                                  cy="12"
-                                  r="10"
-                                  stroke="currentColor"
-                                  strokeWidth="4"
-                                ></circle>
-                                <path
-                                  className="opacity-75"
-                                  fill="currentColor"
-                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                ></path>
-                              </svg>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                               Saving...
                             </motion.div>
                           ) : (
                             <>
                               Save Company
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                className="ml-1"
-                              >
-                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                                <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                                <polyline points="7 3 7 8 15 8"></polyline>
-                              </svg>
+                              <CheckCircle className="ml-1 h-4 w-4" />
                             </>
                           )}
                         </Button>
@@ -727,7 +626,7 @@ const CompanyAdminForm = ({
 
               <Form {...adminForm}>
                 <motion.form
-                  onSubmit={adminForm.handleSubmit(onAdminSubmit)}
+                  onSubmit={adminForm.handleSubmit(onSubmitAdmin)}
                   className="space-y-4"
                   variants={containerVariants}
                   initial="hidden"
@@ -854,8 +753,20 @@ const CompanyAdminForm = ({
                       <Button
                         type="submit"
                         className="bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
+                        disabled={adminFormSubmitted}
                       >
-                        {`${initialData ? "Update" : "Create"} Admin`}
+                        {adminFormSubmitted ? (
+                          <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="flex items-center"
+                          >
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Creating...
+                          </motion.div>
+                        ) : (
+                          "Create Admin"
+                        )}
                       </Button>
                     </motion.div>
                   </motion.div>
