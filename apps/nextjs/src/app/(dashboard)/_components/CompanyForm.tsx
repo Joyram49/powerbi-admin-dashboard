@@ -1,5 +1,6 @@
 "use client";
 
+import { table } from "console";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -118,10 +119,9 @@ const CompanyAdminForm = ({
   const [mounted, setMounted] = useState(false);
   const [formStep, setFormStep] = useState(0);
   const [existingAdmins, setExistingAdmins] = useState<User[]>([]);
-  const router = useRouter();
 
   const { data: admins } = api.user.getAdminUsers.useQuery();
-
+  const utils = api.useUtils();
   useEffect(() => {
     if (admins) {
       setExistingAdmins(admins.data);
@@ -161,13 +161,13 @@ const CompanyAdminForm = ({
 
   // Add an update mutation
   const updateCompanyMutation = api.company.updateCompany.useMutation({
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       toast.success("Company Updated", {
         description: `${data.data?.companyName} has been successfully updated.`,
       });
       form.reset();
 
-      router.refresh();
+      await utils.company.getAllCompanies.invalidate();
       if (onClose) onClose();
     },
     onError: (error) => {
@@ -177,10 +177,10 @@ const CompanyAdminForm = ({
       setFormSubmitted(false);
     },
   });
-
+  // TODO: Separate Admin ad company create logic
   // Create company admin mutation
   const createCompanyAdminMutation = api.auth.createUser.useMutation({
-    onSuccess: (adminUser) => {
+    onSuccess: async (adminUser) => {
       // Once admin user is created, create the company
       createCompanyMutation.mutate({
         companyName: form.getValues("companyName"),
@@ -189,8 +189,7 @@ const CompanyAdminForm = ({
         email: form.getValues("contactEmail"),
         companyAdminId: adminUser.user?.id ?? "", // Ensure we pass a valid UUID
       });
-
-      router.refresh();
+      await utils.user.getAllUsers.invalidate();
       if (onClose) onClose(); // Close modal on success
     },
     onError: (error) => {
@@ -203,14 +202,14 @@ const CompanyAdminForm = ({
 
   // Mutation for creating company
   const createCompanyMutation = api.company.create.useMutation({
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setFormSubmitted(false);
       toast.success("Company Added", {
         description: `${data.company?.companyName} has been successfully created.`,
       });
       form.reset();
       setFormStep(0);
-      router.refresh();
+      await utils.company.getAllCompanies.invalidate();
       if (onClose) setTimeout(onClose, 1500); // Close modal after showing success toast
     },
     onError: (error) => {
@@ -256,7 +255,6 @@ const CompanyAdminForm = ({
         }
       }
     } catch (error) {
-      console.log(">>> create/update company error", error);
       setFormSubmitted(false);
       toast.error("Submission Error", {
         description: "Failed to process company data",

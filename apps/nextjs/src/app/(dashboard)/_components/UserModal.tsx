@@ -102,6 +102,8 @@ interface UserModalProps {
 const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // TODO fix company to user
+
   const { data: companies } = api.company.getAllCompanies.useQuery();
   // Get current user profile
   const { data: profileData } = api.auth.getProfile.useQuery();

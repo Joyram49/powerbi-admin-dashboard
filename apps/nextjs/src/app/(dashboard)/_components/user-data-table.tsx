@@ -218,7 +218,7 @@ export function UsersDataTable() {
       id: "actions",
       cell: ({ row }) => {
         const user = row.original;
-
+        console.log("User>>>", row.original);
         return (
           <div className="flex items-center space-x-2">
             <UserModal user={user}>
@@ -259,7 +259,7 @@ export function UsersDataTable() {
                     onClick={() => {
                       deleteUserMutation.mutate({
                         userId: user.id,
-                        modifiedBy: profileData?.user.id || "SYSTEM",
+                        modifiedBy: profileData?.user.id ?? "SYSTEM",
                         role: user.role,
                       });
                     }}
