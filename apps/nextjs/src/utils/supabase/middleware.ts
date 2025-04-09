@@ -1,18 +1,14 @@
+import { createServerClient } from "@supabase/ssr";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
 
 import { env } from "~/env";
-import { PUBLIC_ROUTES, ROOT } from "../routes";
+import { LOGIN, PRIVATE_ROUTES, PUBLIC_ROUTES, ROLE_ROUTES } from "../routes";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   });
-
-  if (!env.NEXT_PUBLIC_SUPABASE_URL) throw new Error("Missing SUPABASE_URL");
-  if (!env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY");
 
   const supabase = createServerClient(
     env.NEXT_PUBLIC_SUPABASE_URL,
@@ -42,16 +38,49 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathName = request.nextUrl.pathname;
+  const userRole = user?.user_metadata.role as string | undefined;
 
-  if (!user && !PUBLIC_ROUTES.includes(pathName) && pathName !== ROOT) {
+  // Scenario 1: Allow access to explicit public routes
+  if (PUBLIC_ROUTES.includes(pathName)) {
+    return supabaseResponse;
+  }
+
+  // Scenario 2: Redirect to login if not authenticated and trying to access private routes
+  const isPrivateRoute = PRIVATE_ROUTES.some((route) =>
+    pathName.startsWith(route),
+  );
+  if (!user && isPrivateRoute) {
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
+    url.pathname = LOGIN;
     return NextResponse.redirect(url);
   }
-  if (!!user && PUBLIC_ROUTES.includes(pathName)) {
+
+  // Scenario 3: Redirect to login if user role is undefined/null
+  if (user && (!userRole || userRole.trim() === "")) {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = LOGIN;
     return NextResponse.redirect(url);
+  }
+
+  // Scenario 4: Role-based redirection after login
+  if (user && pathName === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = ROLE_ROUTES[userRole as keyof typeof ROLE_ROUTES] || "/";
+    return NextResponse.redirect(url);
+  }
+
+  // Scenario 5: Prevent access to routes not matching user's role
+  if (user && userRole) {
+    const isAuthorizedRoute = Object.entries(ROLE_ROUTES).some(
+      ([role, routePrefix]) =>
+        role === userRole && pathName.startsWith(routePrefix as string),
+    );
+
+    if (!isAuthorizedRoute) {
+      const url = request.nextUrl.clone();
+      url.pathname = ROLE_ROUTES[userRole as keyof typeof ROLE_ROUTES] || "/";
+      return NextResponse.redirect(url);
+    }
   }
 
   return supabaseResponse;

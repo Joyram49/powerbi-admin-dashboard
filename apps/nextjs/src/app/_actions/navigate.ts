@@ -2,9 +2,9 @@
 
 import { redirect } from "next/navigation";
 
-export function navigate(path: string | null) {
+export async function navigate(path: string | null) {
   if (path) {
-    redirect(path);
+     redirect(path);
   } else {
     redirect("/");
   }

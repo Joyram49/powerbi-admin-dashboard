@@ -21,8 +21,7 @@ function DeleteUserBtn() {
         onError: (error) => {
           console.log("Signout error", error);
         },
-        onSuccess: (result) => {
-          console.log("successfully signout", result);
+        onSuccess: () => {
           router.push("/login");
         },
       },

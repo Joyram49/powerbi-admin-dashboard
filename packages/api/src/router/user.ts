@@ -314,6 +314,13 @@ export const userRouter = createTRPCRouter({
         });
       }
 
+      if (!companyId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Company ID is required",
+        });
+      }
+
       try {
         const totalUsers = await db.$count(
           users,

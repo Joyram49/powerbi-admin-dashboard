@@ -29,7 +29,6 @@ function SignOutBtn() {
         console.log("Signout error", error);
       },
       onSuccess: (result) => {
-        console.log("successfully signout", result);
         router.push("/login");
       },
     });
@@ -45,8 +44,7 @@ function SignOutBtn() {
         onError: (error) => {
           console.log("Update user error", error);
         },
-        onSuccess: (result) => {
-          console.log("Update user success", result);
+        onSuccess: () => {
           router.refresh();
         },
       },

@@ -152,7 +152,6 @@ export const reportRouter = createTRPCRouter({
           data: reportsWithUserCounts,
         };
       } catch (error) {
-        console.log(">>> error in getAllReports", error);
         if (error instanceof TRPCError) {
           throw error;
         }
@@ -265,7 +264,6 @@ export const reportRouter = createTRPCRouter({
           reports: reportsWithUserCounts,
         };
       } catch (error) {
-        console.log(">>> error in getAllReportsAdmin", error);
         if (error instanceof TRPCError) {
           throw error;
         }
@@ -357,7 +355,6 @@ export const reportRouter = createTRPCRouter({
           reports: reportsWithUserCounts,
         };
       } catch (error) {
-        console.log(">>> error in getAllReportsUser", error);
         if (error instanceof TRPCError) {
           throw error;
         }

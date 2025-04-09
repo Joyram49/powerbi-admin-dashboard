@@ -312,6 +312,8 @@ tiny-t3-turbo
 │     ├─ postcss.config.cjs
 │     ├─ public
 │     │  ├─ favicon.ico
+│     │  ├─ joc-logo-color.png
+│     │  ├─ joc-logo.png
 │     │  └─ t3-icon.svg
 │     ├─ README.md
 │     ├─ src
@@ -330,10 +332,6 @@ tiny-t3-turbo
 │     │  │  │  │  ├─ page.tsx
 │     │  │  │  │  └─ _components
 │     │  │  │  │     └─ sign-up.tsx
-│     │  │  │  ├─ reset-password
-│     │  │  │  │  ├─ page.tsx
-│     │  │  │  │  └─ _components
-│     │  │  │  │     └─ reset-password-form.tsx
 │     │  │  │  ├─ verify-otp
 │     │  │  │  │  ├─ page.tsx
 │     │  │  │  │  └─ _components
@@ -341,20 +339,35 @@ tiny-t3-turbo
 │     │  │  │  └─ _components
 │     │  │  │     └─ auth_footer.tsx
 │     │  │  ├─ (dashboard)
-│     │  │  │  └─ dashboard
-│     │  │  │     ├─ page.tsx
-│     │  │  │     └─ _components
-│     │  │  │        └─ SignOutButton.tsx
-│     │  │  ├─ actions
-│     │  │  │  └─ navigate.ts
+│     │  │  │  ├─ admin
+│     │  │  │  │  ├─ page.tsx
+│     │  │  │  │  └─ users
+│     │  │  │  │     ├─ add
+│     │  │  │  │     │  └─ page.tsx
+│     │  │  │  │     └─ page.tsx
+│     │  │  │  ├─ layout.tsx
+│     │  │  │  ├─ super-admin
+│     │  │  │  │  ├─ companies
+│     │  │  │  │  │  ├─ add
+│     │  │  │  │  │  │  └─ page.tsx
+│     │  │  │  │  │  └─ page.tsx
+│     │  │  │  │  └─ page.tsx
+│     │  │  │  ├─ user
+│     │  │  │  │  └─ page.tsx
+│     │  │  │  └─ _components
+│     │  │  │     ├─ AddUserForm.tsx
+│     │  │  │     ├─ CompanyForm.tsx
+│     │  │  │     ├─ DashboardLayout.tsx
+│     │  │  │     ├─ Header.tsx
+│     │  │  │     ├─ Sidebar.tsx
+│     │  │  │     └─ SignOutButton.tsx
 │     │  │  ├─ api
 │     │  │  │  ├─ auth
 │     │  │  │  │  └─ confirm
 │     │  │  │  │     └─ route.ts
-│     │  │  │  ├─ trpc
-│     │  │  │  │  └─ [trpc]
-│     │  │  │  │     └─ route.ts
-│     │  │  │  └─ updateSessionOnUnload.ts
+│     │  │  │  └─ trpc
+│     │  │  │     └─ [trpc]
+│     │  │  │        └─ route.ts
 │     │  │  ├─ company
 │     │  │  │  ├─ page.tsx
 │     │  │  │  └─ _components
@@ -362,7 +375,6 @@ tiny-t3-turbo
 │     │  │  ├─ error.tsx
 │     │  │  ├─ globals.css
 │     │  │  ├─ layout.tsx
-│     │  │  ├─ page.tsx
 │     │  │  ├─ private
 │     │  │  │  ├─ page.tsx
 │     │  │  │  └─ _components
@@ -373,10 +385,8 @@ tiny-t3-turbo
 │     │  │  │  ├─ page.tsx
 │     │  │  │  └─ _components
 │     │  │  │     └─ add-report-form.tsx
-│     │  │  └─ _components
-│     │  │     ├─ auth-showcase.tsx
-│     │  │     ├─ layout-wrapper.tsx
-│     │  │     └─ powerbi.tsx
+│     │  │  └─ _actions
+│     │  │     └─ navigate.ts
 │     │  ├─ env.ts
 │     │  ├─ hooks
 │     │  │  └─ userSessionsTrack.ts
@@ -412,7 +422,6 @@ tiny-t3-turbo
 │  │  │  │  ├─ company.ts
 │  │  │  │  ├─ post.ts
 │  │  │  │  ├─ report.ts
-│  │  │  │  ├─ session.ts
 │  │  │  │  └─ user.ts
 │  │  │  └─ trpc.ts
 │  │  └─ tsconfig.json
