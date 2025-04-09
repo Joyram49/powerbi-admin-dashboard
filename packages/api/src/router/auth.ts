@@ -32,6 +32,7 @@ export const createUserSchema = z
     companyId: z.string().optional(),
     userName: z.string().optional(),
     modifiedBy: z.string().optional(),
+    reportIds: z.array(z.string().uuid()).optional(),
   })
   .refine(
     (data) => {
@@ -104,6 +105,16 @@ export const authRouter = createTRPCRouter({
           modifiedBy: ctx.session.user.id,
           passwordHistory: [hashedPassword],
         });
+
+        // insert the report ids with created user id into user_to_reports table
+        // if (input.reportIds && input.reportIds.length > 0) {
+        //   const reportLinks = input.reportIds.map((reportId) => ({
+        //     userId: user.id,
+        //     reportId,
+        //   }));
+
+        //   await db.insert(userReports).values(reportLinks);
+        // }
 
         return {
           success: true,

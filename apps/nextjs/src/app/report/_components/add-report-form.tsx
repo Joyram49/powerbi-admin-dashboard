@@ -69,7 +69,7 @@ export function AddReportForm() {
     api.user.getAllGeneralUser.useQuery();
 
   // Report mutation
-  const createReport = api.report.updateReport.useMutation({
+  const createReport = api.report.create.useMutation({
     onSuccess: (result) => {
       if (result.success) {
         form.reset();
@@ -82,11 +82,7 @@ export function AddReportForm() {
   });
 
   function onSubmit(data: z.infer<typeof ReportFormSchema>) {
-    const requestData = {
-      ...data,
-      reportId: "ef26c48f-ec94-4b7b-b04e-758882404ea0",
-    };
-    createReport.mutate(requestData);
+    createReport.mutate(data);
   }
 
   return (
@@ -143,8 +139,8 @@ export function AddReportForm() {
                     <SelectItem value="loading" disabled>
                       Loading companies...
                     </SelectItem>
-                  ) : companiesData?.companies.length > 0 ? (
-                    companiesData.companies.map((company) => (
+                  ) : companiesData?.data.length > 0 ? (
+                    companiesData.data.map((company) => (
                       <SelectItem key={company.id} value={company.id}>
                         {company.companyName}
                       </SelectItem>
@@ -174,8 +170,8 @@ export function AddReportForm() {
                     <div className="text-sm text-gray-500">
                       Loading users...
                     </div>
-                  ) : usersData?.users.length > 0 ? (
-                    usersData.users.map((user) => (
+                  ) : usersData?.data.length > 0 ? (
+                    usersData.data.map((user) => (
                       <div
                         key={user.id}
                         className="flex items-center space-x-2"

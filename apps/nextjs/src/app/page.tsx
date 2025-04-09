@@ -9,7 +9,7 @@ export default function HomePage() {
 
   // console.log(">>> user from home page", user);
 
-  // const users: User[] = await api.user.getAllUsers();
+  // const users = await api.user.getAllUsers();
   // console.log(">>> all users ", users);
 
   // const adminUsers = await api.user.getAdminUsers();
@@ -21,7 +21,8 @@ export default function HomePage() {
   // const reports = await api.report.getAllReports({
   //   searched: "",
   //   limit: 5,
-  //   page: 2,
+  //   page: 1,
+  //   sortBy: "dateCreated",
   // });
   // console.log(">>> reports", reports);
 
