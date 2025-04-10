@@ -102,7 +102,7 @@ importers:
         version: 1.13.0
       nitropack:
         specifier: ^2.9.7
-        version: 2.10.4(@planetscale/database@1.19.0)(drizzle-orm@0.41.0(@libsql/client-wasm@0.14.0)(@neondatabase/serverless@0.10.0)(@opentelemetry/api@1.9.0)(@planetscale/database@1.19.0)(@types/pg@8.11.10)(@vercel/postgres@0.10.0(utf-8-validate@6.0.4))(mysql2@3.11.3)(pg@8.13.1)(postgres@3.4.5))(mysql2@3.11.3)(typescript@5.6.3)(webpack-sources@3.2.3)
+        version: 2.10.4(@planetscale/database@1.19.0)(drizzle-orm@0.41.0(@planetscale/database@1.19.0)(mysql2@3.11.3))(mysql2@3.11.3)(typescript@5.6.3)(webpack-sources@3.2.3)
       prettier:
         specifier: 'catalog:'
         version: 3.3.3
@@ -281,6 +281,9 @@ importers:
       jquery:
         specifier: ^3.7.1
         version: 3.7.1
+      lucide-react:
+        specifier: ^0.479.0
+        version: 0.479.0(react@18.3.1)
       next:
         specifier: ^14.2.15
         version: 14.2.15(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -555,6 +558,9 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: ^1.1.8
         version: 1.1.8(@types/react-dom@18.3.1)(@types/react@18.3.11)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@tanstack/react-table':
+        specifier: ^8.21.2
+        version: 8.21.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       class-variance-authority:
         specifier: ^0.7.0
         version: 0.7.0
@@ -3752,6 +3758,17 @@ packages:
     resolution: {integrity: sha512-QbVlAkTI78wB4Mqgf2RDmgC0AOiJqer2c5k9STOOSXGv1S6ZkY37r/6UpE8DbQ2Du0ohsdoXgFNEyv+4eDoPEw==}
     peerDependencies:
       react: ^18 || ^19
+
+  '@tanstack/react-table@8.21.2':
+    resolution: {integrity: sha512-11tNlEDTdIhMJba2RBH+ecJ9l1zgS2kjmexDPAraulc8jeNA4xocSNeyzextT0XJyASil4XsCYlJmf5jEWAtYg==}
+    engines: {node: '>=12'}
+    peerDependencies:
+      react: '>=16.8'
+      react-dom: '>=16.8'
+
+  '@tanstack/table-core@8.21.2':
+    resolution: {integrity: sha512-uvXk/U4cBiFMxt+p9/G7yUWI/UbHYbyghLCjlpWZ3mLeIZiUBSKcUnw9UnKkdRz7Z/N4UBuFLWQdJCjUe7HjvA==}
+    engines: {node: '>=12'}
 
   '@tootallnate/quickjs-emscripten@0.23.0':
     resolution: {integrity: sha512-C5Mc6rdnsaJDjO3UpGW/CQTHtCKaYlScZTly4JIu97Jxo/odCiH0ITnDXSJPTOrEKk/ycSZ0AOgTmkDtkOsvIA==}
@@ -12787,6 +12804,14 @@ snapshots:
       '@tanstack/query-core': 5.59.13
       react: 18.3.1
 
+  '@tanstack/react-table@8.21.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+    dependencies:
+      '@tanstack/table-core': 8.21.2
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+
+  '@tanstack/table-core@8.21.2': {}
+
   '@tootallnate/quickjs-emscripten@0.23.0': {}
 
   '@trpc/client@11.0.0-rc.477(@trpc/server@11.0.0-rc.477)':
@@ -14026,7 +14051,7 @@ snapshots:
 
   dayjs@1.11.13: {}
 
-  db0@0.2.1(drizzle-orm@0.41.0(@libsql/client-wasm@0.14.0)(@neondatabase/serverless@0.10.0)(@opentelemetry/api@1.9.0)(@planetscale/database@1.19.0)(@types/pg@8.11.10)(@vercel/postgres@0.10.0(utf-8-validate@6.0.4))(mysql2@3.11.3)(pg@8.13.1)(postgres@3.4.5))(mysql2@3.11.3):
+  db0@0.2.1(drizzle-orm@0.41.0(@planetscale/database@1.19.0)(mysql2@3.11.3))(mysql2@3.11.3):
     optionalDependencies:
       drizzle-orm: 0.41.0(@libsql/client-wasm@0.14.0)(@neondatabase/serverless@0.10.0)(@opentelemetry/api@1.9.0)(@planetscale/database@1.19.0)(@types/pg@8.11.10)(@vercel/postgres@0.10.0(utf-8-validate@6.0.4))(mysql2@3.11.3)(pg@8.13.1)(postgres@3.4.5)
       mysql2: 3.11.3
@@ -16550,7 +16575,7 @@ snapshots:
 
   nice-try@1.0.5: {}
 
-  nitropack@2.10.4(@planetscale/database@1.19.0)(drizzle-orm@0.41.0(@libsql/client-wasm@0.14.0)(@neondatabase/serverless@0.10.0)(@opentelemetry/api@1.9.0)(@planetscale/database@1.19.0)(@types/pg@8.11.10)(@vercel/postgres@0.10.0(utf-8-validate@6.0.4))(mysql2@3.11.3)(pg@8.13.1)(postgres@3.4.5))(mysql2@3.11.3)(typescript@5.6.3)(webpack-sources@3.2.3):
+  nitropack@2.10.4(@planetscale/database@1.19.0)(drizzle-orm@0.41.0(@planetscale/database@1.19.0)(mysql2@3.11.3))(mysql2@3.11.3)(typescript@5.6.3)(webpack-sources@3.2.3):
     dependencies:
       '@cloudflare/kv-asset-handler': 0.3.4
       '@netlify/functions': 2.8.2
@@ -16574,7 +16599,7 @@ snapshots:
       cookie-es: 1.2.2
       croner: 9.0.0
       crossws: 0.3.1
-      db0: 0.2.1(drizzle-orm@0.41.0(@libsql/client-wasm@0.14.0)(@neondatabase/serverless@0.10.0)(@opentelemetry/api@1.9.0)(@planetscale/database@1.19.0)(@types/pg@8.11.10)(@vercel/postgres@0.10.0(utf-8-validate@6.0.4))(mysql2@3.11.3)(pg@8.13.1)(postgres@3.4.5))(mysql2@3.11.3)
+      db0: 0.2.1(drizzle-orm@0.41.0(@planetscale/database@1.19.0)(mysql2@3.11.3))(mysql2@3.11.3)
       defu: 6.1.4
       destr: 2.0.3
       dot-prop: 9.0.0

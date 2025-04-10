@@ -185,10 +185,24 @@ export const userRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const { companyId, limit = 10, page = 1 } = input ?? {};
 
+      if (!companyId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Please provide companyId",
+        });
+      }
+
       if (ctx.session.user.role === "user") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "You are not authorized to get users by company id",
+        });
+      }
+
+      if (!companyId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Company ID is required",
         });
       }
 

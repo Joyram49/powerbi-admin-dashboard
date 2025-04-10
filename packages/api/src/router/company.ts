@@ -1,5 +1,6 @@
+import type { SQL } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, ilike, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { companies, db } from "@acme/db";
@@ -65,6 +66,13 @@ export const companyRouter = createTRPCRouter({
           searched: z.string().toLowerCase().optional().default(""),
           limit: z.number().default(10),
           page: z.number().default(1),
+          sortBy: z
+            .enum(["companyName", "dateJoined"])
+            .optional()
+            .default("dateJoined"),
+          status: z
+            .enum(["active", "inactive", "pending", "suspended"])
+            .optional(),
         })
         .optional(),
     )
@@ -76,19 +84,43 @@ export const companyRouter = createTRPCRouter({
           message: "You must be logged in to view companies",
         });
       }
-      const { limit = 10, page = 1, searched = "" } = input ?? {};
+
+      const {
+        limit = 10,
+        page = 1,
+        searched = "",
+        sortBy = "dateJoined",
+        status,
+      } = input ?? {};
 
       try {
+        // Constructing `where` conditions dynamically
+        const whereConditions: SQL[] = [
+          ilike(companies.companyName, `%${searched}%`),
+        ];
+        if (status) {
+          whereConditions.push(eq(companies.status, status));
+        }
+
         const totalCompanies = await db.$count(
           companies,
-          ilike(companies.companyName, `%${searched}%`),
+          and(...whereConditions),
         );
+
+        // Dynamic Sorting
+        const orderByCondition =
+          sortBy === "companyName"
+            ? [asc(companies.companyName)]
+            : [desc(companies.dateJoined)];
 
         const allCompanies = await db.query.companies.findMany({
           columns: {
             companyAdminId: false,
           },
-          where: ilike(companies.companyName, `%${searched}%`),
+          where:
+            whereConditions.length > 1
+              ? and(...whereConditions)
+              : whereConditions[0],
           with: {
             admin: {
               columns: {
@@ -100,8 +132,8 @@ export const companyRouter = createTRPCRouter({
           },
           extras: {
             employeeCount: sql<number>`(
-              SELECT COUNT(*)::int FROM "user" WHERE "user"."company_id" = companies.id
-            )`.as("employee_count"),
+            SELECT COUNT(*)::int FROM "user" WHERE "user"."company_id" = companies.id
+          )`.as("employee_count"),
             reportCount:
               sql<number>`(SELECT COUNT(*)::int FROM "report" WHERE "report"."company_id" = companies.id)`.as(
                 "report_count",
@@ -109,7 +141,7 @@ export const companyRouter = createTRPCRouter({
           },
           limit: limit,
           offset: (page - 1) * limit,
-          orderBy: [desc(companies.dateJoined)],
+          orderBy: orderByCondition,
         });
 
         return {
@@ -137,6 +169,10 @@ export const companyRouter = createTRPCRouter({
           searched: z.string().toLowerCase().optional().default(""),
           limit: z.number().default(10),
           page: z.number().default(1),
+          sortBy: z
+            .enum(["companyName", "dateJoined"])
+            .optional()
+            .default("dateJoined"),
         })
         .optional(),
     )
@@ -148,9 +184,20 @@ export const companyRouter = createTRPCRouter({
         });
       }
 
-      const { limit = 10, page = 1, searched = "" } = input ?? {};
+      const {
+        limit = 10,
+        page = 1,
+        searched = "",
+        sortBy = "dateJoined",
+      } = input ?? {};
 
       try {
+        // Sorting logic
+        const orderByCondition =
+          sortBy === "companyName"
+            ? [asc(companies.companyName)]
+            : [desc(companies.dateJoined)];
+
         // Fetch total count only on the first page
         const totalCompanies = await db.$count(
           companies,
@@ -190,7 +237,7 @@ export const companyRouter = createTRPCRouter({
           },
           limit,
           offset: (page - 1) * limit,
-          orderBy: [desc(companies.dateJoined)],
+          orderBy: orderByCondition,
         });
 
         return {
@@ -216,14 +263,29 @@ export const companyRouter = createTRPCRouter({
   // get companies by company admin id
   getCompaniesByAdminId: protectedProcedure
     .input(
-      z.object({
-        companyAdminId: z.string().uuid(),
-        limit: z.number().optional().default(10),
-        page: z.number().optional().default(1),
-      }),
+      z
+        .object({
+          companyAdminId: z.string().uuid(),
+          limit: z.number().optional().default(10),
+          page: z.number().optional().default(1),
+          sortBy: z
+            .enum(["companyName", "dateJoined"])
+            .optional()
+            .default("dateJoined"),
+          status: z
+            .enum(["active", "inactive", "pending", "suspended"])
+            .optional(),
+        })
+        .optional(),
     )
     .query(async ({ ctx, input }) => {
-      const { companyAdminId, limit = 10, page = 1 } = input;
+      const {
+        companyAdminId,
+        limit = 10,
+        page = 1,
+        sortBy = "dateJoined",
+        status,
+      } = input ?? {};
 
       if (ctx.session.user.role === "user") {
         throw new TRPCError({
@@ -232,13 +294,37 @@ export const companyRouter = createTRPCRouter({
         });
       }
 
+      if (!companyAdminId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Please provide company admin id",
+        });
+      }
+
       try {
+        // Build where conditions dynamically
+        const whereConditions: SQL[] = [
+          eq(companies.companyAdminId, companyAdminId),
+        ];
+        if (status) {
+          whereConditions.push(eq(companies.status, status));
+        }
+
+        // Sorting logic
+        const orderByCondition =
+          sortBy === "companyName"
+            ? [asc(companies.companyName)]
+            : [desc(companies.dateJoined)];
+
+        // Fetch total count (only relevant for the first page)
         const totalCompanies = await db.$count(
           companies,
-          eq(companies.companyAdminId, companyAdminId),
+          and(...whereConditions),
         );
+
+        // Fetch paginated and sorted data
         const companiesByAdminId = await db.query.companies.findMany({
-          where: eq(companies.companyAdminId, companyAdminId),
+          where: and(...whereConditions),
           extras: {
             employeeCount:
               sql<number>`(SELECT COUNT(*)::int FROM "user" WHERE "user"."company_id" = companies.id)`.as(
@@ -251,7 +337,7 @@ export const companyRouter = createTRPCRouter({
           },
           limit,
           offset: (page - 1) * limit,
-          orderBy: [desc(companies.dateJoined)],
+          orderBy: orderByCondition,
         });
 
         return {

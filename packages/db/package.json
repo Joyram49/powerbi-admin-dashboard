@@ -9,12 +9,16 @@
       "default": "./src/index.ts"
     },
     "./client": {
-      "types": "./dist/client.d.ts",
-      "default": "./src/client.ts"
+      "types": "./dist/src/supabase/client.d.ts",
+      "default": "./src/supabase/client.ts"
     },
     "./schema": {
       "types": "./dist/schema.d.ts",
-      "default": "./src/schema.ts"
+      "default": "./src/schema/index.ts"
+    },
+    "./db": {
+      "types": "./dist/src/supabase/dbConnect.d.ts",
+      "default": "./src/supabase/dbConnect.ts"
     }
   },
   "license": "MIT",

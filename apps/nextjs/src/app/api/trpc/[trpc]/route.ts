@@ -1,10 +1,9 @@
+import type { ResponseCookie } from "next/dist/compiled/@edge-runtime/cookies";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
-
 import { appRouter, createTRPCContext } from "@acme/api";
 import { createClientServer, globalCookieStore } from "@acme/db";
-
 import { env } from "~/env";
 
 // Define local interfaces to match the structure from server.ts
@@ -101,7 +100,7 @@ const createCustomResponseHandler = async (req: Request) => {
     const cookieData = typedCookieStore[name];
     if (cookieData && typeof cookieData.value === "string") {
       // Define cookie options with the expected ResponseCookie type structure
-      const cookieOptions = {
+      const cookieOptions: Partial<ResponseCookie> = {
         name,
         value: cookieData.value,
         path: cookieData.options.path ?? "/",
@@ -118,7 +117,7 @@ const createCustomResponseHandler = async (req: Request) => {
       if (cookieData.options.expires)
         cookieOptions.expires = cookieData.options.expires;
 
-      response.cookies.set(cookieOptions);
+      response.cookies.set(cookieOptions as ResponseCookie);
     }
   });
 

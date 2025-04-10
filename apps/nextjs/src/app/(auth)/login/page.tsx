@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 
-import { SignInForm } from "./_components/sign-in-form";
+import { SignInForm } from "../_components/sign-in-form";
 
 function AuthShowcaseSkeleton() {
   return (
@@ -15,8 +15,7 @@ function SignInPage() {
   return (
     <Suspense fallback={<AuthShowcaseSkeleton />}>
       {/* <AuthShowcase /> */}
-      <div className="flex w-full max-w-sm flex-col gap-4 p-4">
-        <h1 className="text-center text-3xl font-medium">Welcome Back</h1>
+      <div className="flex w-full flex-col gap-4 p-4">
         <SignInForm />
       </div>
     </Suspense>

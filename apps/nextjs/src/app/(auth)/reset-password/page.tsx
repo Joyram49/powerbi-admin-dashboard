@@ -1,26 +1,24 @@
-"use client";
+import { Lock } from "lucide-react";
 
-import { ResetPasswordForm } from "./_components/reset-password-form";
+import { UpdatePasswordForm } from "../_components/update-password-form";
 
-function ResetPasswordPage() {
+export default function UpdatePasswordPage() {
   return (
-    <div className="flex min-h-screen flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          Reset your password
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Enter a new password for your account
-        </p>
-      </div>
-
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white px-4 py-8 shadow sm:rounded-lg sm:px-10">
-          <ResetPasswordForm />
+    <div className="flex flex-col items-center justify-center bg-gray-50 px-4 py-12 dark:bg-gray-900">
+      <div className="w-full max-w-md">
+        <div className="mb-6 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30">
+            <Lock className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Update Your Password
+          </h1>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            Create a strong, unique password to protect your account
+          </p>
         </div>
+        <UpdatePasswordForm />
       </div>
     </div>
   );
 }
-
-export default ResetPasswordPage;

@@ -23,7 +23,7 @@ interface StoredCookie {
 export const globalCookieStore: Record<string, StoredCookie> = {};
 
 // Create Supabase client for server auth
-export function createClientServer() {
+export const createClientServer = () => {
   try {
     const cookieStore = cookies();
 
