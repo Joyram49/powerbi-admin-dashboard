@@ -1,6 +1,11 @@
 "use client";
 
-import { UsersDataTable } from "../_components/user-data-table";
+import { useState } from "react";
+import { DataTable } from "./_components/company-data-table";
+import { useDebounce } from "~/hooks/useDebounce";
+import { api } from "~/trpc/react";
+
+
 
 export default function SuperDashboard() {
   const [pagination, setPagination] = useState({
