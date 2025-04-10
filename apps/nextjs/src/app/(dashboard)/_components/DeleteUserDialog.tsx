@@ -21,7 +21,7 @@ interface DeleteUserDialogProps {
   userId: string;
   userName: string;
   userEmail: string;
-  userRole: string;
+  userRole: "user" | "admin" | "superAdmin";
   onSuccess?: () => void;
   trigger?: React.ReactNode;
 }

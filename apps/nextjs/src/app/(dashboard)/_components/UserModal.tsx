@@ -284,7 +284,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
   const form = useForm({
     resolver: zodResolver(userSchema),
     defaultValues: {
-      id: user?.id,
+      id: user?.userId ?? user?.id,
       userName: user?.userName ?? "",
       email: user?.email ?? "",
       role: user?.role ?? "user",
@@ -305,23 +305,22 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
     const { confirmPassword, sendWelcomeEmail, ...restValues } = values;
 
     if (restValues.id) {
-      // Update flow - Notice the correct property names for the API
+      // Update flow - Include ONLY the fields expected by the API
       const updateData = {
-        userId: restValues.id, // Using userId as expected by API
-        email: restValues.email,
-        userName: restValues.userName,
+        userId: restValues.id,
+        modifiedBy: currentUserId ?? "",
         role: restValues.role,
-        companyId: restValues.companyId ?? "",
-        modifiedBy: currentUserId ?? "", // Using the actual user ID
-        password:
-          restValues.password && restValues.password.length > 0
-            ? restValues.password
-            : undefined,
+        status: user?.status ?? "active", // Include the status field if available
+        companyId: restValues.companyId || undefined, // Ensure undefined instead of empty string
+        userName: restValues.userName || undefined, // Ensure undefined instead of empty string
       };
 
+      console.log("Updating user with data:", updateData);
+
+      // Send ONLY fields defined in the API schema
       updateUserMutation.mutate(updateData);
     } else {
-      // Create flow - password is required for new users
+      // Create flow
       if (!restValues.password) {
         toast.error("Password is required for new users");
         setIsSubmitting(false);
@@ -333,14 +332,13 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
         role: restValues.role,
         password: restValues.password,
         userName: restValues.userName,
-        companyId: restValues.companyId,
+        companyId: restValues.companyId ?? undefined,
         modifiedBy: currentUserId ?? "",
       };
 
       createUserMutation.mutate(createData);
     }
   };
-
   // Reset form when modal opens
   useEffect(() => {
     if (open) {
@@ -348,7 +346,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
         id: user?.id,
         userName: user?.userName ?? "",
         email: user?.email ?? "",
-        role: user?.role ?? "user",
+        role: user?.role,
         companyId: user?.companyId,
         password: "",
         confirmPassword: "",
@@ -575,69 +573,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                         />
                       </motion.div>
                     )}
-                  {role === "user" &&
-                    companies?.data &&
-                    companies.data.length > 0 && (
-                      <motion.div variants={itemVariants}>
-                        <FormField
-                          control={form.control}
-                          name="companyId"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
-                                Company
-                              </FormLabel>
-                              <Select
-                                onValueChange={field.onChange}
-                                defaultValue={field.value || ""}
-                              >
-                                <FormControl>
-                                  <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">
-                                    <SelectValue placeholder="Select company" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {companies.data.map((company) => (
-                                    <SelectItem
-                                      key={company.id}
-                                      value={company.id}
-                                    >
-                                      {company.companyName}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage className="text-xs dark:text-red-400" />
-                            </FormItem>
-                          )}
-                        />
-                      </motion.div>
-                    )}
 
-                  {!isUpdateMode && (
-                    <motion.div variants={itemVariants} className="space-y-2">
-                      <FormField
-                        control={form.control}
-                        name="sendWelcomeEmail"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                                className="border-blue-600 data-[state=checked]:bg-blue-500 data-[state=checked]:text-white dark:border-gray-600"
-                              />
-                            </FormControl>
-                            <div className="space-y-1 leading-none">
-                              <FormLabel className="text-sm font-medium dark:text-gray-300">
-                                Send Welcome Email
-                              </FormLabel>
-                            </div>
-                          </FormItem>
-                        )}
-                      />
-                    </motion.div>
-                  )}
                   {!isUpdateMode && (
                     <motion.div variants={itemVariants} className="space-y-2">
                       <FormField

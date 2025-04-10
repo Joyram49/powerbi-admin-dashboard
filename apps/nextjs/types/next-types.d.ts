@@ -33,7 +33,7 @@ interface User {
   status: "active" | "inactive" | null;
   dateCreated: Date;
 
-  companyId: string | undefined | null;
+  companyId: string | undefined;
   modifiedBy: string | null;
   lastLogin: string | number | Date | null;
   company?: { companyName: string };
