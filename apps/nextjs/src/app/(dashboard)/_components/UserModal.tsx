@@ -46,14 +46,88 @@ const userSchema = z
       .min(2, "Username is required")
       .refine((val) => !val.includes(" "), "Username cannot contain spaces"),
     password: z.string().optional(),
+    password: z.string().optional(),
     confirmPassword: z.string().optional(),
     email: z.string().email("Valid email is required"),
     role: z.enum(["user", "admin", "superAdmin"]).default("user"),
     companyId: z.string().uuid().optional(),
     sendWelcomeEmail: z.boolean().default(true),
     modifiedBy: z.string().optional(),
+    modifiedBy: z.string().optional(),
   })
   .refine(
+    (data) => {
+      // For new users (no id), password is required
+      if (!data.id && (!data.password || data.password.length === 0)) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "Password is required for new users",
+      path: ["password"],
+    },
+  )
+  .refine(
+    (data) => {
+      // If password is provided, validate it
+      if (data.password && data.password.length > 0) {
+        return data.password.length >= 12;
+      }
+      return true;
+    },
+    {
+      message: "Password must be at least 12 characters",
+      path: ["password"],
+    },
+  )
+  .refine(
+    (data) => {
+      // If password is provided, validate it
+      if (data.password && data.password.length > 0) {
+        return /[A-Z]/.test(data.password);
+      }
+      return true;
+    },
+    {
+      message: "Password must contain at least one uppercase letter",
+      path: ["password"],
+    },
+  )
+  .refine(
+    (data) => {
+      // If password is provided, validate it
+      if (data.password && data.password.length > 0) {
+        return /[a-z]/.test(data.password);
+      }
+      return true;
+    },
+    {
+      message: "Password must contain at least one lowercase letter",
+      path: ["password"],
+    },
+  )
+  .refine(
+    (data) => {
+      // If password is provided, validate it
+      if (data.password && data.password.length > 0) {
+        return /[0-9]/.test(data.password);
+      }
+      return true;
+    },
+    {
+      message: "Password must contain at least one number",
+      path: ["password"],
+    },
+  )
+  .refine(
+    (data) => {
+      // Confirm password match if password is provided
+      if (data.password && data.password.length > 0) {
+        return data.password === data.confirmPassword;
+      }
+      return true;
+    },
     (data) => {
       // For new users (no id), password is required
       if (!data.id && (!data.password || data.password.length === 0)) {
@@ -168,9 +242,12 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const utils = api.useUtils();
+  const utils = api.useUtils();
 
   // When we create user we need companyId.for instance we need to fetch all company
+  // When we create user we need companyId.for instance we need to fetch all company
   const { data: companies } = api.company.getAllCompanies.useQuery();
+
 
   // Get current user profile
   const { data: profileData } = api.auth.getProfile.useQuery();
@@ -179,6 +256,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
 
   // Create and update mutations
   const createUserMutation = api.auth.createUser.useMutation({
+    onSuccess: async () => {
     onSuccess: async () => {
       toast.success("User added successfully");
       setOpen(false);
@@ -197,6 +275,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
   });
 
   const updateUserMutation = api.user.updateUser.useMutation({
+    onSuccess: async () => {
     onSuccess: async () => {
       toast.success("User updated successfully");
       setOpen(false);
@@ -296,6 +375,9 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
   const password = form.watch("password");
   const isUpdateMode = !!user?.id;
 
+  const password = form.watch("password");
+  const isUpdateMode = !!user?.id;
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -385,11 +467,15 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                             {isUpdateMode
                               ? "New Password (optional)"
                               : "Password"}
+                            {isUpdateMode
+                              ? "New Password (optional)"
+                              : "Password"}
                           </FormLabel>
                           <FormControl>
                             <Input
                               type="password"
                               placeholder={
+                                isUpdateMode
                                 isUpdateMode
                                   ? "Leave blank to keep current password"
                                   : "Enter password"
@@ -404,6 +490,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                     />
                   </motion.div>
 
+                  {(password && password.length > 0) || !isUpdateMode ? (
                   {(password && password.length > 0) || !isUpdateMode ? (
                     <motion.div variants={itemVariants}>
                       <FormField
@@ -427,6 +514,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                         )}
                       />
                     </motion.div>
+                  ) : null}
                   ) : null}
 
                   <motion.div variants={itemVariants}>
@@ -506,7 +594,69 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                         />
                       </motion.div>
                     )}
+                  {role === "user" &&
+                    companies?.data &&
+                    companies.data.length > 0 && (
+                      <motion.div variants={itemVariants}>
+                        <FormField
+                          control={form.control}
+                          name="companyId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
+                                Company
+                              </FormLabel>
+                              <Select
+                                onValueChange={field.onChange}
+                                defaultValue={field.value || ""}
+                              >
+                                <FormControl>
+                                  <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                                    <SelectValue placeholder="Select company" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {companies.data.map((company) => (
+                                    <SelectItem
+                                      key={company.id}
+                                      value={company.id}
+                                    >
+                                      {company.companyName}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage className="text-xs dark:text-red-400" />
+                            </FormItem>
+                          )}
+                        />
+                      </motion.div>
+                    )}
 
+                  {!isUpdateMode && (
+                    <motion.div variants={itemVariants} className="space-y-2">
+                      <FormField
+                        control={form.control}
+                        name="sendWelcomeEmail"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                className="border-blue-600 data-[state=checked]:bg-blue-500 data-[state=checked]:text-white dark:border-gray-600"
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel className="text-sm font-medium dark:text-gray-300">
+                                Send Welcome Email
+                              </FormLabel>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+                    </motion.div>
+                  )}
                   {!isUpdateMode && (
                     <motion.div variants={itemVariants} className="space-y-2">
                       <FormField

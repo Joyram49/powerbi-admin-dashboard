@@ -85,6 +85,8 @@ export function UsersDataTable() {
   const [userType, setUserType] = useState<"all" | "admin" | "general">("all");
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { data: profileData } = api.auth.getProfile.useQuery();
   const userRole = profileData?.user.user_metadata.role as string;
   const currentUserId = profileData?.user.id;
@@ -321,6 +323,7 @@ export function UsersDataTable() {
       id: "actions",
       cell: ({ row }) => {
         const user = row.original;
+
 
         return (
           <div className="flex items-center space-x-2">
