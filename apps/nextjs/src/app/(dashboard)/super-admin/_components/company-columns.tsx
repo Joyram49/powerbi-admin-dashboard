@@ -86,15 +86,15 @@ export const columns: ColumnDef<Company>[] = [
       </div>
     ),
   },
-  // {
-  //   accessorKey: "admin",
-  //   header: () => <div className="text-center font-medium">Admin</div>,
-  //   cell: ({ row }) => (
-  //     <div className="text-center">
-  //       {row.original.admin.userName || "No Admin"}
-  //     </div>
-  //   ),
-  // },
+  {
+    accessorKey: "admin",
+    header: () => <div className="text-center font-medium">Admin</div>,
+    cell: ({ row }) => (
+      <div className="text-center">
+        {row.original.admin.userName || "No Admin"}
+      </div>
+    ),
+  },
   {
     accessorKey: "employeeCount",
     header: () => <div className="text-center font-medium"># Users</div>,
