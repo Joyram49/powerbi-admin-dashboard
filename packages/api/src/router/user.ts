@@ -4,7 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, ilike, ne } from "drizzle-orm";
 import { z } from "zod";
 
-import { createAdminClient, db, users } from "@acme/db";
+import { companies, createAdminClient, db, users } from "@acme/db";
 
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 
@@ -579,7 +579,16 @@ export const userRouter = createTRPCRouter({
             message: `Failed to delete user from Supabase Auth: ${authError.message}`,
           });
         }
+
+        // delete users from supbase database user table
         await db.delete(users).where(eq(users.id, input.userId));
+
+        // delete company from supbase database company table
+        if (input.role === "admin") {
+          await db
+            .delete(companies)
+            .where(companies.companyAdminId, input.userId);
+        }
 
         return {
           success: true,
