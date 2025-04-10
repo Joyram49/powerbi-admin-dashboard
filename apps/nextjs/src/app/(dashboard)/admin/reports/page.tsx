@@ -1,25 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { motion } from "framer-motion";
-import {
-  Building,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Search,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Search } from "lucide-react";
 
 import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@acme/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@acme/ui/dropdown-menu";
 import { Input } from "@acme/ui/input";
 import {
   Table,
@@ -30,71 +17,73 @@ import {
   TableRow,
 } from "@acme/ui/table";
 
-// Dummy data function for companies
-const getCompanies = () => {
+// Dummy data function for reports
+const getReports = () => {
   return [
     {
       id: 1,
-      name: "Acme Corporation",
-      admin: "John Doe",
-      users: 24,
-      createdDate: "2025-01-15",
+      name: "Sample demo report",
+      createdBy: "Admin",
+      createdDate: "2025-03-10",
+      users: 8,
       active: true,
     },
     {
       id: 2,
-      name: "Wayne Enterprises",
-      admin: "John Smith",
-      users: 18,
-      createdDate: "2025-02-10",
+      name: "Monthly sales report",
+      createdBy: "Admin",
+      createdDate: "2025-03-05",
+      users: 5,
       active: true,
     },
     {
       id: 3,
-      name: "Stark Industries",
-      admin: "Sara Johnson",
-      users: 32,
-      createdDate: "2025-02-20",
-      active: true,
+      name: "User activity log",
+      createdBy: "System",
+      createdDate: "2025-02-28",
+      users: 3,
+      active: false,
     },
     {
       id: 4,
-      name: "Umbrella Corp",
-      admin: "Jessica White",
-      users: 16,
-      createdDate: "2025-03-05",
-      active: false,
+      name: "Quarterly performance",
+      createdBy: "Admin",
+      createdDate: "2025-01-15",
+      users: 10,
+      active: true,
     },
   ];
 };
 
 // Animation variants
-const pageVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
-};
-
 const rowVariants = {
   hidden: { opacity: 0, scale: 0.95 },
   visible: { opacity: 1, scale: 1, transition: { duration: 0.3 } },
 };
 
-export default function SuperAdminDashboard() {
-  const allCompanies = getCompanies();
+const pageVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
+};
+
+export default function AdminDashboard() {
+  const allReports = getReports();
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 3;
 
   // Search filter
-  const filteredCompanies = allCompanies.filter((company) =>
-    company.name.toLowerCase().includes(searchQuery.toLowerCase()),
+  const filteredReports = allReports.filter(
+    (report) =>
+      report.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      report.createdBy.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   // Pagination
-  const totalPages = Math.ceil(filteredCompanies.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredReports.length / itemsPerPage);
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentCompanies = filteredCompanies.slice(
+  const currentReports = filteredReports.slice(
     indexOfFirstItem,
     indexOfLastItem,
   );
@@ -116,16 +105,19 @@ export default function SuperAdminDashboard() {
       variants={pageVariants}
     >
       <div className="mx-auto max-w-7xl">
+        <h2 className="text-2xl font-bold dark:text-white">
+          Report Management
+        </h2>
         <Card className="mt-4 dark:border-slate-700 dark:bg-slate-800">
           <CardHeader className="border-b border-slate-100 bg-slate-50 dark:border-slate-700 dark:bg-slate-700">
             <div className="flex items-center justify-between">
-              <CardTitle className="dark:text-white">Companies</CardTitle>
+              <CardTitle className="dark:text-white">Reports</CardTitle>
               <div className="flex items-center space-x-2">
                 <div className="relative w-64">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
                   <Input
                     type="text"
-                    placeholder="Search companies..."
+                    placeholder="Search reports..."
                     className="pl-8 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder:text-slate-400"
                     value={searchQuery}
                     onChange={(e) => {
@@ -134,6 +126,10 @@ export default function SuperAdminDashboard() {
                     }}
                   />
                 </div>
+                <Button className="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700">
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Report
+                </Button>
               </div>
             </div>
           </CardHeader>
@@ -142,9 +138,11 @@ export default function SuperAdminDashboard() {
               <TableHeader>
                 <TableRow className="dark:border-slate-700 dark:bg-slate-800">
                   <TableHead className="dark:text-slate-300">
-                    Company Name
+                    Report Name
                   </TableHead>
-                  <TableHead className="dark:text-slate-300">Admin</TableHead>
+                  <TableHead className="dark:text-slate-300">
+                    Created By
+                  </TableHead>
                   <TableHead className="dark:text-slate-300">
                     Date Created
                   </TableHead>
@@ -154,92 +152,58 @@ export default function SuperAdminDashboard() {
                   <TableHead className="text-center dark:text-slate-300">
                     Status
                   </TableHead>
-                  <TableHead className="text-right dark:text-slate-300">
-                    Action
-                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {currentCompanies.map((company, index) => (
+                {currentReports.map((report, index) => (
                   <motion.tr
-                    key={company.id}
+                    key={report.id}
                     initial="hidden"
                     animate="visible"
                     variants={rowVariants}
                     transition={{ delay: index * 0.1 }}
                     className="dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                   >
-                    <TableCell className="font-medium">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="w-full justify-between"
-                          >
-                            {company.name}
-                            <ChevronDown className="ml-2 h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          <DropdownMenuItem>User List</DropdownMenuItem>
-                          <DropdownMenuItem>Edit</DropdownMenuItem>
-                          <DropdownMenuItem>Delete</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                    <TableCell>{company.admin}</TableCell>
-                    <TableCell>{company.createdDate}</TableCell>
+                    <TableCell className="font-medium">{report.name}</TableCell>
+                    <TableCell>{report.createdBy}</TableCell>
+                    <TableCell>{report.createdDate}</TableCell>
                     <TableCell className="text-center">
-                      <Link
-                        href={`/dashboard/super-admin/companies/${company.id}/users`}
-                      >
-                        <Badge className="bg-blue-50 dark:bg-blue-900 dark:text-blue-100">
-                          {company.users}
-                        </Badge>
-                      </Link>
+                      <Badge className="bg-blue-50 dark:bg-blue-900 dark:text-blue-100">
+                        {report.users}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-center">
                       <Badge
                         className={
-                          company.active
+                          report.active
                             ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
                             : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100"
                         }
                       >
-                        {company.active ? "Active" : "Inactive"}
+                        {report.active ? "Active" : "Inactive"}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Link
-                        href={`/dashboard/super-admin/companies/${company.id}/reports`}
-                        className="flex items-center justify-center text-nowrap rounded-md border border-slate-200 px-2 py-1 text-sm font-medium dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600"
-                      >
-                        <Building className="mr-2 h-4 w-4" />
-                        View Reports
-                      </Link>
                     </TableCell>
                   </motion.tr>
                 ))}
-                {filteredCompanies.length === 0 && (
+                {filteredReports.length === 0 && (
                   <TableRow className="dark:border-slate-700 dark:bg-slate-800">
                     <TableCell
                       colSpan={5}
                       className="h-24 text-center text-slate-500 dark:text-slate-400"
                     >
-                      No companies found.
+                      No reports found.
                     </TableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
           </CardContent>
-          {filteredCompanies.length > 0 && (
+          {filteredReports.length > 0 && (
             <div className="flex items-center justify-between border-t border-slate-100 p-4 dark:border-slate-700">
               <div className="text-sm text-slate-500 dark:text-slate-400">
                 Showing {indexOfFirstItem + 1} to{" "}
-                {Math.min(indexOfLastItem, filteredCompanies.length)} of{" "}
-                {filteredCompanies.length} companies
+                {Math.min(indexOfLastItem, filteredReports.length)} of{" "}
+                {filteredReports.length} reports
               </div>
               <div className="flex items-center space-x-2">
                 <Button

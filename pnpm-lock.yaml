@@ -102,7 +102,7 @@ importers:
         version: 1.13.0
       nitropack:
         specifier: ^2.9.7
-        version: 2.10.4(@planetscale/database@1.19.0)(drizzle-orm@0.41.0(@libsql/client-wasm@0.14.0)(@neondatabase/serverless@0.10.0)(@opentelemetry/api@1.9.0)(@planetscale/database@1.19.0)(@types/pg@8.11.10)(@vercel/postgres@0.10.0(utf-8-validate@6.0.4))(mysql2@3.11.3)(pg@8.13.1)(postgres@3.4.5))(mysql2@3.11.3)(typescript@5.6.3)(webpack-sources@3.2.3)
+        version: 2.10.4(@planetscale/database@1.19.0)(drizzle-orm@0.41.0(@planetscale/database@1.19.0)(mysql2@3.11.3))(mysql2@3.11.3)(typescript@5.6.3)(webpack-sources@3.2.3)
       prettier:
         specifier: 'catalog:'
         version: 3.3.3
@@ -14051,7 +14051,7 @@ snapshots:
 
   dayjs@1.11.13: {}
 
-  db0@0.2.1(drizzle-orm@0.41.0(@libsql/client-wasm@0.14.0)(@neondatabase/serverless@0.10.0)(@opentelemetry/api@1.9.0)(@planetscale/database@1.19.0)(@types/pg@8.11.10)(@vercel/postgres@0.10.0(utf-8-validate@6.0.4))(mysql2@3.11.3)(pg@8.13.1)(postgres@3.4.5))(mysql2@3.11.3):
+  db0@0.2.1(drizzle-orm@0.41.0(@planetscale/database@1.19.0)(mysql2@3.11.3))(mysql2@3.11.3):
     optionalDependencies:
       drizzle-orm: 0.41.0(@libsql/client-wasm@0.14.0)(@neondatabase/serverless@0.10.0)(@opentelemetry/api@1.9.0)(@planetscale/database@1.19.0)(@types/pg@8.11.10)(@vercel/postgres@0.10.0(utf-8-validate@6.0.4))(mysql2@3.11.3)(pg@8.13.1)(postgres@3.4.5)
       mysql2: 3.11.3
@@ -16575,7 +16575,7 @@ snapshots:
 
   nice-try@1.0.5: {}
 
-  nitropack@2.10.4(@planetscale/database@1.19.0)(drizzle-orm@0.41.0(@libsql/client-wasm@0.14.0)(@neondatabase/serverless@0.10.0)(@opentelemetry/api@1.9.0)(@planetscale/database@1.19.0)(@types/pg@8.11.10)(@vercel/postgres@0.10.0(utf-8-validate@6.0.4))(mysql2@3.11.3)(pg@8.13.1)(postgres@3.4.5))(mysql2@3.11.3)(typescript@5.6.3)(webpack-sources@3.2.3):
+  nitropack@2.10.4(@planetscale/database@1.19.0)(drizzle-orm@0.41.0(@planetscale/database@1.19.0)(mysql2@3.11.3))(mysql2@3.11.3)(typescript@5.6.3)(webpack-sources@3.2.3):
     dependencies:
       '@cloudflare/kv-asset-handler': 0.3.4
       '@netlify/functions': 2.8.2
@@ -16599,7 +16599,7 @@ snapshots:
       cookie-es: 1.2.2
       croner: 9.0.0
       crossws: 0.3.1
-      db0: 0.2.1(drizzle-orm@0.41.0(@libsql/client-wasm@0.14.0)(@neondatabase/serverless@0.10.0)(@opentelemetry/api@1.9.0)(@planetscale/database@1.19.0)(@types/pg@8.11.10)(@vercel/postgres@0.10.0(utf-8-validate@6.0.4))(mysql2@3.11.3)(pg@8.13.1)(postgres@3.4.5))(mysql2@3.11.3)
+      db0: 0.2.1(drizzle-orm@0.41.0(@planetscale/database@1.19.0)(mysql2@3.11.3))(mysql2@3.11.3)
       defu: 6.1.4
       destr: 2.0.3
       dot-prop: 9.0.0

@@ -15,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@acme/ui/table";
-   
+
 // Dummy data function for user reports
 const getUserReports = () => {
   return [
@@ -74,7 +74,7 @@ export default function UserDashboard() {
       initial="hidden"
       animate="visible"
       variants={pageVariants}
-    > 
+    >
       <div className="mx-auto max-w-7xl">
         <h2 className="text-2xl font-bold dark:text-white">
           Available Reports

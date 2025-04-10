@@ -1,5 +1,5 @@
-import CompanyAdminForm from "~/app/(dashboard)/_components/CompanyForm";
+import AddUserForm from "~/app/(dashboard)/_components/UserModal";
 
 export default function page() {
-  return <CompanyAdminForm />;
+  return <AddUserForm />;
 }

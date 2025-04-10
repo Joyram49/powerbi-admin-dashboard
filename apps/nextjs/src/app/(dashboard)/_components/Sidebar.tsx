@@ -3,32 +3,19 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Activity,
   BarChart3,
-  BriefcaseBusiness,
-  Building,
   FileText,
   Home,
   KeyRound,
   LogOut,
-  ShieldPlus,
-  UserPlus,
+  Receipt,
+  Settings,
   Users,
 } from "lucide-react";
 
-import { Sidebar } from "@acme/ui/sidebar";
+import { Sidebar, SidebarTrigger } from "@acme/ui/sidebar";
 
 import { api } from "~/trpc/react";
-
-// Animation Variants
-// const sidebarVariants = {
-//   hidden: { x: -250, opacity: 0 },
-//   visible: {
-//     x: 0,
-//     opacity: 1,
-//     transition: { duration: 0.5, ease: "easeInOut" },
-//   },
-// };
 
 const navigationItems = {
   superAdmin: [
@@ -38,29 +25,19 @@ const navigationItems = {
       label: "Home",
     },
     {
-      href: "/super-admin/companies",
-      icon: <Building className="mr-3 h-5 w-5" />,
-      label: "Company List",
-    },
-    {
-      href: "/super-admin/companies/add",
-      icon: <BriefcaseBusiness className="mr-3 h-5 w-5" />,
-      label: "Add Company",
-    },
-    {
       href: "/super-admin/users",
       icon: <Users className="mr-3 h-5 w-5" />,
-      label: "Super Admins",
+      label: "Users",
     },
     {
-      href: "/super-admin/users/add",
-      icon: <ShieldPlus className="mr-3 h-5 w-5" />,
-      label: "Add Super Admin",
+      href: "/super-admin/billing",
+      icon: <Receipt className="mr-3 h-5 w-5" />,
+      label: "Billing Portal",
     },
     {
-      href: "/super-admin/users/add",
-      icon: <Activity className="mr-3 h-5 w-5" />,
-      label: "Track Logins",
+      href: "/super-admin/settings",
+      icon: <Settings className="mr-3 h-5 w-5" />,
+      label: "Settings",
     },
   ],
   admin: [
@@ -70,14 +47,9 @@ const navigationItems = {
       label: "Home",
     },
     {
-      href: "/admin/users",
-      icon: <Users className="mr-3 h-5 w-5" />,
-      label: "Users List",
-    },
-    {
-      href: "/admin/users/add",
-      icon: <UserPlus className="mr-3 h-5 w-5" />,
-      label: "Add User",
+      href: "/admin/reports",
+      icon: <FileText className="mr-3 h-5 w-5" />,
+      label: "Reports",
     },
   ],
   user: [
@@ -87,7 +59,7 @@ const navigationItems = {
       label: "Home",
     },
     {
-      href: "/user/reports",
+      href: "/report",
       icon: <FileText className="mr-3 h-5 w-5" />,
       label: "Reports",
     },
@@ -117,11 +89,16 @@ export default function AppSidebar() {
 
   return (
     <Sidebar className="hidden w-full max-w-64 flex-col bg-slate-900 text-white dark:bg-slate-800 lg:flex">
-      <div className="flex h-16 items-center border-b border-slate-800 px-4">
-        <BarChart3 className="h-6 w-6 text-blue-500" />
-        <span className="ml-2 text-xl font-bold">JOC Analytics</span>
+      <div className="flex h-16 items-center justify-between border-b border-slate-800 bg-slate-900 px-4">
+        <div className="flex items-center">
+          <BarChart3 className="h-6 w-6 text-blue-500" />
+          <span className="ml-2 text-xl font-bold text-white">
+            JOC Analytics
+          </span>
+        </div>
+        <SidebarTrigger className="size-7 p-1 !text-white hover:bg-slate-800" />
       </div>
-      <nav className="flex-1 overflow-y-auto py-4">
+      <nav className="flex-1 overflow-y-auto bg-slate-900 py-4">
         {items.map((item, index) => (
           <Link
             key={index}
@@ -136,8 +113,9 @@ export default function AppSidebar() {
             <span>{item.label}</span>
           </Link>
         ))}
+
         <Link
-          href="/forgot-password"
+          href="/reset-password"
           className={`flex items-center px-4 py-2 text-slate-300 hover:bg-slate-800 hover:text-white`}
         >
           <KeyRound className="mr-3 h-5 w-5" />

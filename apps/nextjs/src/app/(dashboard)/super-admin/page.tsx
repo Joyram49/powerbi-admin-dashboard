@@ -1,17 +1,11 @@
-import { api } from "~/trpc/server";
-import { columns } from "./_components/company-columns";
-import { DataTable } from "./_components/company-data-table";
+"use client";
 
-async function SuperDashboard() {
-  const companies = await api.company.getAllCompanies({
-    searched: "",
-    sortBy: "companyName",
-  });
+import { UsersDataTable } from "../_components/user-data-table";
+
+export default function SuperDashboard() {
   return (
     <div className="container mx-auto w-full p-6">
-      <DataTable columns={columns} data={companies.data} />
+      <UsersDataTable />
     </div>
   );
 }
-
-export default SuperDashboard;
