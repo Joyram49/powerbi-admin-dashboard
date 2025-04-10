@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { DataTable } from "./_components/company-data-table";
 import { useDebounce } from "~/hooks/useDebounce";
 import { api } from "~/trpc/react";
+import columns from "./_components/company-columns";
 
 
 
