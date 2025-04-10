@@ -12,7 +12,7 @@ import {
 import { api } from "~/trpc/server";
 
 async function TotalUsersCard() {
-  const totalUsersResponse = await api.user.getAllUsers();
+  const totalUsersResponse = await api.user.getAllActiveUsers();
 
   // Check if the response is successful and contains total
   if (!totalUsersResponse.success) {
@@ -36,7 +36,7 @@ async function TotalUsersCard() {
       <CardHeader className="relative">
         <CardDescription>Total Users</CardDescription>
         <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
-          {totalUsersResponse.total}
+          {totalUsersResponse.users}
         </CardTitle>
         <div className="absolute right-4 top-4">
           <Badge variant="outline" className="flex gap-1 rounded-lg text-xs">

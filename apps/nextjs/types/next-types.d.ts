@@ -26,16 +26,16 @@ interface Company {
 }
 interface User {
   userId: string;
-  id: string | undefined;
+  id: string;
   email: string;
   userName: string;
   role: "user" | "admin" | "superAdmin";
   status: "active" | "inactive" | null;
   dateCreated: Date;
 
-  companyId: string | undefined;
-  modifiedBy: string;
-  lastLogin: string | number | Date;
+  companyId: string | undefined | null;
+  modifiedBy: string | null;
+  lastLogin: string | number | Date | null;
   company?: { companyName: string };
 }
 interface UserData {

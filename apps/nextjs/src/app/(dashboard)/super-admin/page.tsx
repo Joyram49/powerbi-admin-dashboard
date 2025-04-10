@@ -14,9 +14,7 @@ export default function SuperDashboard() {
   });
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearch = useDebounce(searchInput, 500); // 500ms delay
-  const [sortBy, setSortBy] = useState<"companyName" | "dateJoined">(
-    "companyName",
-  );
+  const [sortBy, setSortBy] = useState<"companyName" | "dateJoined">();
 
   const { data: companyData, isLoading } = api.company.getAllCompanies.useQuery(
     {
@@ -36,7 +34,7 @@ export default function SuperDashboard() {
     <div className="container mx-auto w-full p-6">
       <DataTable
         columns={columns}
-        data={companyData?.data ?? []}
+        data={companyData?.data}
         pagination={{
           pageCount: companyData
             ? Math.ceil(companyData.total / companyData.limit)

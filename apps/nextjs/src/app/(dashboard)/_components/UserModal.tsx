@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
+import { Loader2, Save } from "lucide-react"; // Import Lucide icons
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
@@ -174,6 +175,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
   // Get current user profile
   const { data: profileData } = api.auth.getProfile.useQuery();
   const userRole = profileData?.user.user_metadata.role as string;
+  const currentUserId = profileData?.user.id;
 
   // Create and update mutations
   const createUserMutation = api.auth.createUser.useMutation({
@@ -181,7 +183,10 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
       toast.success("User added successfully");
       setOpen(false);
       setIsSubmitting(false);
+      // Invalidate all user queries to refresh data
       await utils.user.getAllUsers.invalidate();
+      await utils.user.getAdminUsers.invalidate();
+      await utils.user.getAllGeneralUser.invalidate();
     },
     onError: (error) => {
       toast.error("Failed to add user", {
@@ -196,6 +201,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
       toast.success("User updated successfully");
       setOpen(false);
       setIsSubmitting(false);
+      // Invalidate all user queries to refresh data
       await utils.user.getAllUsers.invalidate();
       await utils.user.getAdminUsers.invalidate();
       await utils.user.getAllGeneralUser.invalidate();
@@ -220,7 +226,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
       password: "",
       confirmPassword: "",
       sendWelcomeEmail: true,
-      modifiedBy: profileData?.user.email ?? undefined,
+      modifiedBy: currentUserId ?? undefined,
     },
     mode: "onChange",
   });
@@ -233,21 +239,19 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
     const { confirmPassword, sendWelcomeEmail, ...restValues } = values;
 
     if (restValues.id) {
-      // Update flow
+      // Update flow - Notice the correct property names for the API
       const updateData = {
-        userId: restValues.id,
+        userId: restValues.id, // Using userId as expected by API
         email: restValues.email,
         userName: restValues.userName,
         role: restValues.role,
-        companyId: restValues.companyId,
-        modifiedBy: restValues.modifiedBy,
-        password: restValues.password,
+        companyId: restValues.companyId ?? "",
+        modifiedBy: currentUserId ?? "", // Using the actual user ID
+        password:
+          restValues.password && restValues.password.length > 0
+            ? restValues.password
+            : undefined,
       };
-
-      // Only include password if it's provided and not empty
-      if (restValues.password && restValues.password.length > 0) {
-        updateData.password = restValues.password;
-      }
 
       updateUserMutation.mutate(updateData);
     } else {
@@ -264,7 +268,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
         password: restValues.password,
         userName: restValues.userName,
         companyId: restValues.companyId,
-        modifiedBy: restValues.modifiedBy,
+        modifiedBy: currentUserId ?? "",
       };
 
       createUserMutation.mutate(createData);
@@ -283,10 +287,10 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
         password: "",
         confirmPassword: "",
         sendWelcomeEmail: true,
-        modifiedBy: profileData?.user.email ?? undefined,
+        modifiedBy: currentUserId ?? undefined,
       });
     }
-  }, [open, user, form, profileData]);
+  }, [open, user, form, currentUserId]);
 
   const role = form.watch("role");
   const password = form.watch("password");
@@ -553,30 +557,12 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                       >
                         {isSubmitting ? (
                           <div className="flex items-center">
-                            <svg
-                              className="mr-2 h-4 w-4 animate-spin text-white"
-                              xmlns="http://www.w3.org/2000/svg"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                            >
-                              <circle
-                                className="opacity-25"
-                                cx="12"
-                                cy="12"
-                                r="10"
-                                stroke="currentColor"
-                                strokeWidth="4"
-                              ></circle>
-                              <path
-                                className="opacity-75"
-                                fill="currentColor"
-                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                              ></path>
-                            </svg>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             Saving...
                           </div>
                         ) : (
                           <div className="flex items-center text-white">
+                            <Save className="mr-2 h-4 w-4" />
                             {isUpdateMode ? "Update" : "Save"}
                           </div>
                         )}

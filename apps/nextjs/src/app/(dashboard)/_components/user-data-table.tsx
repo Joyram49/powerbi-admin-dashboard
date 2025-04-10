@@ -16,7 +16,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { format } from "date-fns";
-import { Pencil, Trash2 } from "lucide-react";
+import { Loader2, Pencil, Trash2 } from "lucide-react";
 
 import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
@@ -28,7 +28,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@acme/ui/dialog";
 import { Input } from "@acme/ui/input";
 import {
@@ -53,6 +52,28 @@ import { Pagination } from "./Pagination";
 import AddUserModal from "./UserModal";
 import UserModal from "./UserModal";
 
+// Define the API data type
+interface APIUser {
+  id: string;
+  userName: string;
+  status: "active" | "inactive" | null;
+  email: string;
+  role: "user" | "admin" | "superAdmin";
+  companyId: string | null | undefined;
+  modifiedBy: string | null;
+  dateCreated: Date;
+  lastLogin: Date | null;
+  company?: { companyName: string };
+}
+
+// Map API data to match the User type
+const mapApiUserToUser = (apiUser: APIUser): User => {
+  return {
+    ...apiUser,
+    userId: apiUser.id,
+  };
+};
+
 export function UsersDataTable() {
   const [pagination, setPagination] = useState({
     pageIndex: 0,
@@ -66,6 +87,7 @@ export function UsersDataTable() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { data: profileData } = api.auth.getProfile.useQuery();
   const userRole = profileData?.user.user_metadata.role as string;
+  const currentUserId = profileData?.user.id;
 
   // Determine which queries should be enabled based on user role
   const isSuperAdmin = userRole === "superAdmin";
@@ -106,18 +128,31 @@ export function UsersDataTable() {
         enabled: (isSuperAdmin || isAdmin) && userType === "general",
       },
     );
+
+  const utils = api.useUtils();
+
   const deleteUserMutation = api.user.deleteUser.useMutation({
-    onSuccess: () => {
-      // Refresh the data after deletion
-      table.resetPageIndex();
+    onSuccess: async () => {
+      // Close the dialog and reset the state
+      setIsDeleteDialogOpen(false);
+      setDeleteUserId(null);
+
+      // Refresh all user data queries
+      await utils.user.getAllUsers.invalidate();
+      await utils.user.getAdminUsers.invalidate();
+      await utils.user.getAllGeneralUser.invalidate();
+
       toast.success("User deleted successfully");
     },
     onError: (error) => {
       toast.error("Failed to delete user", {
         description: error.message,
       });
+      // Close the dialog but keep the userId in case they want to retry
+      setIsDeleteDialogOpen(false);
     },
   });
+
   // Set defaults based on role
   useEffect(() => {
     if (isAdmin) {
@@ -126,33 +161,69 @@ export function UsersDataTable() {
     }
   }, [isAdmin]);
 
-  // Determine which data to use based on user role and selected user type
+  // Determine which data to use based on user role and selected user type and map it to the User type
   const currentData = (() => {
     if (isSuperAdmin) {
       // SuperAdmin can see all types
-      return userType === "all"
-        ? allUsersData
-        : userType === "admin"
-          ? adminUsersData
-          : generalUsersData;
+      const data =
+        userType === "all"
+          ? allUsersData
+          : userType === "admin"
+            ? adminUsersData
+            : generalUsersData;
+
+      // Map the data if it exists
+      return data
+        ? {
+            ...data,
+            data: data.data.map(mapApiUserToUser),
+          }
+        : null;
     } else if (isAdmin) {
       // Admin can only see admin and general users
-      return userType === "admin" ? adminUsersData : generalUsersData;
+      const data = userType === "admin" ? adminUsersData : generalUsersData;
+
+      // Map the data if it exists
+      return data
+        ? {
+            ...data,
+            data: data.data.map(mapApiUserToUser),
+          }
+        : null;
     }
     return null;
   })();
 
   const isLoading =
     isLoadingAllUsers || isLoadingAdminUsers || isLoadingGeneralUsers;
+
   const handleDeleteUser = () => {
-    if (deleteUserId) {
-      deleteUserMutation.mutate({
-        userId: deleteUserId,
-        modifiedBy: profileData?.user.id ?? "SYSTEM",
-        role:
-          currentData?.data.find((user) => user.id === deleteUserId)?.role ??
-          "user",
-      });
+    if (deleteUserId && currentUserId) {
+      // Get user from the current data (before mapping)
+      let userToDelete;
+      if (userType === "all" && allUsersData) {
+        userToDelete = allUsersData.data.find(
+          (user) => user.id === deleteUserId,
+        );
+      } else if (userType === "admin" && adminUsersData) {
+        userToDelete = adminUsersData.data.find(
+          (user) => user.id === deleteUserId,
+        );
+      } else if (userType === "general" && generalUsersData) {
+        userToDelete = generalUsersData.data.find(
+          (user) => user.id === deleteUserId,
+        );
+      }
+
+      if (userToDelete) {
+        deleteUserMutation.mutate({
+          userId: deleteUserId,
+          modifiedBy: currentUserId,
+          role: userToDelete.role,
+        });
+      } else {
+        toast.error("Could not find user data");
+      }
     }
   };
 
@@ -160,6 +231,22 @@ export function UsersDataTable() {
     setDeleteUserId(userId);
     setIsDeleteDialogOpen(true);
   };
+
+  // Define pagination handlers for the new Pagination component
+  const handlePageChange = (newPage: number) => {
+    setPagination({
+      ...pagination,
+      pageIndex: newPage - 1, // Convert from 1-indexed to 0-indexed
+    });
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPagination({
+      pageIndex: 0, // Reset to first page when changing page size
+      pageSize: newPageSize,
+    });
+  };
+
   const columns: ColumnDef<User>[] = [
     {
       accessorKey: "userName",
@@ -167,9 +254,9 @@ export function UsersDataTable() {
       cell: ({ row }) => <div>{row.original.userName || "Not specified"}</div>,
     },
     {
-      accessorKey: "ID",
-      header: "id",
-      cell: ({ row }) => <div>{row.original.id ?? "Not specified"}</div>,
+      accessorKey: "userId",
+      header: "ID",
+      cell: ({ row }) => <div>{row.original.userId || "Not specified"}</div>,
     },
     {
       accessorKey: "email",
@@ -225,7 +312,9 @@ export function UsersDataTable() {
       accessorKey: "lastLogin",
       header: "Last login",
       cell: ({ row }) => {
-        return format(new Date(row.original.lastLogin), "MMM dd, yyyy");
+        return row.original.lastLogin
+          ? format(new Date(row.original.lastLogin), "MMM dd, yyyy")
+          : "Never";
       },
     },
     {
@@ -245,7 +334,7 @@ export function UsersDataTable() {
               variant="destructive"
               size="icon"
               className="h-8 w-8"
-              onClick={() => openDeleteDialog(user.id)}
+              onClick={() => openDeleteDialog(user.userId)}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -281,6 +370,14 @@ export function UsersDataTable() {
     manualPagination: true,
   });
 
+  // Calculate values for the new Pagination component
+  const currentPage = pagination.pageIndex + 1; // Convert from 0-indexed to 1-indexed
+  const pageSize = pagination.pageSize;
+  const totalItems = currentData?.total ?? 0;
+  const totalPages = currentData
+    ? Math.ceil(currentData.total / currentData.limit)
+    : 0;
+
   return (
     <Card>
       <CardHeader>
@@ -299,63 +396,59 @@ export function UsersDataTable() {
               }
               className="max-w-sm"
             />
-            {/* Only show the user type selector for superAdmin */}
-            {isSuperAdmin && (
+            {/* Only show the user type selector for super admins and admins */}
+            {(isSuperAdmin || isAdmin) && (
               <Select
                 value={userType}
                 onValueChange={(value) => {
                   setUserType(value as "all" | "admin" | "general");
-                  setPagination({ pageIndex: 0, pageSize: 10 });
+                  // Reset to first page when changing user type
+                  setPagination({
+                    ...pagination,
+                    pageIndex: 0,
+                  });
                 }}
               >
                 <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="User Type" />
+                  <SelectValue placeholder="Select user type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Users</SelectItem>
-                  <SelectItem value="admin">Admin Users</SelectItem>
-                  <SelectItem value="general">General Users</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-            {/* For admin, show a simplified selector */}
-            {isAdmin && (
-              <Select
-                value={userType}
-                onValueChange={(value) => {
-                  setUserType(value as "admin" | "general");
-                  setPagination({ pageIndex: 0, pageSize: 10 });
-                }}
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="User Type" />
-                </SelectTrigger>
-                <SelectContent>
+                  {isSuperAdmin && (
+                    <SelectItem value="all">All Users</SelectItem>
+                  )}
                   <SelectItem value="admin">Admin Users</SelectItem>
                   <SelectItem value="general">General Users</SelectItem>
                 </SelectContent>
               </Select>
             )}
           </div>
-          <AddUserModal />
+          <div className="flex items-center space-x-2">
+            {/* Only show add user button for admins and super admins */}
+            {(isSuperAdmin || isAdmin) && (
+              <AddUserModal>
+                <Button className="bg-blue-500 text-white hover:bg-blue-600">
+                  Add User
+                </Button>
+              </AddUserModal>
+            )}
+          </div>
         </div>
+
         <div className="rounded-md border">
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => {
-                    return (
-                      <TableHead key={header.id}>
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext(),
-                            )}
-                      </TableHead>
-                    );
-                  })}
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext(),
+                          )}
+                    </TableHead>
+                  ))}
                 </TableRow>
               ))}
             </TableHeader>
@@ -366,7 +459,10 @@ export function UsersDataTable() {
                     colSpan={columns.length}
                     className="h-24 text-center"
                   >
-                    Loading users...
+                    <div className="flex items-center justify-center">
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Loading...
+                    </div>
                   </TableCell>
                 </TableRow>
               ) : table.getRowModel().rows.length ? (
@@ -391,26 +487,62 @@ export function UsersDataTable() {
                     colSpan={columns.length}
                     className="h-24 text-center"
                   >
-                    No users found.
+                    No results.
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
         </div>
-        <div className="flex items-center justify-end space-x-2 py-4">
+
+        <div className="mt-4">
           <Pagination
-            currentPage={pagination.pageIndex + 1}
-            totalPages={table.getPageCount()}
-            totalItems={currentData?.total}
-            pageSize={pagination.pageSize}
-            onPageChange={(page) => table.setPageIndex(page - 1)}
-            onPageSizeChange={(size) => table.setPageSize(size)}
-            showSelectedRowsCount={false}
-            pageSizeOptions={[10, 20, 30, 40, 50]}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            pageSize={pageSize}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+            pageSizeOptions={[10, 20, 50, 100]}
+            showPageSizeSelector={true}
           />
         </div>
       </CardContent>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Deletion</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this user? This action cannot be
+              undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteUser}
+              disabled={deleteUserMutation.isPending}
+            >
+              {deleteUserMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
