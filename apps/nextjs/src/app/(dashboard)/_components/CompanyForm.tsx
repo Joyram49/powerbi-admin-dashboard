@@ -320,8 +320,6 @@ const CompanyAdminForm = ({
 
     if (isValid) {
       setFormStep(1);
-    } else {
-      console.log(companyForm.formState.errors); // Log validation errors for debugging
     }
   };
 
@@ -487,7 +485,7 @@ const CompanyAdminForm = ({
                 </>
               )}
 
-              {formStep === 1 &&  (
+              {formStep === 1 && (
                 <>
                   <motion.div variants={itemVariants}>
                     <FormField

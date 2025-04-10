@@ -1,15 +1,23 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Lock } from "lucide-react";
 import { useForm } from "react-hook-form";
-import * as z from "zod";
+import { z } from "zod";
 
 import { Alert, AlertDescription, AlertTitle } from "@acme/ui/alert";
 import { Button } from "@acme/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@acme/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@acme/ui/dialog";
 import {
   Form,
   FormControl,
@@ -23,13 +31,13 @@ import { toast } from "@acme/ui/toast";
 
 import { api } from "~/trpc/react";
 
-// Form validation schema matching the tRPC route's input validation
+// Password schema for validation
 const formSchema = z
   .object({
     password: z
       .string()
-      .min(12, { message: "Password must be between 12-20 characters" })
-      .max(20, { message: "Password must be between 12-20 characters" })
+      .min(12, { message: "Password must be within 12-20 characters" })
+      .max(20, { message: "Password must be within 12-20 characters" })
       .regex(/^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/, {
         message:
           "Password must include at least one uppercase letter, one number, and one special character",
@@ -42,8 +50,30 @@ const formSchema = z
   });
 
 type FormValues = z.infer<typeof formSchema>;
+// Animation variants
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
 
-// Reusable animation variants
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: {
+      type: "spring",
+      stiffness: 300,
+      damping: 24,
+    },
+  },
+};
+
 const variants = {
   container: {
     hidden: { opacity: 0 },
@@ -68,18 +98,20 @@ const variants = {
     tap: { scale: 0.97 },
   },
 };
-
 export function UpdatePasswordForm() {
   const [showPassword, setShowPassword] = useState({
     password: false,
     confirmPassword: false,
   });
+  const { data: userData } = api.auth.getProfile.useQuery();
 
+  const userEmail = userData?.user.email;
+  const utils = api.useUtils();
   const [formState, setFormState] = useState({
     isSubmitting: false,
     errorMessage: null as string | null,
   });
-
+  const router = useRouter();
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -90,12 +122,13 @@ export function UpdatePasswordForm() {
   });
 
   const updatePassword = api.auth.updatePassword.useMutation({
-    onSuccess: (response) => {
+    onSuccess: async (response) => {
       setFormState((prev) => ({
         ...prev,
         isSubmitting: false,
         errorMessage: null,
       }));
+      await utils.user.getAllUsers.invalidate();
 
       toast.success("Password Updated", {
         description:
@@ -104,6 +137,7 @@ export function UpdatePasswordForm() {
 
       // Reset form after successful update
       form.reset();
+      router.push("/login");
     },
     onError: (error) => {
       const errorMsg =
@@ -127,7 +161,10 @@ export function UpdatePasswordForm() {
     }));
 
     try {
-      await updatePassword.mutateAsync({ password: data.password });
+      await updatePassword.mutateAsync({
+        password: data.password,
+        email: userEmail!,
+      });
     } catch (err) {
       // Error is handled in the mutation callbacks
       console.error(err);
@@ -266,7 +303,7 @@ export function UpdatePasswordForm() {
                 <Button
                   type="submit"
                   disabled={formState.isSubmitting}
-                  className="w-full bg-blue-500 text-white hover:bg-blue-600 "
+                  className="w-full bg-blue-500 text-white hover:bg-blue-600"
                 >
                   {formState.isSubmitting ? (
                     <div className="flex items-center">
@@ -302,5 +339,256 @@ export function UpdatePasswordForm() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+const passwordSchema = z
+  .object({
+    password: z
+      .string()
+      .min(12, { message: "Password must be within 12-20 characters" })
+      .max(20, { message: "Password must be within 12-20 characters" })
+      .regex(/^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/, {
+        message:
+          "Password must include at least one uppercase letter, one number, and one special character",
+      }),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
+type PasswordFormData = z.infer<typeof passwordSchema>;
+
+interface PasswordUpdateModalProps {
+  userId: string;
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess?: () => void;
+}
+
+// Animation variants
+
+export function PasswordUpdateModal({
+  userId,
+  isOpen,
+  onClose,
+  onSuccess,
+}: PasswordUpdateModalProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // reset user password for admin and super admin only
+  const resetPasswordMutation = api.auth.resetUserPassword.useMutation({
+    onSuccess: () => {
+      toast.success("Success", {
+        description: "Password updated successfully",
+      });
+      form.reset();
+      onClose();
+      if (onSuccess) onSuccess();
+    },
+    onError: (error) => {
+      toast.error("Error", {
+        description: error.message || "Failed to update password",
+      });
+      setIsSubmitting(false);
+    },
+  });
+
+  const form = useForm<PasswordFormData>({
+    resolver: zodResolver(passwordSchema),
+    defaultValues: {
+      password: "",
+      confirmPassword: "",
+    },
+  });
+
+  const onSubmit = (data: PasswordFormData) => {
+    setIsSubmitting(true);
+    resetPasswordMutation.mutate({
+      userId,
+      password: data.password,
+    });
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="dark:border-gray-700 dark:bg-gray-900 sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="dark:text-white">Update Password</DialogTitle>
+        </DialogHeader>
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              className="space-y-4"
+            >
+              <motion.div variants={itemVariants}>
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
+                        New Password
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          placeholder="Enter new password"
+                          {...field}
+                          className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                        />
+                      </FormControl>
+                      <FormMessage className="text-xs dark:text-red-400" />
+                    </FormItem>
+                  )}
+                />
+              </motion.div>
+
+              <motion.div variants={itemVariants}>
+                <FormField
+                  control={form.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
+                        Confirm Password
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          placeholder="Confirm new password"
+                          {...field}
+                          className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                        />
+                      </FormControl>
+                      <FormMessage className="text-xs dark:text-red-400" />
+                    </FormItem>
+                  )}
+                />
+              </motion.div>
+
+              <DialogFooter className="flex items-center justify-end gap-2 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onClose}
+                  className="dark:border-gray-700 dark:text-gray-300"
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800"
+                >
+                  {isSubmitting ? "Updating..." : "Update Password"}
+                </Button>
+              </DialogFooter>
+            </motion.div>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// This is the update to your main form component to include the password update button
+// Replace your existing password fields with this when in update mode
+export function UserFormPasswordSection({
+  isUpdateMode,
+  userId,
+  form,
+  password,
+}: {
+  isUpdateMode: boolean;
+  userId: string | undefined;
+  form: any;
+  password?: string;
+}) {
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+
+  // Only show password fields in create mode
+  if (!isUpdateMode) {
+    return (
+      <>
+        <motion.div variants={itemVariants}>
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
+                  Password
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    type="password"
+                    placeholder="Enter password"
+                    {...field}
+                    className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                  />
+                </FormControl>
+                <FormMessage className="text-xs dark:text-red-400" />
+              </FormItem>
+            )}
+          />
+        </motion.div>
+
+        {(password && password.length > 0) || !isUpdateMode ? (
+          <motion.div variants={itemVariants}>
+            <FormField
+              control={form.control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
+                    Confirm Password
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      placeholder="Confirm password"
+                      {...field}
+                      className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                    />
+                  </FormControl>
+                  <FormMessage className="text-xs dark:text-red-400" />
+                </FormItem>
+              )}
+            />
+          </motion.div>
+        ) : null}
+      </>
+    );
+  }
+
+  // In update mode, show the change password button instead
+  return (
+    <>
+      <motion.div variants={itemVariants}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setIsPasswordModalOpen(true)}
+          className="mt-2 w-full border-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700 sm:w-auto"
+        >
+          Change Password
+        </Button>
+      </motion.div>
+
+      {isPasswordModalOpen && (
+        <PasswordUpdateModal
+          userId={userId!}
+          isOpen={isPasswordModalOpen}
+          onClose={() => setIsPasswordModalOpen(false)}
+        />
+      )}
+    </>
   );
 }

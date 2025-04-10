@@ -35,6 +35,7 @@ import {
 } from "@acme/ui/select";
 import { toast } from "@acme/ui/toast";
 
+import { UserFormPasswordSection } from "~/app/(auth)/_components/update-password-form";
 import { api } from "~/trpc/react";
 
 // Form validation schema
@@ -315,7 +316,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
         userName: restValues.userName || undefined, // Ensure undefined instead of empty string
       };
 
-      console.log("Updating user with data:", updateData);
+  
 
       // Send ONLY fields defined in the API schema
       updateUserMutation.mutate(updateData);
@@ -438,38 +439,30 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                       )}
                     />
                   </motion.div>
-
-                  <motion.div variants={itemVariants}>
-                    <FormField
-                      control={form.control}
-                      name="password"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
-                            {isUpdateMode
-                              ? "New Password (optional)"
-                              : "Password"}
-                            {isUpdateMode
-                              ? "New Password (optional)"
-                              : "Password"}
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              type="password"
-                              placeholder={
-                                isUpdateMode
-                                  ? "Leave blank to keep current password"
-                                  : "Enter password"
-                              }
-                              {...field}
-                              className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                            />
-                          </FormControl>
-                          <FormMessage className="text-xs dark:text-red-400" />
-                        </FormItem>
-                      )}
-                    />
-                  </motion.div>
+                  {!isUpdateMode && (
+                    <motion.div variants={itemVariants}>
+                      <FormField
+                        control={form.control}
+                        name="password"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
+                              Password
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="password"
+                                placeholder="Enter password"
+                                {...field}
+                                className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                              />
+                            </FormControl>
+                            <FormMessage className="text-xs dark:text-red-400" />
+                          </FormItem>
+                        )}
+                      />
+                    </motion.div>
+                  )}
 
                   {(password && password.length > 0) || !isUpdateMode ? (
                     <motion.div variants={itemVariants}>
@@ -598,7 +591,14 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                       />
                     </motion.div>
                   )}
-
+                  {isUpdateMode && (
+                    <UserFormPasswordSection
+                      isUpdateMode={isUpdateMode}
+                      userId={user.id}
+                      form={form}
+                      password={password}
+                    />
+                  )}
                   <motion.div
                     className="flex justify-end gap-3 pt-2"
                     variants={itemVariants}
