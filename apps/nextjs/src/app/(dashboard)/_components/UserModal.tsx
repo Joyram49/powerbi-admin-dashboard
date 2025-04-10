@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import { Loader2, Save } from "lucide-react"; // Import Lucide icons
+
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
@@ -242,12 +243,9 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const utils = api.useUtils();
-  const utils = api.useUtils();
 
-  // When we create user we need companyId.for instance we need to fetch all company
   // When we create user we need companyId.for instance we need to fetch all company
   const { data: companies } = api.company.getAllCompanies.useQuery();
-
 
   // Get current user profile
   const { data: profileData } = api.auth.getProfile.useQuery();
@@ -256,7 +254,6 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
 
   // Create and update mutations
   const createUserMutation = api.auth.createUser.useMutation({
-    onSuccess: async () => {
     onSuccess: async () => {
       toast.success("User added successfully");
       setOpen(false);
@@ -275,7 +272,6 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
   });
 
   const updateUserMutation = api.user.updateUser.useMutation({
-    onSuccess: async () => {
     onSuccess: async () => {
       toast.success("User updated successfully");
       setOpen(false);
@@ -375,9 +371,6 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
   const password = form.watch("password");
   const isUpdateMode = !!user?.id;
 
-  const password = form.watch("password");
-  const isUpdateMode = !!user?.id;
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -467,15 +460,11 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                             {isUpdateMode
                               ? "New Password (optional)"
                               : "Password"}
-                            {isUpdateMode
-                              ? "New Password (optional)"
-                              : "Password"}
                           </FormLabel>
                           <FormControl>
                             <Input
                               type="password"
                               placeholder={
-                                isUpdateMode
                                 isUpdateMode
                                   ? "Leave blank to keep current password"
                                   : "Enter password"
@@ -490,7 +479,6 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                     />
                   </motion.div>
 
-                  {(password && password.length > 0) || !isUpdateMode ? (
                   {(password && password.length > 0) || !isUpdateMode ? (
                     <motion.div variants={itemVariants}>
                       <FormField
@@ -514,7 +502,6 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                         )}
                       />
                     </motion.div>
-                  ) : null}
                   ) : null}
 
                   <motion.div variants={itemVariants}>
@@ -570,7 +557,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                               </FormLabel>
                               <Select
                                 onValueChange={field.onChange}
-                                defaultValue={field.value || ""}
+                                defaultValue={field.value ?? ""}
                               >
                                 <FormControl>
                                   <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">
@@ -608,7 +595,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                               </FormLabel>
                               <Select
                                 onValueChange={field.onChange}
-                                defaultValue={field.value || ""}
+                                defaultValue={field.value ?? ""}
                               >
                                 <FormControl>
                                   <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">

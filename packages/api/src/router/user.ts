@@ -587,7 +587,7 @@ export const userRouter = createTRPCRouter({
         if (input.role === "admin") {
           await db
             .delete(companies)
-            .where(companies.companyAdminId, input.userId);
+            .where(eq(companies.companyAdminId, input.userId));
         }
 
         return {
