@@ -44,23 +44,87 @@ const userSchema = z
       .string()
       .min(2, "Username is required")
       .refine((val) => !val.includes(" "), "Username cannot contain spaces"),
-    password: z
-      .string()
-      .min(8, "Password must be at least 8 characters")
-      .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-      .regex(/[a-z]/, "Password must contain at least one lowercase letter")
-      .regex(/[0-9]/, "Password must contain at least one number")
-      .optional(),
+    password: z.string().optional(),
     confirmPassword: z.string().optional(),
     email: z.string().email("Valid email is required"),
     role: z.enum(["user", "admin", "superAdmin"]).default("user"),
     companyId: z.string().uuid().optional(),
     sendWelcomeEmail: z.boolean().default(true),
+    modifiedBy: z.string().optional(),
   })
   .refine(
-    (data) =>
-      !data.id ||
-      (data.password ? data.password === data.confirmPassword : true),
+    (data) => {
+      // For new users (no id), password is required
+      if (!data.id && (!data.password || data.password.length === 0)) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "Password is required for new users",
+      path: ["password"],
+    },
+  )
+  .refine(
+    (data) => {
+      // If password is provided, validate it
+      if (data.password && data.password.length > 0) {
+        return data.password.length >= 12;
+      }
+      return true;
+    },
+    {
+      message: "Password must be at least 12 characters",
+      path: ["password"],
+    },
+  )
+  .refine(
+    (data) => {
+      // If password is provided, validate it
+      if (data.password && data.password.length > 0) {
+        return /[A-Z]/.test(data.password);
+      }
+      return true;
+    },
+    {
+      message: "Password must contain at least one uppercase letter",
+      path: ["password"],
+    },
+  )
+  .refine(
+    (data) => {
+      // If password is provided, validate it
+      if (data.password && data.password.length > 0) {
+        return /[a-z]/.test(data.password);
+      }
+      return true;
+    },
+    {
+      message: "Password must contain at least one lowercase letter",
+      path: ["password"],
+    },
+  )
+  .refine(
+    (data) => {
+      // If password is provided, validate it
+      if (data.password && data.password.length > 0) {
+        return /[0-9]/.test(data.password);
+      }
+      return true;
+    },
+    {
+      message: "Password must contain at least one number",
+      path: ["password"],
+    },
+  )
+  .refine(
+    (data) => {
+      // Confirm password match if password is provided
+      if (data.password && data.password.length > 0) {
+        return data.password === data.confirmPassword;
+      }
+      return true;
+    },
     {
       message: "Passwords do not match",
       path: ["confirmPassword"],
@@ -102,19 +166,22 @@ interface UserModalProps {
 const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // TODO fix company to user
+  const utils = api.useUtils();
 
+  // When we create user we need companyId.for instance we need to fetch all company
   const { data: companies } = api.company.getAllCompanies.useQuery();
+
   // Get current user profile
   const { data: profileData } = api.auth.getProfile.useQuery();
   const userRole = profileData?.user.user_metadata.role as string;
-  console.log(companies);
+
   // Create and update mutations
   const createUserMutation = api.auth.createUser.useMutation({
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success("User added successfully");
       setOpen(false);
       setIsSubmitting(false);
+      await utils.user.getAllUsers.invalidate();
     },
     onError: (error) => {
       toast.error("Failed to add user", {
@@ -125,10 +192,13 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
   });
 
   const updateUserMutation = api.user.updateUser.useMutation({
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success("User updated successfully");
       setOpen(false);
       setIsSubmitting(false);
+      await utils.user.getAllUsers.invalidate();
+      await utils.user.getAdminUsers.invalidate();
+      await utils.user.getAllGeneralUser.invalidate();
     },
     onError: (error) => {
       toast.error("Failed to update user", {
@@ -150,6 +220,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
       password: "",
       confirmPassword: "",
       sendWelcomeEmail: true,
+      modifiedBy: profileData?.user.email ?? undefined,
     },
     mode: "onChange",
   });
@@ -159,19 +230,44 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
     setIsSubmitting(true);
 
     // Prepare data for API call
-    const { confirmPassword, sendWelcomeEmail, ...submitData } = values;
+    const { confirmPassword, sendWelcomeEmail, ...restValues } = values;
 
-    // Determine if it's create or update
-    if (submitData.id) {
-      // Update flow - only send password if it's been changed
-      const updateData = submitData.password
-        ? submitData
-        : { ...submitData, password: undefined };
+    if (restValues.id) {
+      // Update flow
+      const updateData = {
+        userId: restValues.id,
+        email: restValues.email,
+        userName: restValues.userName,
+        role: restValues.role,
+        companyId: restValues.companyId,
+        modifiedBy: restValues.modifiedBy,
+        password: restValues.password,
+      };
+
+      // Only include password if it's provided and not empty
+      if (restValues.password && restValues.password.length > 0) {
+        updateData.password = restValues.password;
+      }
 
       updateUserMutation.mutate(updateData);
     } else {
-      // Create flow
-      createUserMutation.mutate(submitData);
+      // Create flow - password is required for new users
+      if (!restValues.password) {
+        toast.error("Password is required for new users");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const createData = {
+        email: restValues.email,
+        role: restValues.role,
+        password: restValues.password,
+        userName: restValues.userName,
+        companyId: restValues.companyId,
+        modifiedBy: restValues.modifiedBy,
+      };
+
+      createUserMutation.mutate(createData);
     }
   };
 
@@ -187,10 +283,15 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
         password: "",
         confirmPassword: "",
         sendWelcomeEmail: true,
+        modifiedBy: profileData?.user.email ?? undefined,
       });
     }
-  }, [open, user, form]);
+  }, [open, user, form, profileData]);
+
   const role = form.watch("role");
+  const password = form.watch("password");
+  const isUpdateMode = !!user?.id;
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -277,13 +378,15 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
-                            {user ? "New Password (optional)" : "Password"}
+                            {isUpdateMode
+                              ? "New Password (optional)"
+                              : "Password"}
                           </FormLabel>
                           <FormControl>
                             <Input
                               type="password"
                               placeholder={
-                                user
+                                isUpdateMode
                                   ? "Leave blank to keep current password"
                                   : "Enter password"
                               }
@@ -297,7 +400,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                     />
                   </motion.div>
 
-                  {!user && (
+                  {(password && password.length > 0) || !isUpdateMode ? (
                     <motion.div variants={itemVariants}>
                       <FormField
                         control={form.control}
@@ -320,7 +423,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                         )}
                       />
                     </motion.div>
-                  )}
+                  ) : null}
 
                   <motion.div variants={itemVariants}>
                     <FormField
@@ -361,65 +464,69 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                     />
                   </motion.div>
 
-                  {role === "user" && companies?.data?.length > 0 && (
-                    <motion.div variants={itemVariants}>
+                  {role === "user" &&
+                    companies?.data &&
+                    companies.data.length > 0 && (
+                      <motion.div variants={itemVariants}>
+                        <FormField
+                          control={form.control}
+                          name="companyId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
+                                Company
+                              </FormLabel>
+                              <Select
+                                onValueChange={field.onChange}
+                                defaultValue={field.value || ""}
+                              >
+                                <FormControl>
+                                  <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                                    <SelectValue placeholder="Select company" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {companies.data.map((company) => (
+                                    <SelectItem
+                                      key={company.id}
+                                      value={company.id}
+                                    >
+                                      {company.companyName}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage className="text-xs dark:text-red-400" />
+                            </FormItem>
+                          )}
+                        />
+                      </motion.div>
+                    )}
+
+                  {!isUpdateMode && (
+                    <motion.div variants={itemVariants} className="space-y-2">
                       <FormField
                         control={form.control}
-                        name="companyId"
+                        name="sendWelcomeEmail"
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
-                              Company
-                            </FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">
-                                  <SelectValue placeholder="Select company" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {companies?.data?.map((company) => (
-                                  <SelectItem
-                                    key={company.id}
-                                    value={company.id}
-                                  >
-                                    {company.companyName}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage className="text-xs dark:text-red-400" />
+                          <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                className="border-blue-600 data-[state=checked]:bg-blue-500 data-[state=checked]:text-white dark:border-gray-600"
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel className="text-sm font-medium dark:text-gray-300">
+                                Send Welcome Email
+                              </FormLabel>
+                            </div>
                           </FormItem>
                         )}
                       />
                     </motion.div>
                   )}
-
-                  <motion.div variants={itemVariants} className="space-y-2">
-                    <FormField
-                      control={form.control}
-                      name="sendWelcomeEmail"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              className="border-blue-600 data-[state=checked]:bg-blue-500 data-[state=checked]:text-white dark:border-gray-600"
-                            />
-                          </FormControl>
-                          <div className="space-y-1 leading-none">
-                            <FormLabel className="text-sm font-medium dark:text-gray-300">
-                              Send Welcome Email
-                            </FormLabel>
-                          </div>
-                        </FormItem>
-                      )}
-                    />
-                  </motion.div>
 
                   <motion.div
                     className="flex justify-end gap-3 pt-2"
@@ -470,7 +577,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                           </div>
                         ) : (
                           <div className="flex items-center text-white">
-                            {user ? "Update" : "Save"}
+                            {isUpdateMode ? "Update" : "Save"}
                           </div>
                         )}
                       </Button>

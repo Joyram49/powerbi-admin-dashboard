@@ -38,7 +38,7 @@ interface DataTableProps<TData extends Company, TValue> {
     onPageChange: (page: number) => void;
   };
   sorting: {
-    sortBy: "companyName" | "dateJoined";
+    sortBy: "companyName" | "dateJoined" | undefined;
     onSortChange: (sortBy: "companyName" | "dateJoined") => void;
   };
   search: {

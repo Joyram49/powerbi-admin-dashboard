@@ -7,7 +7,6 @@ import type {
   VisibilityState,
 } from "@tanstack/react-table";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   flexRender,
   getCoreRowModel,
@@ -17,8 +16,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { format } from "date-fns";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
-import { data } from "tailwindcss/defaultTheme";
+import { Pencil, Trash2 } from "lucide-react";
 
 import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
@@ -64,7 +62,8 @@ export function UsersDataTable() {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [userType, setUserType] = useState<"all" | "admin" | "general">("all");
-  const [deleteUser, setDeleteUser] = useState<User | null>(null);
+  const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { data: profileData } = api.auth.getProfile.useQuery();
   const userRole = profileData?.user.user_metadata.role as string;
 
@@ -145,7 +144,22 @@ export function UsersDataTable() {
 
   const isLoading =
     isLoadingAllUsers || isLoadingAdminUsers || isLoadingGeneralUsers;
+  const handleDeleteUser = () => {
+    if (deleteUserId) {
+      deleteUserMutation.mutate({
+        userId: deleteUserId,
+        modifiedBy: profileData?.user.id ?? "SYSTEM",
+        role:
+          currentData?.data.find((user) => user.id === deleteUserId)?.role ??
+          "user",
+      });
+    }
+  };
 
+  const openDeleteDialog = (userId: string) => {
+    setDeleteUserId(userId);
+    setIsDeleteDialogOpen(true);
+  };
   const columns: ColumnDef<User>[] = [
     {
       accessorKey: "userName",
@@ -155,7 +169,7 @@ export function UsersDataTable() {
     {
       accessorKey: "ID",
       header: "id",
-      cell: ({ row }) => <div>{row.original.id || "Not specified"}</div>,
+      cell: ({ row }) => <div>{row.original.id ?? "Not specified"}</div>,
     },
     {
       accessorKey: "email",
@@ -218,7 +232,7 @@ export function UsersDataTable() {
       id: "actions",
       cell: ({ row }) => {
         const user = row.original;
-        console.log("User>>>", row.original);
+
         return (
           <div className="flex items-center space-x-2">
             <UserModal user={user}>
@@ -227,48 +241,14 @@ export function UsersDataTable() {
               </Button>
             </UserModal>
 
-            <Dialog
-              open={deleteUser?.id === user.id}
-              onOpenChange={() => setDeleteUser(null)}
+            <Button
+              variant="destructive"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => openDeleteDialog(user.id)}
             >
-              <DialogTrigger asChild>
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setDeleteUser(user)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Delete User</DialogTitle>
-                  <DialogDescription>
-                    Are you sure you want to delete the user{" "}
-                    <span className="font-bold">{user.userName}</span>? This
-                    action cannot be undone.
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setDeleteUser(null)}>
-                    Cancel
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    onClick={() => {
-                      deleteUserMutation.mutate({
-                        userId: user.id,
-                        modifiedBy: profileData?.user.id ?? "SYSTEM",
-                        role: user.role,
-                      });
-                    }}
-                  >
-                    Delete
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         );
       },
