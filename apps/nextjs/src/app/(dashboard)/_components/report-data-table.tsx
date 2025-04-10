@@ -1,7 +1,8 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   flexRender,
   getCoreRowModel,
@@ -30,16 +31,19 @@ import {
 } from "@acme/ui/table";
 
 import { api } from "~/trpc/react";
+import { Pagination } from "./Pagination";
 
 // Define the shape of a single report
 interface ReportColTypes {
   id: string;
+  reportId?: string;
   reportName: string;
   reportUrl: string;
   accessCount?: number;
   userCount?: number;
   userCounts?: number;
   company?: {
+    id: string;
     companyName?: string;
   };
   dateCreated?: string;
@@ -49,28 +53,127 @@ interface ReportColTypes {
 
 // Props for the ReportsDataTable component
 interface ReportDataTypes {
-  data: ReportColTypes[];
-  isLoading: boolean;
   userRole: string;
   onEdit: (report: ReportColTypes) => void;
   onDelete: (report: ReportColTypes) => void;
-  totalItems: number;
-  pageCount: number;
-  currentPage: number;
+  searchQuery?: string;
+  companyId?: string;
 }
 
 export function ReportsDataTable({
-  data,
-  isLoading,
   userRole,
   onEdit,
   onDelete,
-  totalItems,
-  pageCount,
-  currentPage,
+  searchQuery = "",
+  companyId,
 }: ReportDataTypes) {
-  const router = useRouter();
+
+  const searchParams = useSearchParams();
+
+  // Get pagination parameters from the URL
+  const pageParam = searchParams.get("page");
+  const limitParam = searchParams.get("limit");
+
+  // Default to page 1 and limit 10 if not provided
+  const currentPage = pageParam ? parseInt(pageParam) : 1;
+  const pageSize = limitParam ? parseInt(limitParam) : 10;
+
+  // Fetch reports based on user role
+  const { data: superAdminData, isLoading: isSuperAdminLoading } =
+    api.report.getAllReports.useQuery(
+      {
+        searched: searchQuery,
+        page: currentPage,
+        limit: pageSize,
+      },
+      {
+        enabled: userRole === "superAdmin" && !companyId,
+      },
+    );
+
+  const { data: adminData, isLoading: isAdminLoading } =
+    api.report.getAllReportsAdmin.useQuery(
+      {
+        searched: searchQuery,
+        page: currentPage,
+        limit: pageSize,
+      },
+      {
+        enabled: userRole === "admin" && !companyId,
+      },
+    );
+
+  const { data: userData, isLoading: isUserLoading } =
+    api.report.getAllReportsUser.useQuery(
+      {
+        searched: searchQuery,
+        page: currentPage,
+        limit: pageSize,
+      },
+      {
+        enabled: userRole === "user" && !companyId,
+      },
+    );
+
+  const { data: companyReportsData, isLoading: isCompanyReportsLoading } =
+    api.report.getAllReportsForCompany.useQuery(
+      {
+        companyId: companyId || "",
+        searched: searchQuery,
+        page: currentPage,
+        limit: pageSize,
+      },
+      {
+        enabled: !!companyId,
+      },
+    );
+
+  // Update report access count
   const { mutate: updateReportAccess } = api.report.updateReport.useMutation();
+
+  // Determine which data to use
+  let reportData: ReportColTypes[] = [];
+  let totalItems = 0;
+  let totalPages = 1;
+  let isLoading = false;
+
+  if (companyId) {
+    reportData = companyReportsData?.reports || [];
+    totalItems = companyReportsData?.total || 0;
+    isLoading = isCompanyReportsLoading;
+  } else if (userRole === "superAdmin") {
+    reportData = superAdminData?.data || [];
+    totalItems = superAdminData?.total || 0;
+    isLoading = isSuperAdminLoading;
+  } else if (userRole === "admin") {
+    reportData = adminData?.reports || [];
+    totalItems = adminData?.total || 0;
+    isLoading = isAdminLoading;
+  } else if (userRole === "user") {
+    reportData = userData?.reports || [];
+    totalItems = userData?.total || 0;
+    isLoading = isUserLoading;
+  }
+
+  // Calculate total pages
+  totalPages = Math.ceil(totalItems / pageSize) || 1;
+
+  // Format data for the table
+  const formattedData = reportData.map((report) => {
+    // Handle different report formats between endpoints
+    const formattedReport: ReportColTypes = {
+      id: report.id || report.reportId || "",
+      reportName: report.reportName,
+      reportUrl: report.reportUrl,
+      accessCount: report.accessCount,
+      userCount: report.userCount ?? report.userCounts,
+      company: report.company,
+      dateCreated: report.dateCreated,
+      status: report.status,
+      lastModifiedAt: report.lastModifiedAt,
+    };
+    return formattedReport;
+  });
 
   const handleOpenReport = (report: ReportColTypes) => {
     if (userRole === "user") {
@@ -131,7 +234,9 @@ export function ReportsDataTable({
       cell: ({ row }) => {
         const date = row.getValue("dateCreated");
         return (
-          <div>{date ? format(new Date(date), "MMM dd, yyyy") : "N/A"}</div>
+          <div>
+            {date ? format(new Date(date.toString()), "MMM dd, yyyy") : "N/A"}
+          </div>
         );
       },
     },
@@ -157,7 +262,9 @@ export function ReportsDataTable({
         const date = row.getValue("lastModifiedAt");
         return (
           <div>
-            {date ? format(new Date(date), "MMM dd, yyyy HH:mm") : "N/A"}
+            {date
+              ? format(new Date(date.toString()), "MMM dd, yyyy HH:mm")
+              : "N/A"}
           </div>
         );
       },
@@ -195,22 +302,31 @@ export function ReportsDataTable({
   }
 
   const table = useReactTable({
-    data,
+    data: formattedData,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     state: {
       pagination: {
         pageIndex: currentPage - 1,
-        pageSize: 10,
+        pageSize,
       },
     },
     manualPagination: true,
-    pageCount,
+    pageCount: totalPages,
   });
 
   const handlePageChange = (page: number) => {
-    router.push(`/reports?page=${page}&limit=10`);
+    const params = new URLSearchParams(searchParams);
+    params.set("page", page.toString());
+    
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    const params = new URLSearchParams(searchParams);
+    params.set("limit", size.toString());
+    params.set("page", "1"); // Reset to first page when changing page size
+    
   };
 
   if (isLoading) {
@@ -238,7 +354,7 @@ export function ReportsDataTable({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows.length ? (
+            {formattedData.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id}>
                   {row.getVisibleCells().map((cell) => (
@@ -265,28 +381,16 @@ export function ReportsDataTable({
         </Table>
       </div>
 
-      <div className="flex items-center justify-end space-x-2 py-4">
-        <div className="text-sm text-muted-foreground">
-          Showing {Math.min((currentPage - 1) * 10 + 1, totalItems)} to{" "}
-          {Math.min(currentPage * 10, totalItems)} of {totalItems} entries
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handlePageChange(currentPage - 1)}
-          disabled={currentPage === 1}
-        >
-          Previous
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handlePageChange(currentPage + 1)}
-          disabled={currentPage >= pageCount}
-        >
-          Next
-        </Button>
-      </div>
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        pageSize={pageSize}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+        pageSizeOptions={[10, 20, 50, 100]}
+        showPageSizeSelector={true}
+      />
     </div>
   );
 }

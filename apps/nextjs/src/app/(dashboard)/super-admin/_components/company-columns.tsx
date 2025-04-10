@@ -3,6 +3,7 @@
 import type { ColumnDef, Row, Table } from "@tanstack/react-table";
 import React from "react";
 import { ArrowUpDown } from "lucide-react";
+import { aria } from "tailwindcss/defaultTheme";
 
 import { Button } from "@acme/ui/button";
 import { Checkbox } from "@acme/ui/checkbox";
@@ -47,6 +48,7 @@ export const columns: ColumnDef<Company>[] = [
     header: () => <div className="text-left font-medium">Company ID</div>,
     cell: ({ row }) => {
       const { id } = row.original;
+      console.log("User admin", row.original.admin);
       return (
         <div className="text-left">
           <span className="hidden xl:inline">{id}</span>
@@ -88,7 +90,9 @@ export const columns: ColumnDef<Company>[] = [
     accessorKey: "admin",
     header: () => <div className="text-center font-medium">Admin</div>,
     cell: ({ row }) => (
-      <div className="text-center">{row.original.admin.userName}</div>
+      <div className="text-center">
+        {row.original.admin.userName || "No Admin"}
+      </div>
     ),
   },
   {
