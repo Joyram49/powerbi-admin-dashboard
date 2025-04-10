@@ -46,13 +46,12 @@ const userSchema = z
       .min(2, "Username is required")
       .refine((val) => !val.includes(" "), "Username cannot contain spaces"),
     password: z.string().optional(),
-    password: z.string().optional(),
+
     confirmPassword: z.string().optional(),
     email: z.string().email("Valid email is required"),
     role: z.enum(["user", "admin", "superAdmin"]).default("user"),
     companyId: z.string().uuid().optional(),
     sendWelcomeEmail: z.boolean().default(true),
-    modifiedBy: z.string().optional(),
     modifiedBy: z.string().optional(),
   })
   .refine(
@@ -122,22 +121,14 @@ const userSchema = z
   )
   .refine(
     (data) => {
-      // Confirm password match if password is provided
       if (data.password && data.password.length > 0) {
         return data.password === data.confirmPassword;
       }
       return true;
     },
-    (data) => {
-      // For new users (no id), password is required
-      if (!data.id && (!data.password || data.password.length === 0)) {
-        return false;
-      }
-      return true;
-    },
     {
-      message: "Password is required for new users",
-      path: ["password"],
+      message: "Passwords do not match",
+      path: ["confirmPassword"],
     },
   )
   .refine(
@@ -242,12 +233,10 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const utils = api.useUtils();
-  const utils = api.useUtils();
 
   // When we create user we need companyId.for instance we need to fetch all company
   // When we create user we need companyId.for instance we need to fetch all company
   const { data: companies } = api.company.getAllCompanies.useQuery();
-
 
   // Get current user profile
   const { data: profileData } = api.auth.getProfile.useQuery();
@@ -256,7 +245,6 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
 
   // Create and update mutations
   const createUserMutation = api.auth.createUser.useMutation({
-    onSuccess: async () => {
     onSuccess: async () => {
       toast.success("User added successfully");
       setOpen(false);
@@ -275,7 +263,6 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
   });
 
   const updateUserMutation = api.user.updateUser.useMutation({
-    onSuccess: async () => {
     onSuccess: async () => {
       toast.success("User updated successfully");
       setOpen(false);
@@ -372,9 +359,6 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
   }, [open, user, form, currentUserId]);
 
   const role = form.watch("role");
-  const password = form.watch("password");
-  const isUpdateMode = !!user?.id;
-
   const password = form.watch("password");
   const isUpdateMode = !!user?.id;
 
@@ -476,7 +460,6 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                               type="password"
                               placeholder={
                                 isUpdateMode
-                                isUpdateMode
                                   ? "Leave blank to keep current password"
                                   : "Enter password"
                               }
@@ -490,7 +473,6 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                     />
                   </motion.div>
 
-                  {(password && password.length > 0) || !isUpdateMode ? (
                   {(password && password.length > 0) || !isUpdateMode ? (
                     <motion.div variants={itemVariants}>
                       <FormField
@@ -514,7 +496,6 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                         )}
                       />
                     </motion.div>
-                  ) : null}
                   ) : null}
 
                   <motion.div variants={itemVariants}>
