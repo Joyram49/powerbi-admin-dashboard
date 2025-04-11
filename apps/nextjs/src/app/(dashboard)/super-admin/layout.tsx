@@ -7,7 +7,7 @@ function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <div>
       <SuperAdminTabs />
-      <ReportMetrics />
+      {/* <ReportMetrics /> */}
       {children}
     </div>
   );
