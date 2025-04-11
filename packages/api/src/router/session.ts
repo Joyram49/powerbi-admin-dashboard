@@ -138,10 +138,10 @@ export const sessionRouter = createTRPCRouter({
           );
 
         return { success: true, message: "Session updated successfully" };
-      } catch (error) {
+      } catch {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error ? String(error.message) : "Failed to update session",
+          message: "Failed to update session",
         });
       }
     }),

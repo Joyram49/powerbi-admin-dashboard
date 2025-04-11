@@ -237,6 +237,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
   const utils = api.useUtils();
 
   // When we create user we need companyId.for instance we need to fetch all company
+  // When we create user we need companyId.for instance we need to fetch all company
   const { data: companies } = api.company.getAllCompanies.useQuery();
 
   // Get current user profile
@@ -315,8 +316,6 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
         companyId: restValues.companyId || undefined, // Ensure undefined instead of empty string
         userName: restValues.userName || undefined, // Ensure undefined instead of empty string
       };
-
-  
 
       // Send ONLY fields defined in the API schema
       updateUserMutation.mutate(updateData);
@@ -464,35 +463,6 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                     </motion.div>
                   )}
 
-                  <motion.div variants={itemVariants}>
-                    <FormField
-                      control={form.control}
-                      name="password"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
-                            {isUpdateMode
-                              ? "New Password (optional)"
-                              : "Password"}
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              type="password"
-                              placeholder={
-                                isUpdateMode
-                                  ? "Leave blank to keep current password"
-                                  : "Enter password"
-                              }
-                              {...field}
-                              className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                            />
-                          </FormControl>
-                          <FormMessage className="text-xs dark:text-red-400" />
-                        </FormItem>
-                      )}
-                    />
-                  </motion.div>
-
                   {(password && password.length > 0) || !isUpdateMode ? (
                     <motion.div variants={itemVariants}>
                       <FormField
@@ -557,21 +527,6 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                     />
                   </motion.div>
 
-                  {role === "user" &&
-                    companies?.data &&
-                    companies.data.length > 0 && (
-                      <motion.div variants={itemVariants}>
-                        <FormField
-                          control={form.control}
-                          name="companyId"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
-                                Company
-                              </FormLabel>
-                              <Select
-                                onValueChange={field.onChange}
-                                defaultValue={field.value ?? ""}
                   {role === "user" &&
                     companies?.data &&
                     companies.data.length > 0 && (
