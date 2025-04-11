@@ -36,6 +36,7 @@ import {
 } from "@acme/ui/select";
 import { toast } from "@acme/ui/toast";
 
+import { UserFormPasswordSection } from "~/app/(auth)/_components/update-password-form";
 import { api } from "~/trpc/react";
 
 // Form validation schema
@@ -47,13 +48,12 @@ const userSchema = z
       .min(2, "Username is required")
       .refine((val) => !val.includes(" "), "Username cannot contain spaces"),
     password: z.string().optional(),
-    password: z.string().optional(),
+
     confirmPassword: z.string().optional(),
     email: z.string().email("Valid email is required"),
     role: z.enum(["user", "admin", "superAdmin"]).default("user"),
     companyId: z.string().uuid().optional(),
     sendWelcomeEmail: z.boolean().default(true),
-    modifiedBy: z.string().optional(),
     modifiedBy: z.string().optional(),
   })
   .refine(
@@ -123,22 +123,14 @@ const userSchema = z
   )
   .refine(
     (data) => {
-      // Confirm password match if password is provided
       if (data.password && data.password.length > 0) {
         return data.password === data.confirmPassword;
       }
       return true;
     },
-    (data) => {
-      // For new users (no id), password is required
-      if (!data.id && (!data.password || data.password.length === 0)) {
-        return false;
-      }
-      return true;
-    },
     {
-      message: "Password is required for new users",
-      path: ["password"],
+      message: "Passwords do not match",
+      path: ["confirmPassword"],
     },
   )
   .refine(
@@ -293,7 +285,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
   const form = useForm({
     resolver: zodResolver(userSchema),
     defaultValues: {
-      id: user?.id,
+      id: user?.userId ?? user?.id,
       userName: user?.userName ?? "",
       email: user?.email ?? "",
       role: user?.role ?? "user",
@@ -314,23 +306,22 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
     const { confirmPassword, sendWelcomeEmail, ...restValues } = values;
 
     if (restValues.id) {
-      // Update flow - Notice the correct property names for the API
+      // Update flow - Include ONLY the fields expected by the API
       const updateData = {
-        userId: restValues.id, // Using userId as expected by API
-        email: restValues.email,
-        userName: restValues.userName,
+        userId: restValues.id,
+        modifiedBy: currentUserId ?? "",
         role: restValues.role,
-        companyId: restValues.companyId ?? "",
-        modifiedBy: currentUserId ?? "", // Using the actual user ID
-        password:
-          restValues.password && restValues.password.length > 0
-            ? restValues.password
-            : undefined,
+        status: user?.status ?? "active", // Include the status field if available
+        companyId: restValues.companyId || undefined, // Ensure undefined instead of empty string
+        userName: restValues.userName || undefined, // Ensure undefined instead of empty string
       };
 
+  
+
+      // Send ONLY fields defined in the API schema
       updateUserMutation.mutate(updateData);
     } else {
-      // Create flow - password is required for new users
+      // Create flow
       if (!restValues.password) {
         toast.error("Password is required for new users");
         setIsSubmitting(false);
@@ -342,14 +333,13 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
         role: restValues.role,
         password: restValues.password,
         userName: restValues.userName,
-        companyId: restValues.companyId,
+        companyId: restValues.companyId ?? undefined,
         modifiedBy: currentUserId ?? "",
       };
 
       createUserMutation.mutate(createData);
     }
   };
-
   // Reset form when modal opens
   useEffect(() => {
     if (open) {
@@ -357,7 +347,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
         id: user?.id,
         userName: user?.userName ?? "",
         email: user?.email ?? "",
-        role: user?.role ?? "user",
+        role: user?.role,
         companyId: user?.companyId,
         password: "",
         confirmPassword: "",
@@ -449,6 +439,30 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                       )}
                     />
                   </motion.div>
+                  {!isUpdateMode && (
+                    <motion.div variants={itemVariants}>
+                      <FormField
+                        control={form.control}
+                        name="password"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
+                              Password
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="password"
+                                placeholder="Enter password"
+                                {...field}
+                                className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                              />
+                            </FormControl>
+                            <FormMessage className="text-xs dark:text-red-400" />
+                          </FormItem>
+                        )}
+                      />
+                    </motion.div>
+                  )}
 
                   <motion.div variants={itemVariants}>
                     <FormField
@@ -558,6 +572,21 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                               <Select
                                 onValueChange={field.onChange}
                                 defaultValue={field.value ?? ""}
+                  {role === "user" &&
+                    companies?.data &&
+                    companies.data.length > 0 && (
+                      <motion.div variants={itemVariants}>
+                        <FormField
+                          control={form.control}
+                          name="companyId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
+                                Company
+                              </FormLabel>
+                              <Select
+                                onValueChange={field.onChange}
+                                defaultValue={field.value || ""}
                               >
                                 <FormControl>
                                   <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">
@@ -606,7 +635,14 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                       />
                     </motion.div>
                   )}
-
+                  {isUpdateMode && (
+                    <UserFormPasswordSection
+                      isUpdateMode={isUpdateMode}
+                      userId={user.id}
+                      form={form}
+                      password={password}
+                    />
+                  )}
                   <motion.div
                     className="flex justify-end gap-3 pt-2"
                     variants={itemVariants}

@@ -30,6 +30,11 @@ const navigationItems = {
       label: "Users",
     },
     {
+      href: "/super-admin/reports",
+      icon: <FileText className="mr-3 size-5" />,
+      label: "Reports",
+    },
+    {
       href: "/super-admin/billing",
       icon: <Receipt className="mr-3 h-5 w-5" />,
       label: "Billing Portal",

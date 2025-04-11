@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@acme/ui/input-otp";
+import { toast } from "@acme/ui/toast";
 
 import { api } from "~/trpc/react";
 
@@ -83,7 +84,9 @@ function TokenVerifyForm({ email }: { email: string }) {
       await verifyOTP.mutateAsync({ email, token: data.token });
     } catch (err) {
       // Error is handled in the mutation callbacks
-      console.log(err);
+      toast.error("Error", {
+        description: err,
+      });
     }
   };
   return (

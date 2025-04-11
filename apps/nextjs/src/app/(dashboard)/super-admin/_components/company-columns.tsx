@@ -48,7 +48,7 @@ export const columns: ColumnDef<Company>[] = [
     header: () => <div className="text-left font-medium">Company ID</div>,
     cell: ({ row }) => {
       const { id } = row.original;
-      console.log("User admin", row.original.admin);
+
       return (
         <div className="text-left">
           <span className="hidden xl:inline">{id}</span>
