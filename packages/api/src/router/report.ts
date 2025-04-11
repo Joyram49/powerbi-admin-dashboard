@@ -426,7 +426,6 @@ export const reportRouter = createTRPCRouter({
           reports: allReports,
         };
       } catch (error) {
-        console.error("Error fetching reports for company:", error);
         if (error instanceof TRPCError) {
           throw error;
         }
@@ -510,7 +509,6 @@ export const reportRouter = createTRPCRouter({
           report,
         };
       } catch (error) {
-        console.error("Error fetching report by id:", error);
         if (error instanceof TRPCError) {
           throw error;
         }
@@ -582,7 +580,6 @@ export const reportRouter = createTRPCRouter({
 
         return { success: true, message: "Report updated successfully" };
       } catch (error) {
-        console.error("Error updating report:", error);
         if (error instanceof TRPCError) {
           throw error;
         }
@@ -610,7 +607,6 @@ export const reportRouter = createTRPCRouter({
         await db.delete(reports).where(eq(reports.id, reportId));
         return { success: true, message: "Report deleted successfully" };
       } catch (error) {
-        console.error("Error deleting report:", error);
         if (error instanceof TRPCError) {
           throw error;
         }

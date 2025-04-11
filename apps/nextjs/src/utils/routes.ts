@@ -11,6 +11,7 @@ export const PUBLIC_ROUTES = [
   FORGOT_PASSWORD,
   VERIFY_OTP,
   RESET_PASSWORD,
+  REGISTER,
 ];
 // Add role base routing
 interface ROLE_ROUTES_TYPES {
@@ -24,4 +25,4 @@ export const ROLE_ROUTES: ROLE_ROUTES_TYPES = {
   user: "/user",
 };
 
-export const PRIVATE_ROUTES = ["/private", "/company", REGISTER, REPORT];
+export const PRIVATE_ROUTES = ["/private", "/company", REPORT];

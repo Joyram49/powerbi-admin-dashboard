@@ -41,7 +41,6 @@ export async function signUp(
 
     return result;
   } catch (error) {
-    console.error("Signup error:", error);
     throw error;
   }
 }
@@ -67,7 +66,6 @@ export async function signIn(email: string, password: string) {
 
     return result;
   } catch (error) {
-    console.error("Signin error:", error);
     throw error;
   }
 }
@@ -82,7 +80,6 @@ export async function signOut() {
 
     return result;
   } catch (error) {
-    console.error("Signout error:", error);
     throw error;
   }
 }
@@ -105,7 +102,6 @@ export async function getSession() {
 
     return result;
   } catch (error) {
-    console.error("Get session error:", error);
     throw error;
   }
 }
@@ -118,7 +114,6 @@ export async function resetPassword(email: string) {
       redirectTo: env.NEXT_PUBLIC_APP_URL + "/reset-password",
     });
   } catch (error) {
-    console.error("Password reset error:", error);
     throw error;
   }
 }

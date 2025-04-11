@@ -581,69 +581,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                         />
                       </motion.div>
                     )}
-                  {role === "user" &&
-                    companies?.data &&
-                    companies.data.length > 0 && (
-                      <motion.div variants={itemVariants}>
-                        <FormField
-                          control={form.control}
-                          name="companyId"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
-                                Company
-                              </FormLabel>
-                              <Select
-                                onValueChange={field.onChange}
-                                defaultValue={field.value ?? ""}
-                              >
-                                <FormControl>
-                                  <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">
-                                    <SelectValue placeholder="Select company" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {companies.data.map((company) => (
-                                    <SelectItem
-                                      key={company.id}
-                                      value={company.id}
-                                    >
-                                      {company.companyName}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage className="text-xs dark:text-red-400" />
-                            </FormItem>
-                          )}
-                        />
-                      </motion.div>
-                    )}
 
-                  {!isUpdateMode && (
-                    <motion.div variants={itemVariants} className="space-y-2">
-                      <FormField
-                        control={form.control}
-                        name="sendWelcomeEmail"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                                className="border-blue-600 data-[state=checked]:bg-blue-500 data-[state=checked]:text-white dark:border-gray-600"
-                              />
-                            </FormControl>
-                            <div className="space-y-1 leading-none">
-                              <FormLabel className="text-sm font-medium dark:text-gray-300">
-                                Send Welcome Email
-                              </FormLabel>
-                            </div>
-                          </FormItem>
-                        )}
-                      />
-                    </motion.div>
-                  )}
                   {!isUpdateMode && (
                     <motion.div variants={itemVariants} className="space-y-2">
                       <FormField

@@ -55,7 +55,6 @@ export const sessionRouter = createTRPCRouter({
         data: newSession[0],
       };
     } catch (error) {
-      console.error("Error while creating/updating session", error);
       if (error instanceof TRPCError) {
         throw error;
       }
@@ -72,7 +71,7 @@ export const sessionRouter = createTRPCRouter({
     .input(
       z.object({
         sessionId: z.string().uuid(),
-        totalActiveTime: z.number(), // this is in milliseconds from client
+        totalActiveTime: z.number(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -140,10 +139,9 @@ export const sessionRouter = createTRPCRouter({
 
         return { success: true, message: "Session updated successfully" };
       } catch (error) {
-        console.error("Error updating session:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to update session",
+          message: error ? String(error.message) : "Failed to update session",
         });
       }
     }),

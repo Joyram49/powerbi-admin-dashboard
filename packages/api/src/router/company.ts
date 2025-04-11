@@ -46,7 +46,6 @@ export const companyRouter = createTRPCRouter({
           company: newCompany[0],
         };
       } catch (error) {
-        console.error("Error creating company:", error);
         if (error instanceof TRPCError) {
           throw error;
         }
@@ -153,7 +152,6 @@ export const companyRouter = createTRPCRouter({
           data: allCompanies,
         };
       } catch (error) {
-        console.error("Error fetching companies:", error);
         return {
           success: false,
           error: error instanceof Error ? error.message : "Unknown error",
@@ -249,7 +247,6 @@ export const companyRouter = createTRPCRouter({
           data: activeCompanies,
         };
       } catch (error) {
-        console.error("Error fetching active companies:", error);
         if (error instanceof TRPCError) {
           throw error;
         }
@@ -349,7 +346,6 @@ export const companyRouter = createTRPCRouter({
           data: companiesByAdminId,
         };
       } catch (error) {
-        console.error("Error fetching companies:", error);
         if (error instanceof TRPCError) {
           throw error;
         }
@@ -383,7 +379,6 @@ export const companyRouter = createTRPCRouter({
           data: company,
         };
       } catch (error) {
-        console.error("Error fetching company:", error);
         if (error instanceof TRPCError) {
           throw error;
         }
@@ -439,7 +434,6 @@ export const companyRouter = createTRPCRouter({
           data: updatedCompany[0],
         };
       } catch (error) {
-        console.error("Error updating company:", error);
         if (error instanceof TRPCError) {
           throw error;
         }
@@ -470,7 +464,6 @@ export const companyRouter = createTRPCRouter({
           message: "Company deleted successfully",
         };
       } catch (error) {
-        console.error("Error deleting company:", error);
         if (error instanceof TRPCError) {
           throw error;
         }

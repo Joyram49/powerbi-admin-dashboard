@@ -14,11 +14,7 @@ export function createClientBrowser() {
       env.NEXT_PUBLIC_SUPABASE_URL,
       env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     );
-  } catch (err) {
-    console.error(
-      "Error creating browser client:",
-      err instanceof Error ? err.message : String(err),
-    );
+  } catch {
     throw new Error("Failed to create browser client");
   }
 }

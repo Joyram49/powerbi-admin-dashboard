@@ -92,7 +92,7 @@ export const createClientServer = () => {
     );
     throw new Error("Failed to create server client");
   }
-}
+};
 
 // Create Supabase client for admin operations
 export function createAdminClient() {
