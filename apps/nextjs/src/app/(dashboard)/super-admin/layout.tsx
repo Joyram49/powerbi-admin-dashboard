@@ -1,13 +1,12 @@
 import React from "react";
 
-import ReportMetrics from "./_components/report-metrics/report-metrics";
 import SuperAdminTabs from "./_components/super-admin-tab";
 
 function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <div>
       <SuperAdminTabs />
-      <ReportMetrics />
+      {/* <ReportMetrics /> */}
       {children}
     </div>
   );

@@ -36,21 +36,25 @@ export function useActiveTimeTracker() {
   useEffect(() => {
     if (isLoading) return;
 
-    if (session) {
-      wasSessionActive.current = true;
-      setSessionId(session.id);
-    } else if (!session && wasSessionActive.current) {
-      // User just logged out
-      localStorage.removeItem(ACTIVE_TIME_KEY);
-      setTotalActiveTime(0);
-      setSessionId(null);
-      wasSessionActive.current = false;
+    if (!session) {
+      if (wasSessionActive.current) {
+        // User just logged out
+        localStorage.removeItem(ACTIVE_TIME_KEY);
+        setTotalActiveTime(0);
+        setSessionId(null);
+        wasSessionActive.current = false;
+      }
+      return;
     }
+
+    // If session exists
+    wasSessionActive.current = true;
+    setSessionId(session.id);
   }, [session, isLoading]);
 
   // Start counting when session exists
   useEffect(() => {
-    if (!session || isLoading) return;
+    if (isLoading || session == null) return;
 
     lastActivityRef.current = Date.now();
 
