@@ -385,10 +385,7 @@ export const userRouter = createTRPCRouter({
           Object.entries({
             ...input,
             lastModifiedAt: new Date(),
-          }).filter(
-            ([_, value]) =>
-              value !== undefined || value !== null || value !== "",
-          ),
+          }).filter(([_, value]) => value !== ""),
         );
 
         const updateUser = await db
