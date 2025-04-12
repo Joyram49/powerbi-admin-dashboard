@@ -1,4 +1,3 @@
-// src/app/reports/components/delete-report-dialog.tsx
 "use client";
 
 import {
@@ -12,7 +11,18 @@ import {
   AlertDialogTitle,
 } from "@acme/ui/alert-dialog";
 
-export function DeleteReportDialog({ isOpen, onClose, onDelete, reportName }) {
+interface DeleteReportDialogTypes {
+  isOpen: boolean | undefined;
+  onClose: () => void;
+  onDelete: () => void;
+  reportName: string;
+}
+export function DeleteReportDialog({
+  isOpen,
+  onClose,
+  onDelete,
+  reportName,
+}: DeleteReportDialogTypes) {
   return (
     <AlertDialog open={isOpen} onOpenChange={onClose}>
       <AlertDialogContent>

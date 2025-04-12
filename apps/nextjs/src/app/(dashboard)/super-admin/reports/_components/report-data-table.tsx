@@ -2,7 +2,6 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import {
   flexRender,
   getCoreRowModel,
@@ -31,7 +30,10 @@ import {
 } from "@acme/ui/table";
 
 import { api } from "~/trpc/react";
-import { Pagination } from "./Pagination";
+import { Pagination } from "../../../_components/Pagination";
+
+// Define user roles type
+type UserRole = "superAdmin" | "admin" | "user";
 
 // Define the shape of a single report
 interface ReportColTypes {
@@ -39,21 +41,20 @@ interface ReportColTypes {
   reportId?: string;
   reportName: string;
   reportUrl: string;
-  accessCount?: number;
+  accessCount: number | null;
   userCount?: number;
-  userCounts?: number;
-  company?: {
+  company: {
     id: string;
-    companyName?: string;
-  };
-  dateCreated?: string;
-  status?: string;
-  lastModifiedAt?: string;
+    companyName: string;
+  } | null;
+  dateCreated: Date | null;
+  status: "active" | "inactive" | null;
+  lastModifiedAt: Date | null;
 }
 
 // Props for the ReportsDataTable component
-interface ReportDataTypes {
-  userRole: string;
+interface ReportDataProps {
+  userRole: UserRole;
   onEdit: (report: ReportColTypes) => void;
   onDelete: (report: ReportColTypes) => void;
   searchQuery?: string;
@@ -66,19 +67,17 @@ export function ReportsDataTable({
   onDelete,
   searchQuery = "",
   companyId,
-}: ReportDataTypes) {
+}: ReportDataProps) {
+  const [pagination, setPagination] = useState({
+    pageIndex: 0,
+    pageSize: 10,
+  });
 
-  const searchParams = useSearchParams();
+  // Calculate values for pagination
+  const currentPage = pagination.pageIndex + 1;
+  const pageSize = pagination.pageSize;
 
-  // Get pagination parameters from the URL
-  const pageParam = searchParams.get("page");
-  const limitParam = searchParams.get("limit");
-
-  // Default to page 1 and limit 10 if not provided
-  const currentPage = pageParam ? parseInt(pageParam) : 1;
-  const pageSize = limitParam ? parseInt(limitParam) : 10;
-
-  // Fetch reports based on user role
+  // Fetch reports based on user role and conditions
   const { data: superAdminData, isLoading: isSuperAdminLoading } =
     api.report.getAllReports.useQuery(
       {
@@ -118,7 +117,7 @@ export function ReportsDataTable({
   const { data: companyReportsData, isLoading: isCompanyReportsLoading } =
     api.report.getAllReportsForCompany.useQuery(
       {
-        companyId: companyId || "",
+        companyId: companyId ?? "",
         searched: searchQuery,
         page: currentPage,
         limit: pageSize,
@@ -134,52 +133,34 @@ export function ReportsDataTable({
   // Determine which data to use
   let reportData: ReportColTypes[] = [];
   let totalItems = 0;
-  let totalPages = 1;
   let isLoading = false;
 
   if (companyId) {
-    reportData = companyReportsData?.reports || [];
-    totalItems = companyReportsData?.total || 0;
+    reportData = companyReportsData?.reports ?? [];
+    totalItems = companyReportsData?.total ?? 0;
     isLoading = isCompanyReportsLoading;
   } else if (userRole === "superAdmin") {
-    reportData = superAdminData?.data || [];
-    totalItems = superAdminData?.total || 0;
+    reportData = superAdminData?.data ?? [];
+    totalItems = superAdminData?.total ?? 0;
     isLoading = isSuperAdminLoading;
   } else if (userRole === "admin") {
-    reportData = adminData?.reports || [];
-    totalItems = adminData?.total || 0;
+    reportData = adminData?.reports ?? [];
+    totalItems = adminData?.total ?? 0;
     isLoading = isAdminLoading;
-  } else if (userRole === "user") {
-    reportData = userData?.reports || [];
-    totalItems = userData?.total || 0;
+  } else {
+    reportData = userData?.reports ?? [];
+    totalItems = userData?.total ?? 0;
     isLoading = isUserLoading;
   }
 
   // Calculate total pages
-  totalPages = Math.ceil(totalItems / pageSize) || 1;
-
-  // Format data for the table
-  const formattedData = reportData.map((report) => {
-    // Handle different report formats between endpoints
-    const formattedReport: ReportColTypes = {
-      id: report.id || report.reportId || "",
-      reportName: report.reportName,
-      reportUrl: report.reportUrl,
-      accessCount: report.accessCount,
-      userCount: report.userCount ?? report.userCounts,
-      company: report.company,
-      dateCreated: report.dateCreated,
-      status: report.status,
-      lastModifiedAt: report.lastModifiedAt,
-    };
-    return formattedReport;
-  });
+  const totalPages = Math.ceil(totalItems / pageSize) || 1;
 
   const handleOpenReport = (report: ReportColTypes) => {
     if (userRole === "user") {
       updateReportAccess({
-        reportId: report.id,
-        accessCount: (report.accessCount || 0) + 1,
+        reportId: report.id | report.reportId,
+        accessCount: (report.accessCount ?? 0) + 1,
       });
     }
     window.open(report.reportUrl, "_blank", "noopener noreferrer");
@@ -199,7 +180,7 @@ export function ReportsDataTable({
       header: "Company Name",
       cell: ({ row }) => {
         const company = row.original.company;
-        return <div>{company?.companyName || "N/A"}</div>;
+        return <div>{company?.companyName ?? "N/A"}</div>;
       },
     },
     {
@@ -224,7 +205,7 @@ export function ReportsDataTable({
       accessorKey: "userCount",
       header: "# Users",
       cell: ({ row }) => {
-        const count = row.original.userCount ?? row.original.userCounts ?? 0;
+        const count = row.original.userCount ?? 0;
         return <div className="text-center">{count}</div>;
       },
     },
@@ -271,6 +252,7 @@ export function ReportsDataTable({
     },
   ];
 
+  // Add actions column for superAdmin role
   if (userRole === "superAdmin") {
     columns.push({
       id: "actions",
@@ -302,31 +284,34 @@ export function ReportsDataTable({
   }
 
   const table = useReactTable({
-    data: formattedData,
+    data: reportData,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     state: {
       pagination: {
-        pageIndex: currentPage - 1,
-        pageSize,
+        pageIndex: pagination.pageIndex,
+        pageSize: pagination.pageSize,
       },
     },
+    onPaginationChange: setPagination,
     manualPagination: true,
     pageCount: totalPages,
   });
 
-  const handlePageChange = (page: number) => {
-    const params = new URLSearchParams(searchParams);
-    params.set("page", page.toString());
-    
+  // Define pagination handlers for the Pagination component
+  const handlePageChange = (newPage: number) => {
+    setPagination({
+      ...pagination,
+      pageIndex: newPage - 1, // Convert from 1-indexed to 0-indexed
+    });
   };
 
-  const handlePageSizeChange = (size: number) => {
-    const params = new URLSearchParams(searchParams);
-    params.set("limit", size.toString());
-    params.set("page", "1"); // Reset to first page when changing page size
-    
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPagination({
+      pageIndex: 0, // Reset to first page when changing page size
+      pageSize: newPageSize,
+    });
   };
 
   if (isLoading) {
@@ -354,7 +339,7 @@ export function ReportsDataTable({
             ))}
           </TableHeader>
           <TableBody>
-            {formattedData.length ? (
+            {reportData.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id}>
                   {row.getVisibleCells().map((cell) => (
@@ -381,16 +366,18 @@ export function ReportsDataTable({
         </Table>
       </div>
 
-      <Pagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        totalItems={totalItems}
-        pageSize={pageSize}
-        onPageChange={handlePageChange}
-        onPageSizeChange={handlePageSizeChange}
-        pageSizeOptions={[10, 20, 50, 100]}
-        showPageSizeSelector={true}
-      />
+      <div className="mt-4">
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          pageSize={pageSize}
+          onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
+          pageSizeOptions={[10, 20, 50, 100]}
+          showPageSizeSelector={true}
+        />
+      </div>
     </div>
   );
 }

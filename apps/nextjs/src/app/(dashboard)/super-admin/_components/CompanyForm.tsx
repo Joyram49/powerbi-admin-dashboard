@@ -8,7 +8,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
-  Save,
   User,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
@@ -43,6 +42,7 @@ import {
 import { Separator } from "@acme/ui/separator";
 import { toast, Toaster } from "@acme/ui/toast";
 
+import type { Company } from "~/types/company";
 import { api } from "~/trpc/react";
 
 const PHONE_NUMBER_REGEX =
@@ -119,20 +119,6 @@ interface User {
   email: string;
   role: string;
   status?: "active" | "inactive" | null;
-}
-
-interface AdminUser {
-  id: string;
-  userName: string;
-}
-
-interface Company {
-  id: string;
-  companyName: string;
-  address: string;
-  phone?: string;
-  email: string;
-  admin: AdminUser;
 }
 
 const CompanyAdminForm = ({
@@ -293,7 +279,9 @@ const CompanyAdminForm = ({
     } catch (error) {
       setCompanyFormSubmitted(false);
       toast.error("Submission Error", {
-        description: "Failed to process company data",
+        description: `Failed to process company data: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
       });
     }
   };

@@ -48,7 +48,7 @@ import {
 import { toast } from "@acme/ui/toast";
 
 import { api } from "~/trpc/react";
-import { Pagination } from "./Pagination";
+import { Pagination } from "../../../_components/Pagination";
 import AddUserModal from "./UserModal";
 import UserModal from "./UserModal";
 
@@ -71,6 +71,8 @@ const mapApiUserToUser = (apiUser: APIUser): User => {
   return {
     ...apiUser,
     userId: apiUser.id,
+    status: apiUser.status ?? undefined,
+    companyId: apiUser.companyId ?? undefined,
   };
 };
 

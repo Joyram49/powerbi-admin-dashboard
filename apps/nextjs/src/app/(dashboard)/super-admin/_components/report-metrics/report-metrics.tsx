@@ -1,7 +1,5 @@
 import ActiveAccountsCard from "./active-active-accounts";
 import TotalReportsCard from "./total-reports-card";
-import TotalUsersCard from "./total-users-card";
-
 import UserEngagementCard from "./user-engagement";
 
 function ReportMetrics() {

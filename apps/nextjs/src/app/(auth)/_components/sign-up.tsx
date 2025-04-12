@@ -84,7 +84,7 @@ interface requestedDataType {
   companyId: string;
 }
 export function SignUpForm() {
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting, _setIsSubmitting] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState(0);
 
@@ -128,7 +128,7 @@ export function SignUpForm() {
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
       if (name === "password" || name === undefined) {
-        setPasswordStrength(calculatePasswordStrength(value.password || ""));
+        setPasswordStrength(calculatePasswordStrength(value.password ?? ""));
       }
     });
 

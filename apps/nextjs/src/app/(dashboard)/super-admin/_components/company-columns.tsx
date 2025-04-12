@@ -1,14 +1,20 @@
 "use client";
 
-import type { ColumnDef, Row, Table } from "@tanstack/react-table";
+import type { Column, ColumnDef, Row, Table } from "@tanstack/react-table";
 import React from "react";
 import { ArrowUpDown } from "lucide-react";
-import { aria } from "tailwindcss/defaultTheme";
 
 import { Button } from "@acme/ui/button";
 import { Checkbox } from "@acme/ui/checkbox";
 
-import { CompanyActions } from "../../_components/CompanyActions";
+import type { Company } from "~/types/company";
+import { CompanyActions } from "./CompanyActions";
+
+interface TableMeta {
+  sorting?: {
+    onSortChange: (sortBy: "companyName" | "dateJoined") => void;
+  };
+}
 
 // Status color mapping for better UI
 const STATUS_COLORS = {
@@ -59,14 +65,20 @@ export const columns: ColumnDef<Company>[] = [
   },
   {
     accessorKey: "companyName",
-    header: ({ column, table }) => {
-      const { sorting } = table.options.meta ?? {};
+    header: ({
+      column,
+      table,
+    }: {
+      column: Column<Company>;
+      table: Table<Company>;
+    }) => {
+      const { sorting } = table.options.meta as TableMeta;
       return (
         <Button
           variant="ghost"
           onClick={() => {
             // If sorting is available, use it
-            if (sorting.onSortChange) {
+            if (sorting?.onSortChange) {
               sorting.onSortChange("companyName");
             } else {
               // Fallback to the default column sorting
@@ -87,15 +99,6 @@ export const columns: ColumnDef<Company>[] = [
     ),
   },
   {
-    accessorKey: "admin",
-    header: () => <div className="text-center font-medium">Admin</div>,
-    cell: ({ row }) => (
-      <div className="text-center">
-        {row.original.admin.userName || "No Admin"}
-      </div>
-    ),
-  },
-  {
     accessorKey: "employeeCount",
     header: () => <div className="text-center font-medium"># Users</div>,
     cell: ({ row }) => (
@@ -111,15 +114,21 @@ export const columns: ColumnDef<Company>[] = [
   },
   {
     accessorKey: "dateJoined",
-    header: ({ column, table }) => {
-      const { sorting } = table.options.meta ?? {};
+    header: ({
+      column,
+      table,
+    }: {
+      column: Column<Company>;
+      table: Table<Company>;
+    }) => {
+      const { sorting } = table.options.meta as TableMeta;
       return (
         <Button
           variant="ghost"
           className="text-center font-medium"
           onClick={() => {
             // If sorting is available, use it
-            if (sorting.onSortChange) {
+            if (sorting?.onSortChange) {
               sorting.onSortChange("dateJoined");
             } else {
               // Fallback to the default column sorting
@@ -134,7 +143,20 @@ export const columns: ColumnDef<Company>[] = [
     },
     cell: ({ row }) => (
       <div className="text-center">
-        {new Date(row.original.dateJoined).toLocaleDateString()}
+        {row.original.dateJoined
+          ? new Date(row.original.dateJoined).toLocaleDateString()
+          : "N/A"}
+      </div>
+    ),
+  },
+  {
+    accessorKey: "lastActivity",
+    header: () => <div className="text-center font-medium">Last Activity</div>,
+    cell: ({ row }) => (
+      <div className="text-center">
+        {row.original.lastActivity
+          ? new Date(row.original.lastActivity).toLocaleDateString()
+          : "N/A"}
       </div>
     ),
   },
@@ -153,8 +175,10 @@ export const columns: ColumnDef<Company>[] = [
     cell: ({ row }) => {
       const status = row.original.status;
       return (
-        <div className={`text-center font-semibold ${STATUS_COLORS[status]}`}>
-          {status.charAt(0).toUpperCase() + status.slice(1)}
+        <div
+          className={`text-center font-semibold ${status ? STATUS_COLORS[status] : "text-gray-500"}`}
+        >
+          {status ? status.charAt(0).toUpperCase() + status.slice(1) : "N/A"}
         </div>
       );
     },

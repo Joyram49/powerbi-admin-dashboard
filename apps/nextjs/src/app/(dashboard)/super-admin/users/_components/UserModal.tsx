@@ -54,6 +54,7 @@ const userSchema = z
     companyId: z.string().uuid().optional(),
     sendWelcomeEmail: z.boolean().default(true),
     modifiedBy: z.string().optional(),
+    status: z.enum(["active", "inactive"]).optional(),
   })
   .refine(
     (data) => {
@@ -236,7 +237,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
   const utils = api.useUtils();
 
   // When we create user we need companyId.for instance we need to fetch all company
-  // When we create user we need companyId.for instance we need to fetch all company
+
   const { data: companies } = api.company.getAllCompanies.useQuery();
 
   // Get current user profile
@@ -294,6 +295,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
       confirmPassword: "",
       sendWelcomeEmail: true,
       modifiedBy: currentUserId ?? undefined,
+      status: user?.status,
     },
     mode: "onChange",
   });
@@ -311,12 +313,10 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
         userId: restValues.id,
         modifiedBy: currentUserId ?? "",
         role: restValues.role,
-        status: user?.status ?? "active", // Include the status field if available
-        companyId: restValues.companyId || undefined, // Ensure undefined instead of empty string
+        status: restValues.status,
+        companyId: restValues.companyId ?? undefined, // Ensure undefined instead of empty string
         userName: restValues.userName || undefined, // Ensure undefined instead of empty string
       };
-
-  
 
       // Send ONLY fields defined in the API schema
       updateUserMutation.mutate(updateData);
@@ -335,6 +335,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
         userName: restValues.userName,
         companyId: restValues.companyId ?? undefined,
         modifiedBy: currentUserId ?? "",
+        status: restValues.status,
       };
 
       createUserMutation.mutate(createData);
@@ -353,6 +354,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
         confirmPassword: "",
         sendWelcomeEmail: true,
         modifiedBy: currentUserId ?? undefined,
+        status: user?.status,
       });
     }
   }, [open, user, form, currentUserId]);
@@ -488,7 +490,34 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                       />
                     </motion.div>
                   ) : null}
-
+                  <motion.div variants={itemVariants}>
+                    <FormField
+                      control={form.control}
+                      name="status"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
+                            Status
+                          </FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                                <SelectValue placeholder="Select user status" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="active">Active</SelectItem>
+                              <SelectItem value="inactive">Inactive</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage className="text-xs dark:text-red-400" />
+                        </FormItem>
+                      )}
+                    />
+                  </motion.div>
                   <motion.div variants={itemVariants}>
                     <FormField
                       control={form.control}
@@ -542,7 +571,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                               </FormLabel>
                               <Select
                                 onValueChange={field.onChange}
-                                defaultValue={field.value || ""}
+                                defaultValue={field.value ?? ""}
                               >
                                 <FormControl>
                                   <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">

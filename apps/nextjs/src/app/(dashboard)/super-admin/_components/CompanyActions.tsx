@@ -19,6 +19,7 @@ import {
 } from "@acme/ui/dropdown-menu";
 import { toast } from "@acme/ui/toast";
 
+import type { Company } from "~/types/company";
 import { api } from "~/trpc/react";
 import CompanyAdminForm from "./CompanyForm";
 
@@ -38,7 +39,7 @@ export function CompanyActions({ company }: { company: Company }) {
     },
     onError: (error) => {
       toast.error("Delete Failed", {
-        description: error.message || "Unable to delete company",
+        description: error.message || "Failed to delete company",
       });
     },
   });
@@ -80,8 +81,12 @@ export function CompanyActions({ company }: { company: Company }) {
         <DropdownMenuContent align="end" className="dark:bg-slate-800">
           <DropdownMenuLabel>Actions</DropdownMenuLabel>
           <DropdownMenuItem
-            onClick={() => {
-              navigator.clipboard.writeText(company.id);
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(company.id);
+              } catch (err) {
+                console.error("Failed to copy:", err);
+              }
               setIsDropdownOpen(false);
             }}
             className="cursor-pointer hover:dark:bg-slate-900"
@@ -89,8 +94,8 @@ export function CompanyActions({ company }: { company: Company }) {
             Copy Company ID
           </DropdownMenuItem>
           <DropdownMenuItem
-            onClick={() => {
-              navigator.clipboard.writeText(company.admin.id);
+            onClick={async () => {
+              await navigator.clipboard.writeText(company.admin.id);
               setIsDropdownOpen(false);
             }}
             className="cursor-pointer hover:dark:bg-slate-900"

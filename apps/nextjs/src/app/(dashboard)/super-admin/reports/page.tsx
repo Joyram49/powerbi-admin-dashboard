@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 
 import { Button } from "@acme/ui/button";
@@ -10,43 +9,38 @@ import { toast } from "@acme/ui/toast";
 
 import { useDebounce } from "~/hooks/useDebounce";
 import { api } from "~/trpc/react";
-import { DeleteReportDialog } from "../../_components/DeleteReportDialog";
-import { ReportsDataTable } from "../../_components/report-data-table";
-import { ReportModal } from "../../_components/ReportFormModal";
+import { DeleteReportDialog } from "./_components/DeleteReportDialog";
+import { ReportsDataTable } from "./_components/report-data-table";
+import { ReportModal } from "./_components/ReportFormModal";
+
+// Define report type based on your Drizzle schema
+interface Report {
+  id: string;
+  reportName: string;
+  reportUrl: string;
+  accessCount: number | null;
+  dateCreated: Date | null;
+  status: "active" | "inactive" | null;
+  lastModifiedAt: Date | null;
+  company: {
+    id: string;
+    companyName: string;
+  } | null;
+  userCount?: number;
+}
+
+type UserRole = "superAdmin" | "admin" | "user";
 
 export default function ReportsPage() {
-  const { data } = api.auth.getProfile.useQuery();
-  const userRole = data?.user.user_metadata.role as string;
-
-  const searchParams = useSearchParams();
-
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearch = useDebounce(searchTerm, 500);
+
+  const { data } = api.auth.getProfile.useQuery();
+  const userRole = data?.user.user_metadata.role as UserRole;
+
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedReport, setSelectedReport] = useState(null);
-
-  const page = Number(searchParams.get("page")) || 1;
-  const limit = Number(searchParams.get("limit")) || 10;
-  const debouncedSearch = useDebounce(searchTerm, 500);
-  // Fetch reports based on user role
-  const reportsQuery =
-    userRole === "superAdmin"
-      ? api.report.getAllReports.useQuery({
-          searched: debouncedSearch,
-          page,
-          limit,
-        })
-      : userRole === "admin"
-        ? api.report.getAllReportsAdmin.useQuery({
-            searched: debouncedSearch,
-            page,
-            limit,
-          })
-        : api.report.getAllReportsUser.useQuery({
-            searched: debouncedSearch,
-            page,
-            limit,
-          });
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
 
   const { mutate: deleteReport } = api.report.deleteReport.useMutation({
     onSuccess: () => {
@@ -54,7 +48,6 @@ export default function ReportsPage() {
         description: "Report deleted successfully",
       });
       setIsDeleteDialogOpen(false);
-      reportsQuery.refetch();
     },
     onError: (error) => {
       toast.error("Error", {
@@ -63,16 +56,16 @@ export default function ReportsPage() {
     },
   });
 
-  const handleSearch = (e: any) => {
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
   };
 
-  const handleOpenReportModal = (report = null) => {
+  const handleOpenReportModal = (report: Report | null = null) => {
     setSelectedReport(report);
     setIsReportModalOpen(true);
   };
 
-  const handleOpenDeleteDialog = (report) => {
+  const handleOpenDeleteDialog = (report: Report) => {
     setSelectedReport(report);
     setIsDeleteDialogOpen(true);
   };
@@ -83,12 +76,9 @@ export default function ReportsPage() {
     }
   };
 
-  const handleReportModalClose = (shouldRefetch = false) => {
+  const handleReportModalClose = () => {
     setIsReportModalOpen(false);
     setSelectedReport(null);
-    if (shouldRefetch) {
-      reportsQuery.refetch();
-    }
   };
 
   return (
@@ -117,14 +107,10 @@ export default function ReportsPage() {
       </div>
 
       <ReportsDataTable
-        data={reportsQuery.data?.data || reportsQuery.data?.reports || []}
-        isLoading={reportsQuery.isLoading}
         userRole={userRole}
         onEdit={handleOpenReportModal}
         onDelete={handleOpenDeleteDialog}
-        totalItems={reportsQuery.data?.total || 0}
-        pageCount={Math.ceil((reportsQuery.data?.total || 0) / limit)}
-        currentPage={page}
+        searchQuery={debouncedSearch}
       />
 
       {isReportModalOpen && (

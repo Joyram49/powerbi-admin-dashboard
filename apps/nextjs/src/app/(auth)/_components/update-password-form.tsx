@@ -1,5 +1,6 @@
 "use client";
 
+import type { UseFormReturn } from "react-hook-form";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -160,13 +161,17 @@ export function UpdatePasswordForm() {
       errorMessage: null,
     }));
 
+    if (!userEmail) {
+      console.error("User email is undefined.");
+      return;
+    }
+
     try {
       await updatePassword.mutateAsync({
         password: data.password,
-        email: userEmail!,
+        email: userEmail,
       });
     } catch (err) {
-      // Error is handled in the mutation callbacks
       console.error(err);
     }
   };
@@ -507,8 +512,8 @@ export function UserFormPasswordSection({
   password,
 }: {
   isUpdateMode: boolean;
-  userId: string | undefined;
-  form: any;
+  userId: string;
+  form: UseFormReturn<FormValues>;
   password?: string;
 }) {
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
@@ -540,7 +545,7 @@ export function UserFormPasswordSection({
           />
         </motion.div>
 
-        {(password && password.length > 0) || !isUpdateMode ? (
+        {((password && password.length > 0) ?? !isUpdateMode) ? (
           <motion.div variants={itemVariants}>
             <FormField
               control={form.control}
@@ -584,7 +589,7 @@ export function UserFormPasswordSection({
 
       {isPasswordModalOpen && (
         <PasswordUpdateModal
-          userId={userId!}
+          userId={userId}
           isOpen={isPasswordModalOpen}
           onClose={() => setIsPasswordModalOpen(false)}
         />

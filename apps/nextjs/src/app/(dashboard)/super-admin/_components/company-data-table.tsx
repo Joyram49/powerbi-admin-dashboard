@@ -26,7 +26,8 @@ import {
   TableRow,
 } from "@acme/ui/table";
 
-import CompanyModalButton from "../../_components/CompanyModal";
+import type { Company } from "~/types/company";
+import CompanyModalButton from "./CompanyModal";
 import { Pagination } from "../../_components/Pagination";
 
 interface DataTableProps<TData extends Company, TValue> {

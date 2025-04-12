@@ -30,7 +30,7 @@ interface User {
   email: string;
   userName: string;
   role: "user" | "admin" | "superAdmin";
-  status: "active" | "inactive" | null;
+  status: "active" | "inactive" | undefined;
   dateCreated: Date;
 
   companyId: string | undefined;

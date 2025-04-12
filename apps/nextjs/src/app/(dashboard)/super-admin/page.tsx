@@ -1,12 +1,11 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { DataTable } from "./_components/company-data-table";
+
 import { useDebounce } from "~/hooks/useDebounce";
 import { api } from "~/trpc/react";
 import columns from "./_components/company-columns";
-
-
+import { DataTable } from "./_components/company-data-table";
 
 export default function SuperDashboard() {
   const [pagination, setPagination] = useState({
@@ -35,11 +34,12 @@ export default function SuperDashboard() {
     <div className="container mx-auto w-full p-6">
       <DataTable
         columns={columns}
-        data={companyData?.data}
+        data={companyData?.data ?? []}
         pagination={{
-          pageCount: companyData
-            ? Math.ceil(companyData.total / companyData.limit)
-            : 0,
+          pageCount:
+            companyData?.total && companyData.limit
+              ? Math.ceil(companyData.total / companyData.limit)
+              : 0,
           page: pagination.page,
           onPageChange: (page) => setPagination((prev) => ({ ...prev, page })),
         }}
