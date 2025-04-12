@@ -1,6 +1,5 @@
 "use client";
 
-import type { SubmitHandler } from "react-hook-form";
 import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -35,30 +34,31 @@ import { toast } from "@acme/ui/toast";
 import { api } from "~/trpc/react";
 import { MultiSelect } from "../../../_components/multi-select";
 
-// Define types for props
+// Define types
+export interface ReportType {
+  id: string;
+  reportName: string;
+  reportUrl: string;
+  accessCount?: number | null;
+  dateCreated?: Date | null;
+  status: "active" | "inactive" | null;
+  lastModifiedAt?: Date | null;
+  company: {
+    id: string;
+    companyName: string;
+  } | null;
+  userCount?: number;
+  userIds?: string[];
+}
+
 interface ReportModalProps {
   isOpen: boolean;
   onClose: (shouldRefresh?: boolean) => void;
-  report: {
-    id: string;
-    reportId?: string;
-    reportName: string;
-    reportUrl: string;
-    accessCount: number | null;
-    dateCreated: Date | null;
-    status: "active" | "inactive" | null;
-    lastModifiedAt: Date | null;
-    company: {
-      id: string;
-      companyName: string;
-    } | null;
-    userCount?: number;
-  } | null;
+  report: ReportType | null;
   userRole: "superAdmin" | "admin" | "user";
-  userIds: string[] | undefined;
 }
 
-// Define form schema using Zod
+// Define form schema
 const formSchema = z.object({
   reportName: z.string().min(3, {
     message: "Report name must be at least 3 characters",
@@ -70,7 +70,7 @@ const formSchema = z.object({
     message: "Please select a company",
   }),
   status: z.enum(["active", "inactive"]),
-  userIds: z.array(z.string().uuid()).optional(),
+  userIds: z.array(z.string().uuid()),
 });
 
 export function ReportModal({
@@ -81,139 +81,174 @@ export function ReportModal({
 }: ReportModalProps) {
   const [users, setUsers] = useState<{ value: string; label: string }[]>([]);
   const [loading, setLoading] = useState(false);
-
-  // Fetch companies
-  const { data: companiesData } = api.company.getAllCompanies.useQuery(
-    undefined,
-    { enabled: userRole === "superAdmin" },
+  const [_selectedCompanyId, setSelectedCompanyId] = useState<string | null>(
+    null,
   );
 
-  // Create report mutation
-  const { mutate: createReport } = api.report.create.useMutation({
-    onSuccess: () => {
-      toast.success("Success", {
-        description: "Report created successfully",
-      });
-      onClose(true);
-    },
-    onError: (error) => {
-      toast.error("Error", {
-        description: error.message,
-      });
-      setLoading(false);
-    },
-  });
-
-  // Update report mutation
-  const { mutate: updateReport } = api.report.updateReport.useMutation({
-    onSuccess: () => {
-      toast.success("Success", {
-        description: "Report updated successfully",
-      });
-      onClose(true);
-    },
-    onError: (error) => {
-      toast.error("Error", {
-        description: error.message,
-      });
-      setLoading(false);
-    },
-  });
-
+  // Setup form with defaults
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      reportName: report?.reportName ?? "",
-      reportUrl: report?.reportUrl ?? "",
-      companyId: report?.company?.id ?? "",
-      status: report?.status ?? "active",
-      userIds: report?.userIds ?? [],
+      reportName: "",
+      reportUrl: "",
+      companyId: "",
+      status: "active",
+      userIds: [],
     },
   });
 
-  // Reset form when report changes
-  useEffect(() => {
-    if (report) {
-      form.reset({
-        reportName: report.reportName,
-        reportUrl: report.reportUrl,
-        companyId: report.company?.id,
-        status: report.status,
-        userIds: report.userIds ?? [],
-      });
-    } else {
-      form.reset({
-        reportName: "",
-        reportUrl: "",
-        companyId: "",
-        status: "active",
-        userIds: [],
-      });
-    }
-  }, [report, form]);
+  // Watch for company ID changes to fetch users
+  const companyId = form.watch("companyId");
 
-  // Fetch users when company changes
-  const selectedCompanyId = form.watch("companyId");
+  // Fetch companies data
+  const { data: companiesData } = api.company.getAllCompanies.useQuery(
+    undefined,
+    { enabled: userRole === "superAdmin" && isOpen },
+  );
 
-  const { data: usersData, refetch: refetchUsers } =
-    api.user.getUsersByCompanyId.useQuery(
-      { companyId: selectedCompanyId, limit: 100, page: 1 },
-      { enabled: !!selectedCompanyId },
+  // Fetch users for selected company
+  const { data: usersData } = api.user.getUsersByCompanyId.useQuery(
+    { companyId, limit: 100, page: 1 },
+    { enabled: !!companyId && isOpen },
+  );
+
+  // TRPC mutations
+  const createMutation = api.report.create.useMutation({
+    onSuccess: () => handleSuccess("Report created successfully"),
+    onError: (error) => handleError(error.message),
+  });
+
+  const updateMutation = api.report.updateReport.useMutation({
+    onSuccess: () => handleSuccess("Report updated successfully"),
+    onError: (error) => handleError(error.message),
+  });
+
+  // Fetch report details when editing
+  const { data: reportData, isLoading: isLoadingReport } =
+    api.report.getReportById.useQuery(
+      { reportId: report?.id ?? "" },
+      { enabled: !!report?.id && isOpen },
     );
 
+  // Initialize form when report changes or data is loaded
   useEffect(() => {
-    if (usersData?.users) {
-      // Format users for multi-select
-      const formattedUsers = usersData.users.map(
-        (user: { id: string; userName: string; email: string }) => ({
-          value: user.id,
-          label: `${user.userName} | ${user.email}`,
-        }),
-      );
+    if (isOpen) {
+      if (report) {
+        // Editing existing report
+        const initialData = {
+          reportName: report.reportName || "",
+          reportUrl: report.reportUrl || "",
+          companyId: report.company?.id ?? "",
+          status: report.status ?? "active",
+          userIds: report.userIds ?? [],
+        };
+
+        form.reset(initialData);
+        setSelectedCompanyId(report.company?.id ?? null);
+      } else {
+        // Creating new report
+        form.reset({
+          reportName: "",
+          reportUrl: "",
+          companyId: "",
+          status: "active",
+          userIds: [],
+        });
+        setSelectedCompanyId(null);
+      }
+    }
+  }, [isOpen, report, form]);
+
+  // Update form with detailed report data when loaded
+  useEffect(() => {
+    if (reportData?.report && isOpen) {
+      const reportDetails = reportData.report as ReportType;
+      form.setValue("reportName", reportDetails.reportName);
+      form.setValue("reportUrl", reportDetails.reportUrl);
+      form.setValue("companyId", reportDetails.company?.id ?? "");
+      form.setValue("status", reportDetails.status ?? "active");
+      form.setValue("userIds", reportDetails.userIds ?? []);
+      setSelectedCompanyId(reportDetails.company?.id ?? null);
+    }
+  }, [reportData, form, isOpen]);
+
+  // Format users for multi-select
+  useEffect(() => {
+    if (usersData?.users && isOpen) {
+      const formattedUsers = usersData.users.map((user) => ({
+        value: user.id,
+        label: `${user.userName} | ${user.email}`,
+      }));
       setUsers(formattedUsers);
     }
-  }, [usersData]);
-
-  useEffect(() => {
-    const fetchUsers = async () => {
-      if (selectedCompanyId) {
-        try {
-          await refetchUsers(); // Wait for the promise to resolve
-        } catch (error) {
-          console.error("Error fetching users:", error);
-        }
-      }
-    };
-
-    fetchUsers();
-  }, [selectedCompanyId, refetchUsers]);
-
-  const onSubmit: SubmitHandler<z.infer<typeof formSchema>> = (data) => {
+  }, [usersData, isOpen]);
+  const utils = api.useUtils();
+  // Form submission handler
+  const onSubmit = async (data: z.infer<typeof formSchema>) => {
     setLoading(true);
-    if (report) {
+
+    if (report?.id) {
       // Update existing report
-      updateReport({
+      updateMutation.mutate({
         reportId: report.id,
         reportName: data.reportName,
         reportUrl: data.reportUrl,
+        companyId: data.companyId,
         status: data.status,
         userIds: data.userIds,
       });
     } else {
       // Create new report
-      createReport(data);
+      createMutation.mutate(data);
     }
+    await utils.report.getAllReports.invalidate();
+    await utils.report.getAllReportsForCompany.invalidate();
+    await utils.report.getAllReportsAdmin.invalidate();
   };
 
+  // Handle success response
+  const handleSuccess = (message: string) => {
+    toast.success("Success", { description: message });
+    setLoading(false);
+    onClose(true);
+  };
+
+  // Handle error response
+  const handleError = (message: string) => {
+    toast.error("Error", { description: message });
+    setLoading(false);
+  };
+
+  // Close modal handler
   const handleClose = () => {
+    form.reset();
     onClose(false);
   };
+
+  // If not superAdmin, don't allow access to modal
+  if (userRole !== "superAdmin" && isOpen) {
+    return (
+      <Dialog open={isOpen} onOpenChange={handleClose}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Unauthorized Access</DialogTitle>
+          </DialogHeader>
+          <p>You don't have permission to manage reports.</p>
+          <DialogFooter>
+            <Button onClick={handleClose}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>{report ? "Edit Report" : "Add New Report"}</DialogTitle>
+          <DialogTitle>
+            {report ? "Edit Report" : "Create New Report"}
+          </DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
@@ -257,10 +292,15 @@ export function ReportModal({
                 <FormItem>
                   <FormLabel>Company</FormLabel>
                   <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                    disabled={!!report}
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      // Reset selected users when company changes
+                      if (value !== field.value) {
+                        form.setValue("userIds", []);
+                      }
+                    }}
                     value={field.value}
+                    disabled={!!report} // Can't change company when editing
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -307,13 +347,13 @@ export function ReportModal({
               name="userIds"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Select Users for Access</FormLabel>
+                  <FormLabel>User Access</FormLabel>
                   <FormControl>
                     <MultiSelect
                       options={users}
                       selected={field.value}
                       onChange={field.onChange}
-                      placeholder="Select users"
+                      placeholder="Select users who can access this report"
                     />
                   </FormControl>
                   <FormMessage />
@@ -327,11 +367,11 @@ export function ReportModal({
               </Button>
               <Button
                 type="submit"
-                disabled={loading}
+                disabled={loading || isLoadingReport}
                 className="bg-blue-500 text-white hover:bg-blue-600"
               >
                 {loading
-                  ? "Saving..."
+                  ? "Processing..."
                   : report
                     ? "Update Report"
                     : "Create Report"}

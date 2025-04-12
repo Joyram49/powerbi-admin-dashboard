@@ -623,7 +623,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                   {isUpdateMode && (
                     <UserFormPasswordSection
                       isUpdateMode={isUpdateMode}
-                      userId={user.id}
+                      userId={user.id!}
                       form={form}
                       password={password}
                     />

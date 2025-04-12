@@ -11,8 +11,6 @@ import { TRPCReactProvider } from "~/trpc/react";
 
 import "~/app/globals.css";
 
-import { SidebarProvider } from "@acme/ui/sidebar";
-
 import { env } from "~/env";
 
 export const metadata: Metadata = {

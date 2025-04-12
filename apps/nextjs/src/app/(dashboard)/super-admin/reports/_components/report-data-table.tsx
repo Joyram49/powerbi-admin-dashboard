@@ -35,7 +35,7 @@ import { Pagination } from "../../../_components/Pagination";
 // Define user roles type
 type UserRole = "superAdmin" | "admin" | "user";
 
-// Define the shape of a single report
+// Define the shape of a single report based on API response
 interface ReportColTypes {
   id: string;
   reportId?: string;
@@ -43,6 +43,7 @@ interface ReportColTypes {
   reportUrl: string;
   accessCount: number | null;
   userCount?: number;
+  userCounts?: number; // Added to support the superAdmin API response
   company: {
     id: string;
     companyName: string;
@@ -50,7 +51,6 @@ interface ReportColTypes {
   dateCreated: Date | null;
   status: "active" | "inactive" | null;
   lastModifiedAt: Date | null;
-  userIds: string[];
 }
 
 // Props for the ReportsDataTable component
@@ -131,7 +131,7 @@ export function ReportsDataTable({
   // Update report access count
   const { mutate: updateReportAccess } = api.report.updateReport.useMutation();
 
-  // Determine which data to use
+  // Determine which data to use based on the API response structure
   let reportData: ReportColTypes[] = [];
   let totalItems = 0;
   let isLoading = false;
@@ -141,7 +141,12 @@ export function ReportsDataTable({
     totalItems = companyReportsData?.total ?? 0;
     isLoading = isCompanyReportsLoading;
   } else if (userRole === "superAdmin") {
-    reportData = superAdminData?.data ?? [];
+    // Normalize data structure from superAdmin API response
+    reportData =
+      superAdminData?.data.map((item) => ({
+        ...item,
+        userCount: item.userCounts, // Map userCounts to userCount for consistency
+      })) ?? [];
     totalItems = superAdminData?.total ?? 0;
     isLoading = isSuperAdminLoading;
   } else if (userRole === "admin") {
@@ -149,7 +154,12 @@ export function ReportsDataTable({
     totalItems = adminData?.total ?? 0;
     isLoading = isAdminLoading;
   } else {
-    reportData = userData?.reports ?? [];
+    // For user role, we need to normalize the data structure
+    reportData =
+      userData?.reports.map((report) => ({
+        ...report,
+        id: report.reportId, // Handle different id field
+      })) ?? [];
     totalItems = userData?.total ?? 0;
     isLoading = isUserLoading;
   }
@@ -158,9 +168,11 @@ export function ReportsDataTable({
   const totalPages = Math.ceil(totalItems / pageSize) || 1;
 
   const handleOpenReport = (report: ReportColTypes) => {
+    const reportId = report.reportId ?? report.id;
+
     if (userRole === "user") {
       updateReportAccess({
-        reportId: report.id | report.reportId,
+        reportId,
         accessCount: (report.accessCount ?? 0) + 1,
       });
     }
@@ -172,7 +184,8 @@ export function ReportsDataTable({
       accessorKey: "id",
       header: "ID",
       cell: ({ row }) => {
-        const id = row.getValue("id");
+        // Use reportId if it exists (from user data), otherwise use id
+        const id = row.original.reportId ?? row.getValue("id");
         return <div className="font-medium">{id}</div>;
       },
     },
@@ -206,7 +219,8 @@ export function ReportsDataTable({
       accessorKey: "userCount",
       header: "# Users",
       cell: ({ row }) => {
-        const count = row.original.userCount ?? 0;
+        // Handle both userCount and userCounts field
+        const count = row.original.userCount ?? row.original.userCounts ?? 0;
         return <div className="text-center">{count}</div>;
       },
     },
@@ -229,8 +243,12 @@ export function ReportsDataTable({
         const status = row.getValue("status");
         return (
           <Badge
-            variant={status === "active" ? "default" : "secondary"}
-            className="bg-green-500 text-green-900 hover:bg-green-400"
+            variant={status === "active" ? "default" : "destructive"}
+            className={
+              status === "active"
+                ? "bg-green-500 text-green-900 hover:bg-green-400"
+                : ""
+            }
           >
             {status === "active" ? "Active" : "Inactive"}
           </Badge>

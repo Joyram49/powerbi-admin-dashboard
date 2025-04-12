@@ -64,7 +64,7 @@ const DeleteUserDialog = ({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {trigger || (
+        {trigger ?? (
           <Button
             variant="ghost"
             size="icon"

@@ -27,7 +27,6 @@ interface Report {
     companyName: string;
   } | null;
   userCount?: number;
-  userIds: string[];
 }
 
 type UserRole = "superAdmin" | "admin" | "user";
