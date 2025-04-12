@@ -416,10 +416,7 @@ export const companyRouter = createTRPCRouter({
             ...rest,
             modifiedBy: ctx.session.user.email,
             lastActivity: new Date(),
-          }).filter(
-            ([_, value]) =>
-              value !== "" || value !== undefined || value !== null,
-          ),
+          }).filter(([_, value]) => value != null),
         );
 
         const updatedCompany = await db
