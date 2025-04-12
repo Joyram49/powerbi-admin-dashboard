@@ -50,6 +50,7 @@ interface ReportColTypes {
   dateCreated: Date | null;
   status: "active" | "inactive" | null;
   lastModifiedAt: Date | null;
+  userIds: string[];
 }
 
 // Props for the ReportsDataTable component

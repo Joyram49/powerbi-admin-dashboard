@@ -27,6 +27,7 @@ interface Report {
     companyName: string;
   } | null;
   userCount?: number;
+  userIds: string[];
 }
 
 type UserRole = "superAdmin" | "admin" | "user";
@@ -127,7 +128,7 @@ export default function ReportsPage() {
           isOpen={isDeleteDialogOpen}
           onClose={() => setIsDeleteDialogOpen(false)}
           onDelete={handleDeleteReport}
-          reportName={selectedReport?.reportName || ""}
+          reportName={selectedReport?.reportName ?? ""}
         />
       )}
     </div>

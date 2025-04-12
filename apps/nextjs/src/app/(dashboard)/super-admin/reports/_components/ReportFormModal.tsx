@@ -41,6 +41,7 @@ interface ReportModalProps {
   onClose: (shouldRefresh?: boolean) => void;
   report: {
     id: string;
+    reportId?: string;
     reportName: string;
     reportUrl: string;
     accessCount: number | null;
@@ -54,6 +55,7 @@ interface ReportModalProps {
     userCount?: number;
   } | null;
   userRole: "superAdmin" | "admin" | "user";
+  userIds: string[] | undefined;
 }
 
 // Define form schema using Zod
@@ -68,7 +70,7 @@ const formSchema = z.object({
     message: "Please select a company",
   }),
   status: z.enum(["active", "inactive"]),
-  userIds: z.array(z.string().uuid()),
+  userIds: z.array(z.string().uuid()).optional(),
 });
 
 export function ReportModal({
@@ -123,7 +125,7 @@ export function ReportModal({
     defaultValues: {
       reportName: report?.reportName ?? "",
       reportUrl: report?.reportUrl ?? "",
-      companyId: report?.company.id ?? "",
+      companyId: report?.company?.id ?? "",
       status: report?.status ?? "active",
       userIds: report?.userIds ?? [],
     },
@@ -135,7 +137,7 @@ export function ReportModal({
       form.reset({
         reportName: report.reportName,
         reportUrl: report.reportUrl,
-        companyId: report.company.id,
+        companyId: report.company?.id,
         status: report.status,
         userIds: report.userIds ?? [],
       });
