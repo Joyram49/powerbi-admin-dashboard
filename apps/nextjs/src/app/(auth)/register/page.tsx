@@ -2,9 +2,6 @@
 import type { Metadata } from "next";
 import { SignUpForm } from "../_components/sign-up";
 
-
-
-
 export const metadata: Metadata = {
   title: "Sign Up",
   description: "Create an account to get started",
@@ -14,7 +11,7 @@ export const metadata: Metadata = {
 export default function SignUpPage() {
   return (
     <div className="container mx-auto py-10">
-      <SignUpForm  />
+      <SignUpForm />
     </div>
   );
 }
