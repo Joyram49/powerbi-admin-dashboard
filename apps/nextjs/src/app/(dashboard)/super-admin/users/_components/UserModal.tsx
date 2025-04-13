@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
-import { Loader2, Save } from "lucide-react"; // Import Lucide icons
+import { Loader2, Save } from "lucide-react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
@@ -38,7 +38,22 @@ import { toast } from "@acme/ui/toast";
 import { UserFormPasswordSection } from "~/app/(auth)/_components/update-password-form";
 import { api } from "~/trpc/react";
 
-// Form validation schema
+// Define User type to match what's expected across components
+export interface User {
+  id?: string;
+  userId: string;
+  userName: string;
+  status?: "active" | "inactive";
+  email: string;
+  role: "user" | "admin" | "superAdmin";
+  companyId?: string;
+  modifiedBy?: string | null;
+  dateCreated: Date;
+  lastLogin: Date | null;
+  company?: { companyName: string };
+}
+
+// Form schema that matches both our create and update API expectations
 const userSchema = z
   .object({
     id: z.string().optional(),
@@ -47,7 +62,6 @@ const userSchema = z
       .min(2, "Username is required")
       .refine((val) => !val.includes(" "), "Username cannot contain spaces"),
     password: z.string().optional(),
-
     confirmPassword: z.string().optional(),
     email: z.string().email("Valid email is required"),
     role: z.enum(["user", "admin", "superAdmin"]).default("user"),
@@ -132,72 +146,10 @@ const userSchema = z
       message: "Passwords do not match",
       path: ["confirmPassword"],
     },
-  )
-  .refine(
-    (data) => {
-      // If password is provided, validate it
-      if (data.password && data.password.length > 0) {
-        return data.password.length >= 12;
-      }
-      return true;
-    },
-    {
-      message: "Password must be at least 12 characters",
-      path: ["password"],
-    },
-  )
-  .refine(
-    (data) => {
-      // If password is provided, validate it
-      if (data.password && data.password.length > 0) {
-        return /[A-Z]/.test(data.password);
-      }
-      return true;
-    },
-    {
-      message: "Password must contain at least one uppercase letter",
-      path: ["password"],
-    },
-  )
-  .refine(
-    (data) => {
-      // If password is provided, validate it
-      if (data.password && data.password.length > 0) {
-        return /[a-z]/.test(data.password);
-      }
-      return true;
-    },
-    {
-      message: "Password must contain at least one lowercase letter",
-      path: ["password"],
-    },
-  )
-  .refine(
-    (data) => {
-      // If password is provided, validate it
-      if (data.password && data.password.length > 0) {
-        return /[0-9]/.test(data.password);
-      }
-      return true;
-    },
-    {
-      message: "Password must contain at least one number",
-      path: ["password"],
-    },
-  )
-  .refine(
-    (data) => {
-      // Confirm password match if password is provided
-      if (data.password && data.password.length > 0) {
-        return data.password === data.confirmPassword;
-      }
-      return true;
-    },
-    {
-      message: "Passwords do not match",
-      path: ["confirmPassword"],
-    },
   );
+
+// Define type for form values
+type FormValues = z.infer<typeof userSchema>;
 
 // Animation variants
 const containerVariants = {
@@ -227,7 +179,6 @@ const buttonVariants = {
 
 interface UserModalProps {
   user?: Partial<User>;
-  companies?: string[];
   children?: React.ReactNode;
 }
 
@@ -237,7 +188,6 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
   const utils = api.useUtils();
 
   // When we create user we need companyId.for instance we need to fetch all company
-
   const { data: companies } = api.company.getAllCompanies.useQuery();
 
   // Get current user profile
@@ -283,7 +233,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
   });
 
   // Initialize form with default or user data
-  const form = useForm({
+  const form = useForm<FormValues>({
     resolver: zodResolver(userSchema),
     defaultValues: {
       id: user?.userId ?? user?.id,
@@ -301,11 +251,11 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
   });
 
   // Handle form submission
-  const onSubmit = (values: z.infer<typeof userSchema>) => {
+  const onSubmit = (values: FormValues) => {
     setIsSubmitting(true);
 
     // Prepare data for API call
-    const { confirmPassword, sendWelcomeEmail, ...restValues } = values;
+    const { ...restValues } = values;
 
     if (restValues.id) {
       // Update flow - Include ONLY the fields expected by the API
@@ -345,10 +295,10 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
   useEffect(() => {
     if (open) {
       form.reset({
-        id: user?.id,
+        id: user?.userId ?? user?.id,
         userName: user?.userName ?? "",
         email: user?.email ?? "",
-        role: user?.role,
+        role: user?.role ?? "user",
         companyId: user?.companyId,
         password: "",
         confirmPassword: "",
@@ -361,7 +311,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
 
   const role = form.watch("role");
   const password = form.watch("password");
-  const isUpdateMode = !!user?.id;
+  const isUpdateMode = !!user?.userId || !!user?.id;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -620,11 +570,12 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
                       />
                     </motion.div>
                   )}
-                  {isUpdateMode && (
+                  {isUpdateMode && user.id && (
                     <UserFormPasswordSection
                       isUpdateMode={isUpdateMode}
-                      userId={user.id!}
-                      form={form}
+                      userId={user.id}
+                      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
+                      form={form as any}
                       password={password}
                     />
                   )}

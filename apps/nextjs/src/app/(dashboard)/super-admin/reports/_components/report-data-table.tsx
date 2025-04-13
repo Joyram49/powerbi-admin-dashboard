@@ -231,7 +231,9 @@ export function ReportsDataTable({
         const date = row.getValue("dateCreated");
         return (
           <div>
-            {date ? format(new Date(date.toString()), "MMM dd, yyyy") : "N/A"}
+            {date
+              ? format(new Date(JSON.stringify(date)), "MMM dd, yyyy")
+              : "N/A"}
           </div>
         );
       },
@@ -242,14 +244,7 @@ export function ReportsDataTable({
       cell: ({ row }) => {
         const status = row.getValue("status");
         return (
-          <Badge
-            variant={status === "active" ? "default" : "destructive"}
-            className={
-              status === "active"
-                ? "bg-green-500 text-green-900 hover:bg-green-400"
-                : ""
-            }
-          >
+          <Badge variant={status === "active" ? "default" : "destructive"}>
             {status === "active" ? "Active" : "Inactive"}
           </Badge>
         );
@@ -263,7 +258,7 @@ export function ReportsDataTable({
         return (
           <div>
             {date
-              ? format(new Date(date.toString()), "MMM dd, yyyy HH:mm")
+              ? format(new Date(JSON.stringify(date)), "MMM dd, yyyy HH:mm")
               : "N/A"}
           </div>
         );
