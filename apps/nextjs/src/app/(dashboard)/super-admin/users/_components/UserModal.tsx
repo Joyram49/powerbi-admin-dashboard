@@ -49,7 +49,7 @@ export interface User {
   companyId?: string;
   modifiedBy?: string | null;
   dateCreated: Date;
-  lastLogin: Date | null;
+  lastLogin: Date | null | undefined | string;
   company?: { companyName: string };
 }
 

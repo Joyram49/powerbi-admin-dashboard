@@ -85,6 +85,7 @@ function TokenVerifyForm({ email }: { email: string }) {
     } catch (err) {
       // Error is handled in the mutation callbacks
       toast.error("Error", {
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
         description: `${err}`,
       });
     }

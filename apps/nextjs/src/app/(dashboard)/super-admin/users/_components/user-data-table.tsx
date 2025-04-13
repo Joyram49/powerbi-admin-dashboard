@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 "use client";
 
 import type {
@@ -63,7 +62,7 @@ interface APIUser {
   companyId: string | null | undefined;
   modifiedBy: string | null;
   dateCreated: Date;
-  lastLogin: Date | null;
+  lastLogin: Date | null | undefined | string;
   company?: { companyName: string };
 }
 
@@ -74,6 +73,7 @@ const mapApiUserToUser = (apiUser: APIUser): User => {
     userId: apiUser.id,
     status: apiUser.status ?? undefined,
     companyId: apiUser.companyId ?? undefined,
+    lastLogin: apiUser.lastLogin ?? undefined,
   };
 };
 
@@ -328,11 +328,7 @@ export function UsersDataTable() {
 
         return (
           <div className="flex items-center space-x-2">
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment,
-            @typescript-eslint/no-unsafe-assignment,
-            @typescript-eslint/no-unsafe-assignment,
-            @typescript-eslint/no-explicit-any
-            <UserModal user={user as any}>
+            <UserModal user={user}>
               <Button variant="outline" size="icon" className="h-8 w-8">
                 <Pencil className="h-4 w-4" />
               </Button>

@@ -35,7 +35,7 @@ interface User {
 
   companyId: string | undefined;
   modifiedBy: string | null;
-  lastLogin: string | number | Date | null | undefined;
+  lastLogin: string | Date | null | undefined;
   company?: { companyName: string };
 }
 interface UserData {
