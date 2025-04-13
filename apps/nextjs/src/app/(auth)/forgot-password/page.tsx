@@ -5,7 +5,7 @@ import { ForgotPasswordForm } from "../_components/forgot-password-form";
 export default function ForgotPasswordPage() {
   return (
     <div className="flex flex-col items-center justify-center px-4 py-12">
-      <div className="w-full  rounded-lg border border-gray-200 bg-white p-8 shadow-md">
+      <div className="w-full rounded-lg border border-gray-200 bg-white p-8 shadow-md">
         <div className="mb-6 flex flex-col items-center">
           {/* App logo/icon */}
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
