@@ -232,7 +232,7 @@ export function ReportsDataTable({
         return (
           <div>
             {date
-              ? format(new Date(JSON.stringify(date)), "MMM dd, yyyy")
+              ? format(new Date(date as string | number | Date), "MMM dd, yyyy")
               : "N/A"}
           </div>
         );
@@ -258,7 +258,7 @@ export function ReportsDataTable({
         return (
           <div>
             {date
-              ? format(new Date(JSON.stringify(date)), "MMM dd, yyyy HH:mm")
+              ? format(new Date(date as string | number | Date), "MMM dd, yyyy")
               : "N/A"}
           </div>
         );
