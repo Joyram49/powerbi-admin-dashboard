@@ -103,7 +103,7 @@ function MobileAuth() {
   return (
     <>
       <Text className="pb-2 text-center text-xl font-semibold text-white">
-        {user?.name ?? "Not logged in"}
+        {user?.user_metadata.name ?? "Not logged in"}
       </Text>
       <Button
         onPress={() => (user ? signOut() : signIn())}

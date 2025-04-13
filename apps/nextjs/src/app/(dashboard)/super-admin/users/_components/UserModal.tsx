@@ -178,7 +178,7 @@ const buttonVariants = {
 };
 
 interface UserModalProps {
-  user?: Partial<User>;
+  user?: User;
   children?: React.ReactNode;
 }
 
