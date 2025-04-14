@@ -10,6 +10,7 @@
 
 ## Installation
 
+
 > [!NOTE]
 >
 > Make sure to follow the system requirements specified in [`package.json#engines`](./package.json#L4) before proceeding.
