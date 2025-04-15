@@ -4,18 +4,13 @@ import type { Column, ColumnDef, Row, Table } from "@tanstack/react-table";
 import React, { useMemo } from "react";
 import { ArrowUpDown } from "lucide-react";
 
-
-
 import { Button } from "@acme/ui/button";
 import { Checkbox } from "@acme/ui/checkbox";
-
-
 
 import type { Company } from "~/types/company";
 import { api } from "~/trpc/react";
 import { EntityActions } from "../../_components/EntityActions";
 import CompanyAdminForm from "./CompanyForm";
-
 
 // Status color mapping for better UI
 const STATUS_COLORS = {
@@ -37,7 +32,7 @@ export function useCompanyColumns() {
   const deleteMutation = api.company.deleteCompany.useMutation();
 
   return useMemo(() => {
-    const columns: ColumnDef<Company, any>[] = [
+    const columns: ColumnDef<Company>[] = [
       {
         id: "select",
         header: ({ table }: { table: Table<Company> }) => (
@@ -216,8 +211,10 @@ export function useCompanyColumns() {
                 },
               ]}
               editAction={{
+                // eslint-disable-next-line @typescript-eslint/no-empty-function
                 onEdit: () => {},
                 editForm: (
+                  // eslint-disable-next-line @typescript-eslint/no-empty-function
                   <CompanyAdminForm initialData={company} onClose={() => {}} />
                 ),
               }}

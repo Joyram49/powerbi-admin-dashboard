@@ -106,7 +106,7 @@ export function UpdatePasswordForm() {
   });
   const { data: userData } = api.auth.getProfile.useQuery();
 
-  const userEmail = userData?.user.email;
+  const userEmail = userData?.user?.email;
   const utils = api.useUtils();
   const [formState, setFormState] = useState({
     isSubmitting: false,
@@ -169,7 +169,6 @@ export function UpdatePasswordForm() {
     try {
       await updatePassword.mutateAsync({
         password: data.password,
-        email: userEmail,
       });
     } catch (err) {
       console.error(err);

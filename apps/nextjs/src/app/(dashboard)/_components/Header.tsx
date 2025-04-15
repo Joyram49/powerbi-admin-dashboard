@@ -2,7 +2,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@acme/ui/avatar";
 import { ThemeToggle } from "@acme/ui/theme";
 
 import { api } from "~/trpc/server";
-import { CustomTrigger } from "./sidebar-trigger";
+import { CustomTrigger } from "./SidebarTrigger";
 
 interface UserMetadata {
   firstLetter?: string;

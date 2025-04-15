@@ -1,5 +1,6 @@
 "use client";
 
+import type { UseFormReturn } from "react-hook-form";
 import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
@@ -27,7 +28,7 @@ import {
 } from "@acme/ui/select";
 import { toast } from "@acme/ui/toast";
 
-import { UserFormPasswordSection } from "~/app/(auth)/_components/update-password-form";
+import { UserFormPasswordSection } from "~/app/(auth)/_components/UpdatePasswordForm";
 import { api } from "~/trpc/react";
 
 // Form schema that matches both our create and update API expectations
@@ -520,7 +521,12 @@ export function UserForm({ onClose, initialData }: UserFormProps) {
           <UserFormPasswordSection
             isUpdateMode={isUpdateMode}
             userId={initialData.id}
-            form={form as any}
+            form={
+              form as unknown as UseFormReturn<{
+                password: string;
+                confirmPassword: string;
+              }>
+            }
             password={password}
           />
         )}

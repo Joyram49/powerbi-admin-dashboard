@@ -1,7 +1,7 @@
 import React, { Suspense } from "react";
 import Image from "next/image";
 
-import AuthFooter from "./_components/auth_footer";
+import AuthFooter from "./_components/AuthFooter";
 
 function AuthLayout({ children }: { children: React.ReactNode }) {
   return (

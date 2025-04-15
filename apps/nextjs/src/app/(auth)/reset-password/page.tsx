@@ -1,6 +1,6 @@
 import { Lock } from "lucide-react";
 
-import { UpdatePasswordForm } from "../_components/update-password-form";
+import { UpdatePasswordForm } from "../_components/UpdatePasswordForm";
 
 export default function UpdatePasswordPage() {
   return (

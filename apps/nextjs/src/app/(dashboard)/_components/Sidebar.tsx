@@ -76,7 +76,7 @@ export default function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { data } = api.auth.getProfile.useQuery();
-  const userRole = data?.user.user_metadata.role as string;
+  const userRole = data?.user?.user_metadata.role as string;
   const { totalActiveTime, sessionId } = useActiveTimeTracker();
 
   const logoutMutation = api.auth.signOut.useMutation({

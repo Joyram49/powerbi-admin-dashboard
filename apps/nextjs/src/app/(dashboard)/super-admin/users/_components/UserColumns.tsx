@@ -11,7 +11,6 @@ import { Checkbox } from "@acme/ui/checkbox";
 
 import { EntityActions } from "~/app/(dashboard)/_components/EntityActions";
 import { api } from "~/trpc/react";
-import UserModal from "./UserModal";
 import { UserForm } from "./UserForm";
 
 interface TableMeta {
@@ -209,8 +208,19 @@ export function useUserColumns() {
                 },
               ]}
               editAction={{
-                onEdit: () => {},
-                editForm: <UserForm initialData={user} onClose={() => {}} />,
+                onEdit: () => {
+                  // This is handled by EntityActions component
+                },
+                editForm: (
+                  <UserForm
+                    initialData={user}
+                    onClose={async () => {
+                      await utils.user.getAllUsers.invalidate();
+                      await utils.user.getAdminUsers.invalidate();
+                      await utils.user.getAllGeneralUser.invalidate();
+                    }}
+                  />
+                ),
               }}
               deleteAction={{
                 onDelete: async () => {

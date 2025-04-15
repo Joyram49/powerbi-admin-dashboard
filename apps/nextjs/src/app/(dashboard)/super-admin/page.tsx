@@ -5,8 +5,8 @@ import { useCallback, useState } from "react";
 import type { Company } from "~/types/company"; // Make sure to import the Company type
 import { useDebounce } from "~/hooks/useDebounce";
 import { api } from "~/trpc/react";
-import { DataTable } from "../_components/data-table";
-import { useCompanyColumns } from "./_components/company-columns";
+import { DataTable } from "../_components/DataTable";
+import { useCompanyColumns } from "./_components/CompanyColumns";
 import CompanyModalButton from "./_components/CompanyModal";
 
 export default function SuperDashboard() {
@@ -46,9 +46,9 @@ export default function SuperDashboard() {
 
   return (
     <div className="container mx-auto w-full p-6">
-      <DataTable<Company, any, "companyName" | "dateJoined">
-        columns={columns} // Fix column type with casting
-        data={companies} // Use the extracted data array
+      <DataTable<Company, unknown, "companyName" | "dateJoined">
+        columns={columns}
+        data={companies}
         pagination={{
           pageCount:
             companyData?.total && companyData.limit

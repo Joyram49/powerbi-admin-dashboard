@@ -4,8 +4,8 @@ import { useCallback, useState } from "react";
 
 import { useDebounce } from "~/hooks/useDebounce";
 import { api } from "~/trpc/react";
-import { DataTable } from "../../_components/data-table";
-import { useUserColumns } from "./_components/user-columns";
+import { DataTable } from "../../_components/DataTable";
+import { useUserColumns } from "./_components/UserColumns";
 import UserModalButton from "./_components/UserModal"; // Import your user modal button
 
 export default function UsersPage() {
@@ -120,7 +120,7 @@ export default function UsersPage() {
     <div className="container mx-auto w-full p-6">
       {/* User type selector buttons could go here if needed */}
 
-      <DataTable<User, any, "userName" | "dateCreated">
+      <DataTable<User, unknown, "userName" | "dateCreated">
         columns={columns}
         data={userData ?? []}
         pagination={{
