@@ -1,9 +1,10 @@
 import type { AdminUserAttributes } from "@supabase/supabase-js";
+import type { SQL } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { desc, eq, ne } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, ne } from "drizzle-orm";
 import { z } from "zod";
 
-import { createAdminClient, db, users } from "@acme/db";
+import { companies, createAdminClient, db, users } from "@acme/db";
 
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 
@@ -12,7 +13,16 @@ export const userRouter = createTRPCRouter({
   getAllUsers: protectedProcedure
     .input(
       z
-        .object({ limit: z.number().default(10), page: z.number().default(1) })
+        .object({
+          searched: z.string().toLowerCase().optional().default(""),
+          limit: z.number().default(10),
+          page: z.number().default(1),
+          sortBy: z
+            .enum(["userName", "dateCreated"])
+            .optional()
+            .default("dateCreated"),
+          status: z.enum(["active", "inactive"]).optional(),
+        })
         .optional(),
     )
     .query(async ({ ctx, input }) => {
@@ -22,10 +32,35 @@ export const userRouter = createTRPCRouter({
           message: "You are not authorized to view all users",
         });
       }
-      try {
-        const { limit = 10, page = 1 } = input ?? {};
 
-        const totalUsers = await db.$count(users, ne(users.role, "superAdmin"));
+      const {
+        limit = 10,
+        page = 1,
+        searched = "",
+        sortBy = "dateCreated",
+        status,
+      } = input ?? {};
+
+      try {
+        // Dynamic WHERE conditions
+        const whereConditions: SQL[] = [
+          ne(users.role, "superAdmin"), // Exclude superAdmins
+        ];
+
+        if (searched) {
+          whereConditions.push(ilike(users.email, `%${searched}%`));
+        }
+
+        if (status) {
+          whereConditions.push(eq(users.status, status));
+        }
+
+        const totalUsers = await db.$count(users, and(...whereConditions));
+
+        const orderByCondition =
+          sortBy === "userName"
+            ? [asc(users.userName)]
+            : [desc(users.dateCreated)];
 
         const allUsers = await db.query.users.findMany({
           columns: {
@@ -39,10 +74,13 @@ export const userRouter = createTRPCRouter({
               },
             },
           },
-          where: ne(users.role, "superAdmin"),
-          limit: limit,
+          where:
+            whereConditions.length > 1
+              ? and(...whereConditions)
+              : whereConditions[0],
+          limit,
           offset: (page - 1) * limit,
-          orderBy: [desc(users.dateCreated)],
+          orderBy: orderByCondition,
         });
 
         return {
@@ -68,7 +106,16 @@ export const userRouter = createTRPCRouter({
   getAdminUsers: protectedProcedure
     .input(
       z
-        .object({ limit: z.number().default(10), page: z.number().default(1) })
+        .object({
+          searched: z.string().toLowerCase().optional().default(""),
+          limit: z.number().default(10),
+          page: z.number().default(1),
+          sortBy: z
+            .enum(["userName", "dateCreated"])
+            .optional()
+            .default("dateCreated"),
+          status: z.enum(["active", "inactive"]).optional(),
+        })
         .optional(),
     )
     .query(async ({ ctx, input }) => {
@@ -78,60 +125,33 @@ export const userRouter = createTRPCRouter({
           message: "You are not authorized to view admin users",
         });
       }
+
+      const {
+        limit = 10,
+        page = 1,
+        searched = "",
+        sortBy = "dateCreated",
+        status,
+      } = input ?? {};
+
       try {
-        const { limit = 10, page = 1 } = input ?? {};
+        // Dynamic WHERE conditions
+        const whereConditions: SQL[] = [eq(users.role, "admin")];
 
-        const totalUsers = await db.$count(users, eq(users.role, "admin"));
-
-        const allUsers = await db.query.users.findMany({
-          columns: {
-            isSuperAdmin: false,
-            passwordHistory: false,
-          },
-          where: eq(users.role, "admin"),
-          limit: limit,
-          offset: (page - 1) * limit,
-          orderBy: [desc(users.dateCreated)],
-        });
-
-        return {
-          success: true,
-          message: "all admin users fetched successfully",
-          total: totalUsers,
-          limit,
-          page,
-          data: allUsers,
-        };
-      } catch (error) {
-        if (error instanceof TRPCError) {
-          throw error;
+        if (searched) {
+          whereConditions.push(ilike(users.email, `%${searched}%`));
         }
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message:
-            error instanceof Error ? error.message : "failed to fetch users",
-        });
-      }
-    }),
 
-  // this is used to get all general users for the super admin
-  getAllGeneralUser: protectedProcedure
-    .input(
-      z
-        .object({ limit: z.number().default(10), page: z.number().default(1) })
-        .optional(),
-    )
-    .query(async ({ ctx, input }) => {
-      if (ctx.session.user.role !== "superAdmin") {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You are not authorized to get all general users",
-        });
-      }
-      try {
-        const { limit = 10, page = 1 } = input ?? {};
+        if (status) {
+          whereConditions.push(eq(users.status, status));
+        }
 
-        const totalUsers = await db.$count(users, eq(users.role, "user"));
+        const totalUsers = await db.$count(users, and(...whereConditions));
+
+        const orderByCondition =
+          sortBy === "userName"
+            ? [asc(users.userName)]
+            : [desc(users.dateCreated)];
 
         const allUsers = await db.query.users.findMany({
           columns: {
@@ -145,15 +165,18 @@ export const userRouter = createTRPCRouter({
               },
             },
           },
-          where: eq(users.role, "user"),
-          limit: limit,
+          where:
+            whereConditions.length > 1
+              ? and(...whereConditions)
+              : whereConditions[0],
+          limit,
           offset: (page - 1) * limit,
-          orderBy: [desc(users.dateCreated)],
+          orderBy: orderByCondition,
         });
 
         return {
           success: true,
-          message: "all general users fetched successfully",
+          message: "All admin users fetched successfully",
           total: totalUsers,
           limit,
           page,
@@ -166,7 +189,99 @@ export const userRouter = createTRPCRouter({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message:
-            error instanceof Error ? error.message : "failed to fetch users",
+            error instanceof Error ? error.message : "Failed to fetch users",
+        });
+      }
+    }),
+
+  // this is used to get all general users for the super admin
+  getAllGeneralUser: protectedProcedure
+    .input(
+      z
+        .object({
+          searched: z.string().toLowerCase().optional().default(""),
+          limit: z.number().default(10),
+          page: z.number().default(1),
+          sortBy: z
+            .enum(["userName", "dateCreated"])
+            .optional()
+            .default("dateCreated"),
+          status: z.enum(["active", "inactive"]).optional(),
+        })
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      if (ctx.session.user.role !== "superAdmin") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not authorized to get all general users",
+        });
+      }
+
+      const {
+        limit = 10,
+        page = 1,
+        searched = "",
+        sortBy = "dateCreated",
+        status,
+      } = input ?? {};
+
+      try {
+        // Dynamic WHERE conditions
+        const whereConditions: SQL[] = [eq(users.role, "user")];
+
+        if (searched) {
+          whereConditions.push(ilike(users.email, `%${searched}%`));
+        }
+
+        if (status) {
+          whereConditions.push(eq(users.status, status));
+        }
+
+        const totalUsers = await db.$count(users, and(...whereConditions));
+
+        const orderByCondition =
+          sortBy === "userName"
+            ? [asc(users.userName)]
+            : [desc(users.dateCreated)];
+
+        const allUsers = await db.query.users.findMany({
+          columns: {
+            isSuperAdmin: false,
+            passwordHistory: false,
+          },
+          with: {
+            company: {
+              columns: {
+                companyName: true,
+              },
+            },
+          },
+          where:
+            whereConditions.length > 1
+              ? and(...whereConditions)
+              : whereConditions[0],
+          limit,
+          offset: (page - 1) * limit,
+          orderBy: orderByCondition,
+        });
+
+        return {
+          success: true,
+          message: "All general users fetched successfully",
+          total: totalUsers,
+          limit,
+          page,
+          data: allUsers,
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error ? error.message : "Failed to fetch users",
         });
       }
     }),
@@ -461,7 +576,16 @@ export const userRouter = createTRPCRouter({
             message: `Failed to delete user from Supabase Auth: ${authError.message}`,
           });
         }
+
+        // delete users from supbase database user table
         await db.delete(users).where(eq(users.id, input.userId));
+
+        // delete company from supbase database company table
+        if (input.role === "admin") {
+          await db
+            .delete(companies)
+            .where(eq(companies.companyAdminId, input.userId));
+        }
 
         return {
           success: true,

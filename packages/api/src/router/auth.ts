@@ -32,6 +32,7 @@ export const createUserSchema = z
     companyId: z.string().optional(),
     userName: z.string().optional(),
     modifiedBy: z.string().optional(),
+    reportIds: z.array(z.string().uuid()).optional(),
   })
   .refine(
     (data) => {
@@ -104,6 +105,16 @@ export const authRouter = createTRPCRouter({
           modifiedBy: ctx.session.user.id,
           passwordHistory: [hashedPassword],
         });
+
+        // insert the report ids with created user id into user_to_reports table
+        // if (input.reportIds && input.reportIds.length > 0) {
+        //   const reportLinks = input.reportIds.map((reportId) => ({
+        //     userId: user.id,
+        //     reportId,
+        //   }));
+
+        //   await db.insert(userReports).values(reportLinks);
+        // }
 
         return {
           success: true,
@@ -526,10 +537,18 @@ export const authRouter = createTRPCRouter({
             message:
               "Password must include at least one uppercase letter, one number, and one special character",
           }),
-        email: z.string().email({ message: "Email is required!" }),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const { id: userId, email: userEmail } = ctx.session.user;
+
+      if (!userId || !userEmail) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "you have to be logged in to update password",
+        });
+      }
+
       try {
         const supabase = createClientServer();
 
@@ -537,7 +556,7 @@ export const authRouter = createTRPCRouter({
         const userRecord = await db
           .select({ passwordHistory: users.passwordHistory })
           .from(users)
-          .where(eq(users.id, ctx.session.user.id))
+          .where(eq(users.id, userId))
           .limit(1);
 
         if (userRecord.length === 0) {
@@ -587,7 +606,7 @@ export const authRouter = createTRPCRouter({
           .set({
             passwordHistory: updatedHistory,
           })
-          .where(eq(users.id, ctx.session.user.id));
+          .where(eq(users.id, userId));
 
         // reset user login attempts and unblock
         await db
@@ -598,7 +617,7 @@ export const authRouter = createTRPCRouter({
             lockedUntil: null,
             updatedAt: new Date(),
           })
-          .where(eq(loginAttempts.email, input.email));
+          .where(eq(loginAttempts.email, userEmail));
 
         // Sign out from all devices
         await supabase.auth.signOut({ scope: "global" });

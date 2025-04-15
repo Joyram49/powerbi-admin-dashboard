@@ -1,5 +1,6 @@
+import type { SQL } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { and, count, desc, eq, ilike, inArray, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { companies, db, reports, userReports } from "@acme/db";
@@ -77,6 +78,11 @@ export const reportRouter = createTRPCRouter({
           searched: z.string().toLowerCase().optional().default(""),
           limit: z.number().optional().default(10),
           page: z.number().optional().default(1),
+          sortBy: z
+            .enum(["reportName", "dateCreated"])
+            .optional()
+            .default("dateCreated"),
+          status: z.enum(["active", "inactive"]).optional(),
         })
         .optional(),
     )
@@ -88,19 +94,36 @@ export const reportRouter = createTRPCRouter({
         });
       }
 
-      const { limit = 10, page = 1, searched = "" } = input ?? {};
+      const {
+        limit = 10,
+        page = 1,
+        searched = "",
+        sortBy = "dateCreated",
+        status,
+      } = input ?? {};
 
       try {
-        const totalReports = await db.$count(
-          reports,
+        // Constructing `where` conditions dynamically
+        const whereConditions: SQL[] = [
           ilike(reports.reportName, `%${searched}%`),
-        );
+        ];
+        if (status) {
+          whereConditions.push(eq(reports.status, status));
+        }
+
+        const totalReports = await db.$count(reports, and(...whereConditions));
+
+        // Dynamic Sorting
+        const orderByCondition =
+          sortBy === "reportName"
+            ? [asc(reports.reportName)]
+            : [desc(reports.dateCreated)];
 
         const reportsWithUserCounts = await db.query.reports.findMany({
           columns: {
             companyId: false,
           },
-          where: ilike(reports.reportName, `%${searched}%`),
+          where: and(...whereConditions),
           with: {
             company: {
               columns: {
@@ -115,7 +138,7 @@ export const reportRouter = createTRPCRouter({
                 "user_counts",
               ),
           },
-          orderBy: desc(reports.dateCreated),
+          orderBy: orderByCondition,
           limit,
           offset: (page - 1) * limit,
         });
@@ -147,6 +170,10 @@ export const reportRouter = createTRPCRouter({
           searched: z.string().toLowerCase().optional().default(""),
           limit: z.number().optional().default(10),
           page: z.number().optional().default(1),
+          sortBy: z
+            .enum(["reportName", "dateCreated"])
+            .optional()
+            .default("dateCreated"),
         })
         .optional(),
     )
@@ -159,7 +186,12 @@ export const reportRouter = createTRPCRouter({
       }
 
       const { id: companyAdminId } = ctx.session.user;
-      const { searched = "", limit = 10, page = 1 } = input ?? {};
+      const {
+        limit = 10,
+        page = 1,
+        searched = "",
+        sortBy = "dateCreated",
+      } = input ?? {};
 
       try {
         // Fetch all company IDs where the logged-in user is an admin
@@ -192,6 +224,12 @@ export const reportRouter = createTRPCRouter({
           ),
         );
 
+        // Dynamic Sorting
+        const orderByCondition =
+          sortBy === "reportName"
+            ? [asc(reports.reportName)]
+            : [desc(reports.dateCreated)];
+
         // Fetch reports that belong to those companies
         const reportsWithUserCounts = await db.query.reports.findMany({
           where: and(
@@ -214,7 +252,7 @@ export const reportRouter = createTRPCRouter({
           },
           limit,
           offset: (page - 1) * limit,
-          orderBy: desc(reports.dateCreated),
+          orderBy: orderByCondition,
         });
 
         return {
@@ -388,7 +426,6 @@ export const reportRouter = createTRPCRouter({
           reports: allReports,
         };
       } catch (error) {
-        console.error("Error fetching reports for company:", error);
         if (error instanceof TRPCError) {
           throw error;
         }
@@ -472,7 +509,6 @@ export const reportRouter = createTRPCRouter({
           report,
         };
       } catch (error) {
-        console.error("Error fetching report by id:", error);
         if (error instanceof TRPCError) {
           throw error;
         }
@@ -544,7 +580,6 @@ export const reportRouter = createTRPCRouter({
 
         return { success: true, message: "Report updated successfully" };
       } catch (error) {
-        console.error("Error updating report:", error);
         if (error instanceof TRPCError) {
           throw error;
         }
@@ -572,7 +607,6 @@ export const reportRouter = createTRPCRouter({
         await db.delete(reports).where(eq(reports.id, reportId));
         return { success: true, message: "Report deleted successfully" };
       } catch (error) {
-        console.error("Error deleting report:", error);
         if (error instanceof TRPCError) {
           throw error;
         }
