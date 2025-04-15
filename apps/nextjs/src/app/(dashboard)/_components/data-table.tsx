@@ -5,6 +5,7 @@ import * as React from "react";
 import {
   flexRender,
   getCoreRowModel,
+  getPaginationRowModel,
   useReactTable,
 } from "@tanstack/react-table";
 import { Loader2, SlidersHorizontal } from "lucide-react";
@@ -26,37 +27,46 @@ import {
   TableRow,
 } from "@acme/ui/table";
 
-import type { Company } from "~/types/company";
-import CompanyModalButton from "./CompanyModal";
-import { Pagination } from "../../_components/Pagination";
+import { Pagination } from "./Pagination";
 
-interface DataTableProps<TData extends Company, TValue> {
+// Generic data table props that can work with any data type
+interface DataTableProps<TData, TValue, TSortField extends string> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   pagination: {
     pageCount: number;
     page: number;
     onPageChange: (page: number) => void;
+    onPageSizeChange?: (pageSize: number) => void; // Added onPageSizeChange
   };
   sorting: {
-    sortBy: "companyName" | "dateJoined" | undefined;
-    onSortChange: (sortBy: "companyName" | "dateJoined") => void;
+    sortBy: TSortField | undefined;
+    onSortChange: (sortBy: TSortField) => void;
+    sortOptions: TSortField[]; // Available sort options
   };
   search: {
     value: string;
     onChange: (value: string) => void;
   };
   isLoading?: boolean;
+  placeholder: string;
+  actionButton?: React.ReactNode; // The action button (e.g., CompanyModalButton, UserModalButton)
+  pageSize?: number;
+  pageSizeOptions?: number[]; // Added page size options array
 }
 
-export function DataTable<TData extends Company, TValue>({
+export function DataTable<TData, TValue, TSortField extends string>({
   columns,
   data = [],
   pagination,
   sorting,
   search,
   isLoading = false,
-}: DataTableProps<TData, TValue>) {
+  placeholder,
+  actionButton,
+  pageSize = 10,
+  pageSizeOptions = [10, 20, 30, 40, 50], // Default page size options
+}: DataTableProps<TData, TValue, TSortField>) {
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
@@ -65,6 +75,7 @@ export function DataTable<TData extends Company, TValue>({
   const table = useReactTable({
     data,
     columns,
+    getPaginationRowModel: getPaginationRowModel(),
     getCoreRowModel: getCoreRowModel(),
     // Using manual pagination since we'll handle it server-side
     manualPagination: true,
@@ -72,7 +83,7 @@ export function DataTable<TData extends Company, TValue>({
     state: {
       pagination: {
         pageIndex: pagination.page - 1, // TanStack uses 0-indexed pages
-        pageSize: 10,
+        pageSize,
       },
       columnVisibility,
       rowSelection,
@@ -84,9 +95,15 @@ export function DataTable<TData extends Company, TValue>({
       // Only manage page selection server-side
       const newState =
         updater instanceof Function
-          ? updater({ pageIndex: pagination.page - 1, pageSize: 10 })
+          ? updater({ pageIndex: pagination.page - 1, pageSize })
           : updater;
-      pagination.onPageChange(newState.pageIndex + 1);
+
+      // Handle page size changes
+      if (newState.pageSize !== pageSize && pagination.onPageSizeChange) {
+        pagination.onPageSizeChange(newState.pageSize);
+      } else {
+        pagination.onPageChange(newState.pageIndex + 1);
+      }
     },
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
@@ -97,14 +114,14 @@ export function DataTable<TData extends Company, TValue>({
       <div className="flex w-full items-center justify-between">
         <div className="flex items-center py-4">
           <Input
-            placeholder="Search for company by name..."
+            placeholder={placeholder}
             value={search.value}
             onChange={(event) => search.onChange(event.target.value)}
             className="max-w-sm bg-white"
           />
         </div>
         <div className="flex items-center gap-4">
-          <CompanyModalButton />
+          {actionButton}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -198,9 +215,11 @@ export function DataTable<TData extends Company, TValue>({
         currentPage={pagination.page}
         totalPages={pagination.pageCount}
         onPageChange={pagination.onPageChange}
-        pageSizeOptions={[10, 20, 30, 40, 50]}
-        onPageSizeChange={(size) => table.setPageSize(size)}
-        showSelectedRowsCount={false}
+        pageSizeOptions={pageSizeOptions}
+        onPageSizeChange={pagination.onPageSizeChange}
+        pageSize={pageSize}
+        showSelectedRowsCount={true}
+        showPageSizeSelector={true}
       />
     </div>
   );

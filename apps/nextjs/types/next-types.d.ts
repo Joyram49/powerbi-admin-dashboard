@@ -25,18 +25,18 @@ interface Company {
   };
 }
 interface User {
-  userId: string;
+  userId?: string;
   id: string;
   email: string;
   userName: string;
   role: "user" | "admin" | "superAdmin";
-  status: "active" | "inactive" | undefined;
+  status: "active" | "inactive" | null | undefined;
   dateCreated: Date;
 
-  companyId: string | undefined;
+  companyId: string | null | undefined;
   modifiedBy: string | null;
   lastLogin: string | Date | null | undefined;
-  company?: { companyName: string };
+  company: { companyName: string } | null;
 }
 interface UserData {
   success: boolean;
