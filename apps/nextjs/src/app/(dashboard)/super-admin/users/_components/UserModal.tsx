@@ -192,8 +192,8 @@ const UserModal: React.FC<UserModalProps> = ({ user, children }) => {
 
   // Get current user profile
   const { data: profileData } = api.auth.getProfile.useQuery();
-  const userRole = profileData?.user.user_metadata.role as string;
-  const currentUserId = profileData?.user.id;
+  const userRole = profileData?.user?.user_metadata.role as string;
+  const currentUserId = profileData?.user?.id;
 
   // Create and update mutations
   const createUserMutation = api.auth.createUser.useMutation({

@@ -90,8 +90,8 @@ export function UsersDataTable() {
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { data: profileData } = api.auth.getProfile.useQuery();
-  const userRole = profileData?.user.user_metadata.role as string;
-  const currentUserId = profileData?.user.id;
+  const userRole = profileData?.user?.user_metadata.role as string;
+  const currentUserId = profileData?.user?.id;
 
   // Determine which queries should be enabled based on user role
   const isSuperAdmin = userRole === "superAdmin";

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { TrendingUpIcon } from "lucide-react";
 
 import { Badge } from "@acme/ui/badge";
@@ -10,51 +11,54 @@ import {
 } from "@acme/ui/card";
 
 import { api } from "~/trpc/server";
+import ErrorCard from "./error-card";
 
 async function TotalUsersCard() {
-  const totalUsersResponse = await api.user.getAllActiveUsers();
+  try {
+    const totalUsersResponse = await api.user.getAllActiveUsers();
 
-  // Check if the response is successful and contains total
-  if (!totalUsersResponse.success) {
+    // Check if the response is successful and contains total
+    if (!totalUsersResponse.success) {
+      return <ErrorCard message="Authentication required" />;
+    }
+
     return (
-      <Card className="@container/card dark:bg-slate-900">
-        <CardHeader className="relative">
-          <CardDescription>Error fetching data</CardDescription>{" "}
-          {/* Display an error message */}
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1 text-sm">
-          <div className="text-muted-foreground">
-            Unable to retrieve user data.
-          </div>
-        </CardFooter>
-      </Card>
+      <Suspense fallback="Loading total users...">
+        <Card className="@container/card dark:bg-slate-900">
+          <CardHeader className="relative">
+            <CardDescription>Total Users</CardDescription>
+            <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
+              {totalUsersResponse.users}
+            </CardTitle>
+            <div className="absolute right-4 top-4">
+              <Badge
+                variant="outline"
+                className="flex gap-1 rounded-lg text-xs"
+              >
+                <TrendingUpIcon className="size-3" />
+                +12.5%
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardFooter className="flex-col items-start gap-1 text-sm">
+            <div className="line-clamp-1 flex gap-2 font-medium">
+              Trending up this month <TrendingUpIcon className="size-4" />
+            </div>
+            <div className="text-muted-foreground">
+              Visitors for the last 6 months
+            </div>
+          </CardFooter>
+        </Card>
+      </Suspense>
+    );
+  } catch (error) {
+    return (
+      <ErrorCard
+        message={`Authentication required | ${error as Error}`}
+        desc="Total reports"
+      />
     );
   }
-
-  return (
-    <Card className="@container/card dark:bg-slate-900">
-      <CardHeader className="relative">
-        <CardDescription>Total Users</CardDescription>
-        <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
-          {totalUsersResponse.users}
-        </CardTitle>
-        <div className="absolute right-4 top-4">
-          <Badge variant="outline" className="flex gap-1 rounded-lg text-xs">
-            <TrendingUpIcon className="size-3" />
-            +12.5%
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardFooter className="flex-col items-start gap-1 text-sm">
-        <div className="line-clamp-1 flex gap-2 font-medium">
-          Trending up this month <TrendingUpIcon className="size-4" />
-        </div>
-        <div className="text-muted-foreground">
-          Visitors for the last 6 months
-        </div>
-      </CardFooter>
-    </Card>
-  );
 }
 
 export default TotalUsersCard;

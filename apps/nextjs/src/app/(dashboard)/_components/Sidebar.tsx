@@ -15,6 +15,7 @@ import {
 
 import { Sidebar, SidebarTrigger } from "@acme/ui/sidebar";
 
+import { useActiveTimeTracker } from "~/hooks/userSessionsTrack";
 import { api } from "~/trpc/react";
 
 const navigationItems = {
@@ -76,15 +77,35 @@ export default function AppSidebar() {
   const router = useRouter();
   const { data } = api.auth.getProfile.useQuery();
   const userRole = data?.user.user_metadata.role as string;
+  const { totalActiveTime, sessionId } = useActiveTimeTracker();
 
   const logoutMutation = api.auth.signOut.useMutation({
     onSuccess: () => {
-      router.push("/login");
+      router.refresh();
     },
   });
-
+  const updateSession = api.session.updateSession.useMutation();
   const handleLogout = async () => {
-    await logoutMutation.mutateAsync();
+    try {
+      // First update the session
+      await updateSession.mutateAsync({
+        sessionId,
+        totalActiveTime,
+      });
+
+      // Then sign out
+      await logoutMutation.mutateAsync();
+
+      // Clear local storage
+      localStorage.removeItem("totalActiveTime");
+
+      // Immediately redirect to prevent additional authenticated API calls
+      router.push("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      // Still redirect even if there's an error
+      router.push("/login");
+    }
   };
 
   const items =

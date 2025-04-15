@@ -354,21 +354,21 @@ export const authRouter = createTRPCRouter({
     try {
       const supabase = createClientServer();
       const { data, error } = await supabase.auth.getUser();
+
       if (error) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: error.message || "Failed to get user profile",
-        });
+        // Instead of throwing an error, return a default response
+        console.log(
+          "User not authenticated or session expired:",
+          error.message,
+        );
+        return { user: null };
       }
+
       return data;
     } catch (error) {
-      if (error instanceof TRPCError) {
-        throw error;
-      }
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: String(error),
-      });
+      console.error("Unexpected error in getProfile:", error);
+      // Return a default response instead of throwing
+      return { user: null };
     }
   }),
 

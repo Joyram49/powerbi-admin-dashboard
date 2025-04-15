@@ -76,7 +76,15 @@ export function SignInForm() {
     },
     mode: "onChange",
   });
-
+  const createOrUpdateSession = api.session.createOrUpdateSession.useMutation({
+    onError: (error) => {
+      console.error("Session creation failed:", error);
+      // We don't show this error to the user as the login was successful
+    },
+    onSuccess: (result) => {
+      console.log("Session created/updated:", result);
+    },
+  });
   const signIn = api.auth.signIn.useMutation({
     onError: (error) => {
       const errorMessage = error.message || "Login failed. Please try again.";
@@ -93,7 +101,7 @@ export function SignInForm() {
 
       toast.success("Login successful");
       form.reset();
-
+      createOrUpdateSession.mutate();
       // Redirect to role-specific route
       router.push(roleBasedRoute);
     },
