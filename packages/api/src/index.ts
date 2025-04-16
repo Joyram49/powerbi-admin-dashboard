@@ -1,7 +1,9 @@
 import type { inferRouterInputs, inferRouterOutputs } from "@trpc/server";
+import Stripe from "stripe";
 
 import type { AppRouter } from "./root";
 import type { Session } from "./trpc";
+import { env } from "../env";
 import { appRouter } from "./root";
 import { createCallerFactory, createTRPCContext } from "./trpc";
 
@@ -30,5 +32,10 @@ type RouterInputs = inferRouterInputs<AppRouter>;
  **/
 type RouterOutputs = inferRouterOutputs<AppRouter>;
 
-export { appRouter, createCaller, createTRPCContext };
+// Initialize Stripe
+const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
+  apiVersion: "2023-10-16",
+});
+
+export { appRouter, createCaller, createTRPCContext, stripe };
 export type { AppRouter, RouterInputs, RouterOutputs, Session };

@@ -20,6 +20,7 @@
     "@acme/ui": "workspace:*",
     "@acme/validators": "workspace:*",
     "@hookform/resolvers": "^3.9.1",
+    "@stripe/stripe-js": "^7.1.0",
     "@t3-oss/env-nextjs": "^0.11.1",
     "@tanstack/react-query": "catalog:",
     "@trpc/client": "catalog:",
@@ -33,6 +34,7 @@
     "react": "catalog:react18",
     "react-dom": "catalog:react18",
     "react-hook-form": "^7.53.2",
+    "stripe": "^14.25.0",
     "superjson": "2.2.1",
     "zod": "catalog:"
   },

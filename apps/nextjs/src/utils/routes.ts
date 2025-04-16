@@ -25,4 +25,4 @@ export const ROLE_ROUTES: ROLE_ROUTES_TYPES = {
   user: "/user",
 };
 
-export const PRIVATE_ROUTES = ["/private", "/company", REPORT];
+export const PRIVATE_ROUTES = ["/private", "/company", "/success", REPORT];

@@ -38,10 +38,13 @@ const formSchema = z
       .string()
       .min(12, { message: "Password must be within 12-20 characters" })
       .max(20, { message: "Password must be within 12-20 characters" })
-      .regex(/^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/, {
-        message:
-          "Password must include at least one uppercase letter, one number, and one special character",
-      }),
+      .regex(
+        /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};:'"\\|,.<>/?]).+$/,
+        {
+          message:
+            "Password must include at least one uppercase letter, one number, and one special character",
+        },
+      ),
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -347,10 +350,13 @@ const passwordSchema = z
       .string()
       .min(12, { message: "Password must be within 12-20 characters" })
       .max(20, { message: "Password must be within 12-20 characters" })
-      .regex(/^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/, {
-        message:
-          "Password must include at least one uppercase letter, one number, and one special character",
-      }),
+      .regex(
+        /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};:'"\\|,.<>/?]).+$/,
+        {
+          message:
+            "Password must include at least one uppercase letter, one number, and one special character",
+        },
+      ),
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
