@@ -201,9 +201,15 @@ export function UserForm({ onClose, initialData }: UserFormProps) {
   const utils = api.useUtils();
   const { data: profileData } = api.auth.getProfile.useQuery();
   const currentUserId = profileData?.user?.id;
-  const { data: companies } = api.company.getAllCompanies.useQuery();
-
   const userRole = profileData?.user?.user_metadata.role as string;
+
+  // Fetch companies based on user role
+  const { data: companies } =
+    userRole === "admin"
+      ? api.company.getCompaniesByAdminId.useQuery({
+          companyAdminId: currentUserId ?? "",
+        })
+      : api.company.getAllCompanies.useQuery();
 
   // Create and update mutations
   const createUserMutation = api.auth.createUser.useMutation({
@@ -572,7 +578,7 @@ export function UserForm({ onClose, initialData }: UserFormProps) {
                     >
                       User
                     </SelectItem>
-                    {(userRole === "superAdmin" || userRole === "admin") && (
+                    {userRole === "superAdmin" && (
                       <>
                         <SelectItem
                           value="admin"
@@ -580,14 +586,12 @@ export function UserForm({ onClose, initialData }: UserFormProps) {
                         >
                           Admin
                         </SelectItem>
-                        {userRole === "superAdmin" && (
-                          <SelectItem
-                            value="superAdmin"
-                            className="dark:hover:bg-gray-800"
-                          >
-                            Super Admin
-                          </SelectItem>
-                        )}
+                        <SelectItem
+                          value="superAdmin"
+                          className="dark:hover:bg-gray-800"
+                        >
+                          Super Admin
+                        </SelectItem>
                       </>
                     )}
                   </SelectContent>
@@ -612,7 +616,7 @@ export function UserForm({ onClose, initialData }: UserFormProps) {
                   {companies?.data && companies.data.length > 0 ? (
                     <Select
                       onValueChange={field.onChange}
-                      value={field.value || ""}
+                      value={field.value ?? ""}
                     >
                       <FormControl>
                         <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">
@@ -670,7 +674,7 @@ export function UserForm({ onClose, initialData }: UserFormProps) {
         )}
 
         {/* Password Update Section for Existing Users */}
-        {isUpdateMode && initialData?.id && (
+        {isUpdateMode && initialData.id && (
           <motion.div variants={itemVariants}>
             <Button
               type="button"
@@ -728,7 +732,7 @@ export function UserForm({ onClose, initialData }: UserFormProps) {
       </motion.form>
 
       {/* Password Update Modal */}
-      {isUpdateMode && initialData?.id && (
+      {isUpdateMode && initialData.id && (
         <UpdatePasswordForm
           isModal
           isOpen={isPasswordModalOpen}

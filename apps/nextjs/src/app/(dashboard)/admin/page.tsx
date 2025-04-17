@@ -1,7 +1,7 @@
 "use client";
 
+import type { ColumnDef } from "@tanstack/react-table";
 import { useCallback, useState } from "react";
-
 
 import { useDebounce } from "~/hooks/useDebounce";
 import { api } from "~/trpc/react";
@@ -13,7 +13,7 @@ interface CompanyUser {
   id: string;
   userName: string;
   email: string;
-  role: "user" | "admin";
+  role: "user" | "admin" | "superAdmin";
   status: "active" | "inactive" | null;
   dateCreated: Date;
   lastLogin: Date | null;
@@ -32,19 +32,24 @@ export default function AdminPage() {
     limit: 10,
   });
   const [searchInput, setSearchInput] = useState("");
-  const debouncedSearch = useDebounce(searchInput, 500);
+  // TODO: Add debounce to search input in api endpoint
+  // const debouncedSearch = useDebounce(searchInput, 500);
   const [sortBy, setSortBy] = useState<"userName" | "dateCreated">(
     "dateCreated",
   );
 
   // Get user profile to access company ID
   const { data: profileData } = api.auth.getProfile.useQuery();
-  const companyId = profileData?.user?.user_metadata.companyId as string;
+  const userId = profileData?.user?.id;
+  const { data: companies } = api.company.getCompaniesByAdminId.useQuery({
+    companyAdminId: userId!,
+  });
+  const companyId = companies?.data[0]?.id;
 
   // Fetch users for the company
   const { data: usersData, isLoading } = api.user.getUsersByCompanyId.useQuery(
     {
-      companyId,
+      companyId: companyId!,
       limit: pagination.limit,
       page: pagination.page,
     },
@@ -52,8 +57,8 @@ export default function AdminPage() {
       enabled: !!companyId,
     },
   );
-
-  const columns = useUserColumns();
+  console.log(usersData);
+  const columns = useUserColumns() as ColumnDef<CompanyUser, unknown>[];
 
   const handleSearchChange = useCallback((value: string) => {
     setSearchInput(value);
@@ -74,11 +79,18 @@ export default function AdminPage() {
     }));
   }, []);
 
+  const transformedUsers =
+    usersData?.users.map((user) => ({
+      ...user,
+      isSuperAdmin: user.role === "superAdmin",
+      passwordHistory: [],
+    })) ?? [];
+
   return (
     <div className="container mx-auto w-full p-6">
       <DataTable<CompanyUser, unknown, "userName" | "dateCreated">
         columns={columns}
-        data={usersData?.users ?? []}
+        data={transformedUsers}
         pagination={{
           pageCount:
             usersData?.total && usersData.limit
