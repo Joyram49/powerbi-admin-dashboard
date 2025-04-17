@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -24,8 +24,8 @@ import {
 } from "@acme/ui/select";
 import { toast } from "@acme/ui/toast";
 
-import { api } from "~/trpc/react";
 import { MultiSelect } from "~/app/(dashboard)/_components/MultiSelect";
+import { api } from "~/trpc/react";
 
 // Define types
 export interface ReportType {
@@ -40,7 +40,7 @@ export interface ReportType {
     id: string;
     companyName: string;
   } | null;
-  userCount?: number;
+  userCounts?: number;
   userIds?: string[];
 }
 
@@ -71,17 +71,22 @@ export default function ReportForm({
   userRole,
 }: ReportFormProps) {
   const [loading, setLoading] = useState(false);
-  const [users, setUsers] = useState<{ value: string; label: string }[]>([]);
+
+  const [allUserOptions, setAllUserOptions] = useState<
+    { value: string; label: string }[]
+  >([]);
+  const initialFormSetRef = useRef(false);
+  const utils = api.useUtils();
 
   // Setup form with defaults
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      reportName: "",
-      reportUrl: "",
-      companyId: "",
-      status: "active",
-      userIds: [],
+      reportName: initialData?.reportName || "",
+      reportUrl: initialData?.reportUrl || "",
+      companyId: initialData?.company?.id || "",
+      status: initialData?.status || "active",
+      userIds: initialData?.userIds || [],
     },
   });
 
@@ -89,16 +94,40 @@ export default function ReportForm({
   const companyId = form.watch("companyId");
 
   // Fetch companies data
-  const { data: companiesData } = api.company.getAllCompanies.useQuery(
-    undefined,
-    { enabled: userRole === "superAdmin" },
-  );
+  const { data: companiesData, isLoading: isLoadingCompanies } =
+    api.company.getAllCompanies.useQuery(undefined, {
+      enabled: userRole === "superAdmin",
+    });
 
   // Fetch users for selected company
-  const { data: usersData } = api.user.getUsersByCompanyId.useQuery(
-    { companyId, limit: 100, page: 1 },
-    { enabled: !!companyId },
-  );
+  const { data: usersData, isLoading: isLoadingUsers } =
+    api.user.getUsersByCompanyId.useQuery(
+      { companyId, limit: 100, page: 1 },
+      { enabled: !!companyId },
+    );
+
+  // Fetch report details when editing - only if we have an ID and haven't set the form yet
+  const { data: reportData, isLoading: isLoadingReport } =
+    api.report.getReportById.useQuery(
+      { reportId: initialData?.id ?? "" },
+      { enabled: !!initialData?.id && !initialFormSetRef.current },
+    );
+
+  // Handle success response
+  const handleSuccess = async (message: string) => {
+    await utils.report.getAllReports.invalidate();
+    await utils.report.getAllReportsForCompany.invalidate();
+    await utils.report.getAllReportsAdmin.invalidate();
+    toast.success("Success", { description: message });
+    setLoading(false);
+    onClose(true);
+  };
+
+  // Handle error response
+  const handleError = (message: string) => {
+    toast.error("Error", { description: message });
+    setLoading(false);
+  };
 
   // TRPC mutations
   const createMutation = api.report.create.useMutation({
@@ -111,64 +140,36 @@ export default function ReportForm({
     onError: (error) => handleError(error.message),
   });
 
-  // Fetch report details when editing
-  const { data: reportData, isLoading: isLoadingReport } =
-    api.report.getReportById.useQuery(
-      { reportId: initialData?.id ?? "" },
-      { enabled: !!initialData?.id },
-    );
-
-  // Initialize form when report changes or data is loaded
+  // Update form with detailed report data when loaded - run only once
   useEffect(() => {
-    if (initialData) {
-      // Editing existing report
-      const formData = {
-        reportName: initialData.reportName || "",
-        reportUrl: initialData.reportUrl || "",
-        companyId: initialData.company?.id ?? "",
-        status: initialData.status ?? "active",
-        userIds: initialData.userIds ?? [],
-      };
-
-      form.reset(formData);
-    } else {
-      // Creating new report
-      form.reset({
-        reportName: "",
-        reportUrl: "",
-        companyId: "",
-        status: "active",
-        userIds: [],
-      });
-    }
-  }, [initialData, form]);
-
-  // Update form with detailed report data when loaded
-  useEffect(() => {
-    if (reportData?.report) {
+    if (reportData?.report && !initialFormSetRef.current) {
       const reportDetails = reportData.report as ReportType;
-      form.setValue("reportName", reportDetails.reportName);
-      form.setValue("reportUrl", reportDetails.reportUrl);
-      form.setValue("companyId", reportDetails.company?.id ?? "");
-      form.setValue("status", reportDetails.status ?? "active");
-      form.setValue("userIds", reportDetails.userIds ?? []);
+      form.reset({
+        reportName: reportDetails.reportName,
+        reportUrl: reportDetails.reportUrl,
+        companyId: reportDetails.company?.id ?? "",
+        status: reportDetails.status ?? "active",
+        userIds: reportDetails.userIds ?? [],
+      });
+      initialFormSetRef.current = true;
     }
   }, [reportData, form]);
 
-  // Format users for multi-select
+  // Process users data for the MultiSelect component - only update when usersData changes
   useEffect(() => {
     if (usersData?.users) {
+      // Format all users
       const formattedUsers = usersData.users.map((user) => ({
         value: user.id,
         label: `${user.userName} | ${user.email}`,
       }));
-      setUsers(formattedUsers);
+
+      setAllUserOptions(formattedUsers);
     }
   }, [usersData]);
 
-  const utils = api.useUtils();
   // Form submission handler
-  const onSubmit = async (data: z.infer<typeof formSchema>) => {
+  const onSubmit = (data: z.infer<typeof formSchema>) => {
     setLoading(true);
 
     if (initialData?.id) {
@@ -185,22 +186,6 @@ export default function ReportForm({
       // Create new report
       createMutation.mutate(data);
     }
-    await utils.report.getAllReports.invalidate();
-    await utils.report.getAllReportsForCompany.invalidate();
-    await utils.report.getAllReportsAdmin.invalidate();
-  };
-
-  // Handle success response
-  const handleSuccess = (message: string) => {
-    toast.success("Success", { description: message });
-    setLoading(false);
-    onClose(true);
-  };
-
-  // Handle error response
-  const handleError = (message: string) => {
-    toast.error("Error", { description: message });
-    setLoading(false);
   };
 
   // If not superAdmin, don't allow access to modal
@@ -261,7 +246,9 @@ export default function ReportForm({
             name="companyId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Company</FormLabel>
+                <FormLabel>
+                  {isLoadingCompanies ? "Loading companies..." : "Company"}
+                </FormLabel>
                 <Select
                   onValueChange={(value) => {
                     field.onChange(value);
@@ -271,7 +258,7 @@ export default function ReportForm({
                     }
                   }}
                   value={field.value}
-                  disabled={!!initialData} // Can't change company when editing
+                  disabled={!!initialData}
                 >
                   <FormControl>
                     <SelectTrigger>
@@ -321,10 +308,11 @@ export default function ReportForm({
                 <FormLabel>User Access</FormLabel>
                 <FormControl>
                   <MultiSelect
-                    options={users}
+                    options={allUserOptions}
                     selected={field.value}
                     onChange={field.onChange}
                     placeholder="Select users who can access this report"
+                    loading={isLoadingUsers && !!companyId}
                   />
                 </FormControl>
                 <FormMessage />
@@ -342,7 +330,7 @@ export default function ReportForm({
             </Button>
             <Button
               type="submit"
-              disabled={loading || isLoadingReport}
+              disabled={loading || isLoadingReport || isLoadingCompanies}
               className="bg-blue-500 text-white hover:bg-blue-600"
             >
               {loading

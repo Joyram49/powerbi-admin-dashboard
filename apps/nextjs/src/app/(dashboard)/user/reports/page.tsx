@@ -2,39 +2,48 @@
 
 import { useCallback, useState } from "react";
 
-import type { ReportType } from "./_components/ReportForm";
 import { useDebounce } from "~/hooks/useDebounce";
 import { api } from "~/trpc/react";
 import { DataTable } from "../../_components/DataTable";
-import useReportColumns from "./_components/ReportColumns";
-import ReportModalButton from "./_components/ReportModal";
+import useUserReportColumns from "./_components/ReportColumns";
 
-export default function ReportsDashboard() {
+interface ReportType {
+  reportId: string;
+  reportName: string;
+  reportUrl: string;
+  dateCreated: Date | null;
+  lastModifiedAt: Date | null;
+  status: "active" | "inactive" | null;
+  accessCount: number | null;
+  userCount: number;
+  company: {
+    id: string;
+    companyName: string;
+  } | null;
+}
+
+export default function UserReportsPage() {
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
   });
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearch = useDebounce(searchInput, 500); // 500ms delay
-  const [sortBy, setSortBy] = useState<"reportName" | "dateCreated">();
-  const columns = useReportColumns();
-  const { data } = api.auth.getProfile.useQuery();
-  const userRole = data?.user?.user_metadata.role as string;
 
-  const { data: reportData, isLoading } = api.report.getAllReports.useQuery(
+  // Get columns from our custom hook
+  const columns = useUserReportColumns();
+
+  // Fetch user's reports
+  const { data: reportData, isLoading } = api.report.getAllReportsUser.useQuery(
     {
       searched: debouncedSearch,
-      sortBy: sortBy,
       page: pagination.page,
       limit: pagination.limit,
-    },
-    {
-      enabled: userRole === "superAdmin",
     },
   );
 
   // Extract actual report data array from the response
-  const reports = reportData?.data ?? [];
+  const reports = reportData?.reports ?? [];
 
   const handleSearchChange = useCallback((value: string) => {
     setSearchInput(value);
@@ -50,33 +59,29 @@ export default function ReportsDashboard() {
   }, []);
 
   return (
-    <div className="container mx-auto w-full p-6">
+    <div className="container mx-auto py-10">
+      <h1 className="mb-8 text-3xl font-bold">My Reports</h1>
       <DataTable<ReportType, unknown, "reportName" | "dateCreated">
         columns={columns}
         data={reports}
         pagination={{
-          pageCount:
-            reportData?.total && reportData.limit
-              ? Math.ceil(reportData.total / reportData.limit)
-              : 0,
+          pageCount: Math.ceil((reportData?.total ?? 0) / pagination.limit),
           page: pagination.page,
           onPageChange: (page) => setPagination((prev) => ({ ...prev, page })),
           onPageSizeChange: handlePageSizeChange,
         }}
         sorting={{
-          sortBy,
-          onSortChange: (newSortBy) => setSortBy(newSortBy),
+          sortBy: undefined,
+          onSortChange: () => {}, // Users don't need sorting
           sortOptions: ["reportName", "dateCreated"],
         }}
         search={{
           value: searchInput,
           onChange: handleSearchChange,
         }}
-        placeholder="Search report name..."
-        actionButton={<ReportModalButton />}
         isLoading={isLoading}
+        placeholder="Search reports..."
         pageSize={pagination.limit}
-        pageSizeOptions={[10, 20, 50, 100]}
       />
     </div>
   );

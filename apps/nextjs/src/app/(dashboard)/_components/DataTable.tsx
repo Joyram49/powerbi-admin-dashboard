@@ -8,7 +8,7 @@ import {
   getPaginationRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { Loader2, SlidersHorizontal } from "lucide-react";
+import { Loader2, Search, SlidersHorizontal, X } from "lucide-react";
 
 import { Button } from "@acme/ui/button";
 import {
@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@acme/ui/dropdown-menu";
 import { Input } from "@acme/ui/input";
+import { Skeleton } from "@acme/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -65,24 +66,22 @@ export function DataTable<TData, TValue, TSortField extends string>({
   placeholder,
   actionButton,
   pageSize = 10,
-  pageSizeOptions = [10, 20, 30, 40, 50], // Default page size options
+  pageSizeOptions = [10, 20, 30, 40, 50],
 }: DataTableProps<TData, TValue, TSortField>) {
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
 
-  // We don't need client-side sorting and filtering anymore
   const table = useReactTable({
     data,
     columns,
     getPaginationRowModel: getPaginationRowModel(),
     getCoreRowModel: getCoreRowModel(),
-    // Using manual pagination since we'll handle it server-side
     manualPagination: true,
     pageCount: pagination.pageCount,
     state: {
       pagination: {
-        pageIndex: pagination.page - 1, // TanStack uses 0-indexed pages
+        pageIndex: pagination.page - 1,
         pageSize,
       },
       columnVisibility,
@@ -92,13 +91,11 @@ export function DataTable<TData, TValue, TSortField extends string>({
       sorting,
     },
     onPaginationChange: (updater) => {
-      // Only manage page selection server-side
       const newState =
         updater instanceof Function
           ? updater({ pageIndex: pagination.page - 1, pageSize })
           : updater;
 
-      // Handle page size changes
       if (newState.pageSize !== pageSize && pagination.onPageSizeChange) {
         pagination.onPageSizeChange(newState.pageSize);
       } else {
@@ -109,16 +106,36 @@ export function DataTable<TData, TValue, TSortField extends string>({
     onRowSelectionChange: setRowSelection,
   });
 
+  const selectedRowsCount = Object.keys(rowSelection).length;
+
   return (
-    <div>
+    <div className="space-y-4">
       <div className="flex w-full items-center justify-between">
-        <div className="flex items-center py-4">
-          <Input
-            placeholder={placeholder}
-            value={search.value}
-            onChange={(event) => search.onChange(event.target.value)}
-            className="max-w-sm bg-white"
-          />
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder={placeholder}
+              value={search.value}
+              onChange={(event) => search.onChange(event.target.value)}
+              className="w-[300px] bg-white pl-8"
+            />
+            {search.value && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-2 top-1/2 h-6 w-6 -translate-y-1/2"
+                onClick={() => search.onChange("")}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          {selectedRowsCount > 0 && (
+            <div className="text-sm text-muted-foreground">
+              {selectedRowsCount} row{selectedRowsCount > 1 ? "s" : ""} selected
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-4">
           {actionButton}
@@ -132,7 +149,11 @@ export function DataTable<TData, TValue, TSortField extends string>({
                 <span>Columns</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="dark:bg-slate-800">
+            <DropdownMenuContent
+              align="end"
+              className="w-[200px] dark:bg-slate-800"
+            >
+              <div className="p-2 text-sm font-medium">Toggle columns</div>
               {table
                 .getAllColumns()
                 .filter((column) => column.getCanHide())
@@ -152,13 +173,13 @@ export function DataTable<TData, TValue, TSortField extends string>({
           </DropdownMenu>
         </div>
       </div>
-      <div className="rounded-md border-[1px] border-slate-900/10 drop-shadow-sm dark:border-white/10">
-        <Table className="rounded-md hover:bg-transparent">
-          <TableHeader className="bg-white hover:bg-transparent dark:bg-slate-800">
+      <div className="overflow-hidden rounded-md border-[1px] border-slate-900/10 drop-shadow-sm dark:border-white/10">
+        <Table>
+          <TableHeader className="bg-white dark:bg-slate-800">
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
+              <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
+                  <TableHead key={header.id} className="font-medium">
                     {header.isPlaceholder
                       ? null
                       : flexRender(
@@ -170,23 +191,23 @@ export function DataTable<TData, TValue, TSortField extends string>({
               </TableRow>
             ))}
           </TableHeader>
-          <TableBody className="bg-gray-50 hover:bg-gray-200">
+          <TableBody>
             {isLoading ? (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  <div className="flex justify-center">
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                  </div>
-                </TableCell>
-              </TableRow>
+              Array.from({ length: pageSize }).map((_, index) => (
+                <TableRow key={index}>
+                  {columns.map((_, colIndex) => (
+                    <TableCell key={colIndex}>
+                      <Skeleton className="h-6 w-full animate-pulse bg-slate-400" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
             ) : table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() ? "selected" : undefined}
+                  className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
@@ -204,7 +225,22 @@ export function DataTable<TData, TValue, TSortField extends string>({
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  No results.
+                  <div className="flex flex-col items-center justify-center gap-2">
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="size-4 animate-spin" />
+                      <span>No data found</span>
+                    </div>
+                    {search.value && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => search.onChange("")}
+                        className="text-muted-foreground"
+                      >
+                        Clear search
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             )}

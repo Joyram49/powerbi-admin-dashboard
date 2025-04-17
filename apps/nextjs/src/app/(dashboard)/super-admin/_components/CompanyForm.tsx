@@ -61,7 +61,9 @@ const companyFormSchema = z.object({
       "Invalid phone number format",
     ),
   email: z.string().email("Valid email is required"),
-  adminId: z.string().optional(),
+  adminId: z
+    .string()
+    .min(1, "Please select an existing admin or create a new one"),
 });
 
 const adminFormSchema = z
@@ -567,7 +569,7 @@ const CompanyAdminForm = ({
                       >
                         <Button
                           type="submit"
-                          className="bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700"
+                          className="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
                           disabled={companyFormSubmitted}
                         >
                           {companyFormSubmitted ? (
@@ -738,7 +740,7 @@ const CompanyAdminForm = ({
                     >
                       <Button
                         type="submit"
-                        className="bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
+                        className="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
                         disabled={adminFormSubmitted}
                       >
                         {adminFormSubmitted ? (

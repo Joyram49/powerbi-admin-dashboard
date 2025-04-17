@@ -1,6 +1,5 @@
 "use client";
 
-import type { UseFormReturn } from "react-hook-form";
 import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
@@ -28,13 +27,13 @@ import {
 } from "@acme/ui/select";
 import { toast } from "@acme/ui/toast";
 
-import { UserFormPasswordSection } from "~/app/(auth)/_components/UpdatePasswordForm";
+import { UpdatePasswordForm } from "~/app/(auth)/_components/UpdatePasswordForm";
 import { api } from "~/trpc/react";
 
 // Form schema that matches both our create and update API expectations
 const userSchema = z
   .object({
-    id: z.string(),
+    id: z.string().optional(), // Make ID optional for new users
     userName: z
       .string()
       .min(2, "Username is required")
@@ -42,7 +41,9 @@ const userSchema = z
     password: z.string().optional(),
     confirmPassword: z.string().optional(),
     email: z.string().email("Valid email is required"),
-    role: z.enum(["user", "admin", "superAdmin"]).default("user"),
+    role: z.enum(["user", "admin", "superAdmin"], {
+      required_error: "Role is required",
+    }),
     companyId: z.string().uuid().optional(),
     sendWelcomeEmail: z.boolean().default(true),
     modifiedBy: z.string().optional(),
@@ -50,8 +51,11 @@ const userSchema = z
   })
   .refine(
     (data) => {
-      // For new users (no id), password is required
-      if (!data.id && (!data.password || data.password.length === 0)) {
+      // For new users (no id or empty id), password is required
+      if (
+        (!data.id || data.id.trim() === "") &&
+        (!data.password || data.password.length === 0)
+      ) {
         return false;
       }
       return true;
@@ -115,6 +119,19 @@ const userSchema = z
   )
   .refine(
     (data) => {
+      // If password is provided, validate special characters
+      if (data.password && data.password.length > 0) {
+        return /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(data.password);
+      }
+      return true;
+    },
+    {
+      message: "Password must contain at least one special character",
+      path: ["password"],
+    },
+  )
+  .refine(
+    (data) => {
       if (data.password && data.password.length > 0) {
         return data.password === data.confirmPassword;
       }
@@ -123,6 +140,22 @@ const userSchema = z
     {
       message: "Passwords do not match",
       path: ["confirmPassword"],
+    },
+  )
+  .refine(
+    (data) => {
+      // Company ID is required if role is "user"
+      if (
+        data.role === "user" &&
+        (!data.companyId || data.companyId.trim() === "")
+      ) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "Company is required for users",
+      path: ["companyId"],
     },
   );
 
@@ -159,8 +192,12 @@ interface UserFormProps {
   onClose?: () => void;
   initialData?: User;
 }
+
 export function UserForm({ onClose, initialData }: UserFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [formSubmitError, setFormSubmitError] = useState<string | null>(null);
+
   const utils = api.useUtils();
   const { data: profileData } = api.auth.getProfile.useQuery();
   const currentUserId = profileData?.user?.id;
@@ -172,14 +209,16 @@ export function UserForm({ onClose, initialData }: UserFormProps) {
   const createUserMutation = api.auth.createUser.useMutation({
     onSuccess: async () => {
       toast.success("User added successfully");
-
       setIsSubmitting(false);
+      setFormSubmitError(null);
       await utils.user.getAllUsers.invalidate();
       await utils.user.getAdminUsers.invalidate();
       await utils.user.getAllGeneralUser.invalidate();
       if (onClose) onClose();
     },
     onError: (error) => {
+      console.error("Create user error:", error);
+      setFormSubmitError(error.message);
       toast.error("Failed to add user", {
         description: error.message || "An error occurred",
       });
@@ -191,11 +230,15 @@ export function UserForm({ onClose, initialData }: UserFormProps) {
     onSuccess: async () => {
       toast.success("User updated successfully");
       setIsSubmitting(false);
+      setFormSubmitError(null);
       await utils.user.getAllUsers.invalidate();
       await utils.user.getAdminUsers.invalidate();
       await utils.user.getAllGeneralUser.invalidate();
+      if (onClose) onClose();
     },
     onError: (error) => {
+      console.error("Update user error:", error);
+      setFormSubmitError(error.message);
       toast.error("Failed to update user", {
         description: error.message || "An error occurred",
       });
@@ -203,27 +246,105 @@ export function UserForm({ onClose, initialData }: UserFormProps) {
     },
   });
 
-  // Handle form submission
+  // Initialize form with default or user data
+  const form = useForm<FormValues>({
+    resolver: zodResolver(userSchema),
+    defaultValues: {
+      id: initialData?.userId ?? initialData?.id ?? "", // Ensure ID has a default value
+      userName: initialData?.userName ?? "",
+      email: initialData?.email ?? "",
+      role: initialData?.role ?? "user",
+      companyId: initialData?.companyId ?? "",
+      password: "",
+      confirmPassword: "",
+      sendWelcomeEmail: true,
+      modifiedBy: currentUserId ?? "",
+      status: initialData?.status ?? "active",
+    },
+    mode: "onChange",
+  });
+
+  // Reset form when initial data changes
+  useEffect(() => {
+    form.reset({
+      id: initialData?.userId ?? initialData?.id ?? "", // Ensure ID has a default value
+      userName: initialData?.userName ?? "",
+      email: initialData?.email ?? "",
+      role: initialData?.role ?? "user",
+      companyId: initialData?.companyId ?? "",
+      password: "",
+      confirmPassword: "",
+      sendWelcomeEmail: true,
+      modifiedBy: currentUserId ?? "",
+      status: initialData?.status ?? "active",
+    });
+    setFormSubmitError(null);
+  }, [initialData, form, currentUserId]);
+
+  // Validate password meets all requirements
+  const validatePassword = (password: string): boolean => {
+    if (!password || password.length < 12) return false;
+    if (!/[A-Z]/.test(password)) return false;
+    if (!/[a-z]/.test(password)) return false;
+    if (!/[0-9]/.test(password)) return false;
+    if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) return false;
+    return true;
+  };
+
+  // Handle form submission with improved error handling
   const onSubmit = (values: FormValues) => {
     setIsSubmitting(true);
+    setFormSubmitError(null);
+    console.log("Form submitted with values:", values);
 
-    if (values.id) {
+    // Check if we're updating or creating
+    const isUpdateMode = values.id && values.id.trim() !== "";
+
+    if (isUpdateMode) {
       // Update flow
+      if (values.password && !validatePassword(values.password)) {
+        setFormSubmitError(
+          "Password must include at least one uppercase letter, one lowercase letter, one number, and one special character",
+        );
+        setIsSubmitting(false);
+        return;
+      }
+
       const updateData = {
-        userId: values.id,
+        userId: values.id!,
         modifiedBy: currentUserId ?? "",
         role: values.role,
-        status: values.status,
-        companyId: values.companyId ?? undefined,
-        userName: values.userName || undefined,
+        status: values.status ?? "active",
+        companyId: values.companyId,
+        userName: values.userName,
         password: values.password,
       };
 
+      console.log("Updating user:", updateData);
       updateUserMutation.mutate(updateData);
     } else {
       // Create flow
       if (!values.password) {
-        toast.error("Password is required for new users");
+        setFormSubmitError("Password is required for new users");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Verify password meets all requirements
+      if (!validatePassword(values.password)) {
+        setFormSubmitError(
+          "Password must include at least one uppercase letter, one lowercase letter, one number, and one special character",
+        );
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Verify company ID for user role
+      if (
+        values.role === "user" &&
+        (!values.companyId || values.companyId.trim() === "")
+      ) {
+        setFormSubmitError("Company is required for users");
         setIsSubmitting(false);
         return;
       }
@@ -233,51 +354,28 @@ export function UserForm({ onClose, initialData }: UserFormProps) {
         role: values.role,
         password: values.password,
         userName: values.userName,
-        companyId: values.companyId ?? undefined,
+        companyId: values.companyId,
         modifiedBy: currentUserId ?? "",
-        status: values.status,
+        status: values.status ?? "active",
+        sendWelcomeEmail: values.sendWelcomeEmail,
       };
 
+      console.log("Creating user:", createData);
       createUserMutation.mutate(createData);
     }
   };
 
-  // Initialize form with default or user data
-  const form = useForm<FormValues>({
-    resolver: zodResolver(userSchema),
-    defaultValues: {
-      id: initialData?.userId ?? initialData?.id,
-      userName: initialData?.userName,
-      email: initialData?.email,
-      role: initialData?.role,
-      companyId: initialData?.companyId ?? "",
-      password: "",
-      confirmPassword: "",
-      sendWelcomeEmail: true,
-      status: initialData?.status ?? "active",
-    },
-    mode: "onChange",
-  });
-
-  // Reset form when initial data changes
-  useEffect(() => {
-    form.reset({
-      id: initialData?.userId ?? initialData?.id,
-      userName: initialData?.userName,
-      email: initialData?.email,
-      role: initialData?.role,
-      companyId: initialData?.companyId ?? "",
-      password: "",
-      confirmPassword: "",
-      sendWelcomeEmail: true,
-      modifiedBy: currentUserId ?? undefined,
-      status: initialData?.status ?? "active",
-    });
-  }, [initialData, form, currentUserId]);
-
   const role = form.watch("role");
-  const password = form.watch("password");
   const isUpdateMode = !!initialData?.userId || !!initialData?.id;
+
+  const handlePasswordUpdateSuccess = () => {
+    setIsPasswordModalOpen(false);
+    toast.success("Password updated successfully");
+  };
+
+  const handlePasswordModalClose = () => {
+    setIsPasswordModalOpen(false);
+  };
 
   return (
     <Form {...form}>
@@ -288,6 +386,16 @@ export function UserForm({ onClose, initialData }: UserFormProps) {
         initial="hidden"
         animate="visible"
       >
+        {/* Error display if form submission fails */}
+        {formSubmitError && (
+          <motion.div
+            variants={itemVariants}
+            className="rounded-md bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/30 dark:text-red-400"
+          >
+            <p className="font-medium">Error: {formSubmitError}</p>
+          </motion.div>
+        )}
+
         {/* Username Field */}
         <motion.div variants={itemVariants}>
           <FormField
@@ -356,6 +464,10 @@ export function UserForm({ onClose, initialData }: UserFormProps) {
                       />
                     </FormControl>
                     <FormMessage className="text-xs dark:text-red-400" />
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Min. 12 characters with uppercase, lowercase, numbers and
+                      special characters (!@#$%^&*)
+                    </p>
                   </FormItem>
                 )}
               />
@@ -399,15 +511,26 @@ export function UserForm({ onClose, initialData }: UserFormProps) {
                 <Select
                   onValueChange={field.onChange}
                   defaultValue={field.value}
+                  value={field.value}
                 >
                   <FormControl>
                     <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">
                       <SelectValue placeholder="Select user status" />
                     </SelectTrigger>
                   </FormControl>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectContent className="dark:bg-gray-900">
+                    <SelectItem
+                      value="active"
+                      className="dark:hover:bg-gray-800"
+                    >
+                      Active
+                    </SelectItem>
+                    <SelectItem
+                      value="inactive"
+                      className="dark:hover:bg-gray-800"
+                    >
+                      Inactive
+                    </SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage className="text-xs dark:text-red-400" />
@@ -427,21 +550,41 @@ export function UserForm({ onClose, initialData }: UserFormProps) {
                   Role
                 </FormLabel>
                 <Select
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
+                  onValueChange={(value) => {
+                    field.onChange(value);
+                    // Reset company selection if changing from user to admin/superAdmin
+                    if (value !== "user") {
+                      form.setValue("companyId", "");
+                    }
+                  }}
+                  value={field.value}
+                  disabled={!!initialData?.id} // Only disable in update mode
                 >
                   <FormControl>
                     <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">
                       <SelectValue placeholder="Select user role" />
                     </SelectTrigger>
                   </FormControl>
-                  <SelectContent>
-                    <SelectItem value="user">User</SelectItem>
+                  <SelectContent className="dark:bg-gray-900">
+                    <SelectItem
+                      value="user"
+                      className="dark:bg-gray-900 dark:hover:bg-gray-800"
+                    >
+                      User
+                    </SelectItem>
                     {(userRole === "superAdmin" || userRole === "admin") && (
                       <>
-                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem
+                          value="admin"
+                          className="dark:hover:bg-gray-800"
+                        >
+                          Admin
+                        </SelectItem>
                         {userRole === "superAdmin" && (
-                          <SelectItem value="superAdmin">
+                          <SelectItem
+                            value="superAdmin"
+                            className="dark:hover:bg-gray-800"
+                          >
                             Super Admin
                           </SelectItem>
                         )}
@@ -456,7 +599,7 @@ export function UserForm({ onClose, initialData }: UserFormProps) {
         </motion.div>
 
         {/* Company Field (for users) */}
-        {role === "user" && companies?.data && companies.data.length > 0 && (
+        {role === "user" && (
           <motion.div variants={itemVariants}>
             <FormField
               control={form.control}
@@ -464,25 +607,35 @@ export function UserForm({ onClose, initialData }: UserFormProps) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
-                    Company
+                    Company <span className="ml-1 text-red-500">*</span>
                   </FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value ?? ""}
-                  >
-                    <FormControl>
-                      <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">
-                        <SelectValue placeholder="Select company" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {companies.data.map((company) => (
-                        <SelectItem key={company.id} value={company.id}>
-                          {company.companyName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {companies?.data && companies.data.length > 0 ? (
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value || ""}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                          <SelectValue placeholder="Select company" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent className="dark:bg-gray-900">
+                        {companies.data.map((company) => (
+                          <SelectItem
+                            key={company.id}
+                            value={company.id}
+                            className="dark:hover:bg-gray-800"
+                          >
+                            {company.companyName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="text-sm text-amber-600 dark:text-amber-400">
+                      No companies available. Please create a company first.
+                    </div>
+                  )}
                   <FormMessage className="text-xs dark:text-red-400" />
                 </FormItem>
               )}
@@ -517,18 +670,17 @@ export function UserForm({ onClose, initialData }: UserFormProps) {
         )}
 
         {/* Password Update Section for Existing Users */}
-        {isUpdateMode && initialData.id && (
-          <UserFormPasswordSection
-            isUpdateMode={isUpdateMode}
-            userId={initialData.id}
-            form={
-              form as unknown as UseFormReturn<{
-                password: string;
-                confirmPassword: string;
-              }>
-            }
-            password={password}
-          />
+        {isUpdateMode && initialData?.id && (
+          <motion.div variants={itemVariants}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsPasswordModalOpen(true)}
+              className="w-full"
+            >
+              Reset Password
+            </Button>
+          </motion.div>
         )}
 
         {/* Submit Buttons */}
@@ -539,8 +691,12 @@ export function UserForm({ onClose, initialData }: UserFormProps) {
           <Button
             type="button"
             variant="outline"
-            onClick={() => form.reset()}
-            className="border-gray-300 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+            onClick={() => {
+              form.reset();
+              setFormSubmitError(null);
+              if (onClose) onClose();
+            }}
+            className="border-gray-300 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800"
             disabled={isSubmitting}
           >
             Cancel
@@ -570,6 +726,17 @@ export function UserForm({ onClose, initialData }: UserFormProps) {
           </motion.div>
         </motion.div>
       </motion.form>
+
+      {/* Password Update Modal */}
+      {isUpdateMode && initialData?.id && (
+        <UpdatePasswordForm
+          isModal
+          isOpen={isPasswordModalOpen}
+          onClose={handlePasswordModalClose}
+          userId={initialData.id}
+          onSuccess={handlePasswordUpdateSuccess}
+        />
+      )}
     </Form>
   );
 }

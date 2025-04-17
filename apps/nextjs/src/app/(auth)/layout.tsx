@@ -5,7 +5,7 @@ import AuthFooter from "./_components/AuthFooter";
 
 function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <main className="container flex h-screen flex-col justify-between px-4 py-0">
+    <main className="container flex h-screen flex-col justify-between px-4 py-0 dark:bg-gray-900">
       <div className="relative mt-4 flex flex-1 flex-col items-center justify-center">
         <Image
           src="/joc-logo-color.png"

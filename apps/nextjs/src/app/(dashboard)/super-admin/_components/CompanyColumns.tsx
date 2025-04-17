@@ -2,8 +2,10 @@
 
 import type { Column, ColumnDef, Row, Table } from "@tanstack/react-table";
 import React, { useMemo } from "react";
+import Link from "next/link";
 import { ArrowUpDown } from "lucide-react";
 
+import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
 import { Checkbox } from "@acme/ui/checkbox";
 
@@ -11,14 +13,6 @@ import type { Company } from "~/types/company";
 import { api } from "~/trpc/react";
 import { EntityActions } from "../../_components/EntityActions";
 import CompanyAdminForm from "./CompanyForm";
-
-// Status color mapping for better UI
-const STATUS_COLORS = {
-  active: "text-green-600",
-  inactive: "text-gray-500",
-  suspended: "text-red-600",
-  pending: "text-yellow-600",
-};
 
 interface TableMeta {
   sorting?: {
@@ -106,8 +100,43 @@ export function useCompanyColumns() {
         ),
       },
       {
+        accessorKey: "companyAdmin",
+        header: () => <div className="text-center font-medium">Admin</div>,
+        cell: ({ row }) => {
+          const admin = row.original.admin;
+          return (
+            <div className="text-center">
+              {admin.userName || "Admin not found"}
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: "companyAddress",
+        header: () => <div className="text-center font-medium">Address</div>,
+        cell: ({ row }) => (
+          <div className="text-center">{row.original.address}</div>
+        ),
+      },
+      {
+        accessorKey: "phone",
+        header: () => <div className="text-center font-medium">Phone</div>,
+        cell: ({ row }) => (
+          <div className="text-center">{row.original.phone}</div>
+        ),
+      },
+      {
+        accessorKey: "email",
+        header: () => <div className="text-center font-medium">Email</div>,
+        cell: ({ row }) => (
+          <div className="text-center">{row.original.email}</div>
+        ),
+      },
+      {
         accessorKey: "employeeCount",
-        header: () => <div className="text-center font-medium"># Users</div>,
+        header: () => (
+          <div className="text-center font-medium"># employees</div>
+        ),
         cell: ({ row }) => (
           <div className="text-center">{row.original.employeeCount}</div>
         ),
@@ -116,7 +145,17 @@ export function useCompanyColumns() {
         accessorKey: "reportCount",
         header: () => <div className="text-center font-medium"># Reports</div>,
         cell: ({ row }) => (
-          <div className="text-center">{row.original.reportCount}</div>
+          <Link
+            href={`/super-admin/reports?companyId=${row.original.id}`}
+            className="flex justify-center"
+          >
+            <Button
+              variant="link"
+              className="bg-gray-100 text-center dark:bg-gray-800"
+            >
+              {row.original.reportCount}
+            </Button>
+          </Link>
         ),
       },
       {
@@ -184,13 +223,12 @@ export function useCompanyColumns() {
         cell: ({ row }) => {
           const status = row.original.status;
           return (
-            <div
-              className={`text-center font-semibold ${status ? STATUS_COLORS[status] : "text-gray-500"}`}
+            <Badge
+              variant={status === "active" ? "success" : "destructive"}
+              className="justify-center"
             >
-              {status
-                ? status.charAt(0).toUpperCase() + status.slice(1)
-                : "N/A"}
-            </div>
+              {(status as string) || "N/A"}
+            </Badge>
           );
         },
       },

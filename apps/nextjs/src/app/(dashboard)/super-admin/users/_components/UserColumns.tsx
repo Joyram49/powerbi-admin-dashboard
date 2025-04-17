@@ -1,7 +1,7 @@
 "use client";
 
 import type { Column, ColumnDef, Row, Table } from "@tanstack/react-table";
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { ArrowUpDown, UserPlus } from "lucide-react";
 
@@ -9,6 +9,7 @@ import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
 import { Checkbox } from "@acme/ui/checkbox";
 
+import { UpdatePasswordForm } from "~/app/(auth)/_components/UpdatePasswordForm";
 import { EntityActions } from "~/app/(dashboard)/_components/EntityActions";
 import { api } from "~/trpc/react";
 import { UserForm } from "./UserForm";
@@ -24,6 +25,11 @@ export function useUserColumns() {
   // Move hook calls inside the custom hook
   const utils = api.useUtils();
   const deleteMutation = api.user.deleteUser.useMutation();
+  const [selectedUserForPasswordReset, setSelectedUserForPasswordReset] =
+    useState<{
+      id: string;
+      isOpen: boolean;
+    } | null>(null);
 
   return useMemo(() => {
     const columns: ColumnDef<User>[] = [
@@ -190,61 +196,80 @@ export function useUserColumns() {
           const user = row.original;
 
           return (
-            <EntityActions<User>
-              entity={user}
-              entityName="User"
-              entityDisplayField="userName"
-              copyActions={[
-                { label: "Copy User ID", field: "id" },
-                { label: "Copy Email", field: "email" },
-              ]}
-              customActions={[
-                {
-                  label: "Reset Password",
-                  icon: <UserPlus className="h-4 w-4" />,
-                  onClick: () => {
-                    // Handle password reset logic
+            <>
+              <EntityActions<User>
+                entity={user}
+                entityName="User"
+                entityDisplayField="userName"
+                copyActions={[
+                  { label: "Copy User ID", field: "id" },
+                  { label: "Copy Email", field: "email" },
+                ]}
+                customActions={[
+                  {
+                    label: "Reset Password",
+                    icon: <UserPlus className="h-4 w-4" />,
+                    onClick: () => {
+                      setSelectedUserForPasswordReset({
+                        id: user.id,
+                        isOpen: true,
+                      });
+                    },
                   },
-                },
-              ]}
-              editAction={{
-                onEdit: () => {
-                  // This is handled by EntityActions component
-                },
-                editForm: (
-                  <UserForm
-                    initialData={user}
-                    onClose={async () => {
-                      await utils.user.getAllUsers.invalidate();
-                      await utils.user.getAdminUsers.invalidate();
-                      await utils.user.getAllGeneralUser.invalidate();
-                    }}
-                  />
-                ),
-              }}
-              deleteAction={{
-                onDelete: async () => {
-                  await deleteMutation.mutateAsync({
-                    userId: user.id,
-                    role: user.role,
-                    modifiedBy: "",
-                  });
-                  await utils.user.getAllUsers.invalidate();
-                  await utils.user.getAdminUsers.invalidate();
-                  await utils.user.getAllGeneralUser.invalidate();
-                },
-                title: "Delete User Account",
-                description:
-                  "Are you sure you want to delete this user account? All associated data will be lost.",
-              }}
-            />
+                ]}
+                editAction={{
+                  onEdit: () => {
+                    // This is handled by EntityActions component
+                  },
+                  editForm: (
+                    <UserForm
+                      initialData={user}
+                      onClose={async () => {
+                        await utils.user.getAllUsers.invalidate();
+                        await utils.user.getAdminUsers.invalidate();
+                        await utils.user.getAllGeneralUser.invalidate();
+                      }}
+                    />
+                  ),
+                }}
+                deleteAction={{
+                  onDelete: async () => {
+                    await deleteMutation.mutateAsync({
+                      userId: user.id,
+                      role: user.role,
+                      modifiedBy: "",
+                    });
+                    await utils.user.getAllUsers.invalidate();
+                    await utils.user.getAdminUsers.invalidate();
+                    await utils.user.getAllGeneralUser.invalidate();
+                  },
+                  title: "Delete User Account",
+                  description:
+                    "Are you sure you want to delete this user account? All associated data will be lost.",
+                }}
+              />
+
+              {/* Password Reset Modal */}
+              {selectedUserForPasswordReset?.id === user.id && (
+                <UpdatePasswordForm
+                  isModal
+                  isOpen={selectedUserForPasswordReset.isOpen}
+                  onClose={() => setSelectedUserForPasswordReset(null)}
+                  userId={user.id}
+                  onSuccess={async () => {
+                    setSelectedUserForPasswordReset(null);
+                    await utils.user.getAllUsers.invalidate();
+                  }}
+                />
+              )}
+            </>
           );
         },
       },
     ];
 
     return columns;
-  }, [deleteMutation, utils]);
+  }, [deleteMutation, utils, selectedUserForPasswordReset]);
 }
 
 export default useUserColumns;

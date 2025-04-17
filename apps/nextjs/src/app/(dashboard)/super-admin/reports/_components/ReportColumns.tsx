@@ -2,8 +2,9 @@
 
 import type { Column, ColumnDef, Row, Table } from "@tanstack/react-table";
 import React, { useMemo } from "react";
-import { ArrowUpDown } from "lucide-react";
+import { ArrowUpDown, ExternalLinkIcon } from "lucide-react";
 
+import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
 import { Checkbox } from "@acme/ui/checkbox";
 
@@ -11,12 +12,6 @@ import type { ReportType } from "./ReportForm";
 import { EntityActions } from "~/app/(dashboard)/_components/EntityActions";
 import { api } from "~/trpc/react";
 import ReportForm from "./ReportForm";
-
-// Status color mapping for better UI
-const STATUS_COLORS = {
-  active: "text-green-600",
-  inactive: "text-gray-500",
-};
 
 interface TableMeta {
   sorting?: {
@@ -62,6 +57,7 @@ export function useReportColumns() {
         header: () => <div className="text-left font-medium">Report ID</div>,
         cell: ({ row }) => {
           const { id } = row.original;
+
           return (
             <div className="text-left">
               <span className="hidden xl:inline">{id}</span>
@@ -104,6 +100,26 @@ export function useReportColumns() {
         ),
       },
       {
+        accessorKey: "reportUrl",
+        header: () => <div className="text-center font-medium">URL</div>,
+        cell: ({ row }) => (
+          <div className="text-center">
+            <button
+              onClick={() =>
+                window.open(
+                  row.original.reportUrl,
+                  "_blank",
+                  "noopener,noreferrer",
+                )
+              }
+              className="cursor-pointer"
+            >
+              <ExternalLinkIcon className="h-4 w-4" />
+            </button>
+          </div>
+        ),
+      },
+      {
         accessorKey: "company",
         header: () => <div className="text-center font-medium">Company</div>,
         cell: ({ row }) => (
@@ -116,7 +132,7 @@ export function useReportColumns() {
         accessorKey: "userCount",
         header: () => <div className="text-center font-medium"># Users</div>,
         cell: ({ row }) => (
-          <div className="text-center">{row.original.userCount ?? 0}</div>
+          <div className="text-center">{row.original.userCounts ?? 0}</div>
         ),
       },
       {
@@ -191,15 +207,12 @@ export function useReportColumns() {
         cell: ({ row }) => {
           const status = row.original.status;
           return (
-            <div
-              className={`text-center font-semibold ${
-                status ? STATUS_COLORS[status] : "text-gray-500"
-              }`}
+            <Badge
+              variant={status === "active" ? "success" : "destructive"}
+              className="justify-center"
             >
-              {status
-                ? status.charAt(0).toUpperCase() + status.slice(1)
-                : "N/A"}
-            </div>
+              {(status as string) || "N/A"}
+            </Badge>
           );
         },
       },

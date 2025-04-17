@@ -22,13 +22,16 @@ export const createUserSchema = z
       .min(12, { message: "Password must be between 12-20 characters" })
       .max(20, { message: "Password must be between 12-20 characters" })
       .regex(
-        /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\]{};:'"\\|,.<>/?[]]).+$/,
+        /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).+$/,
         {
           message:
             "Password must include at least one uppercase letter, one number, and one special character",
         },
       ),
-    role: z.enum(["superAdmin", "admin", "user"]),
+    role: z.enum(["superAdmin", "admin", "user"], {
+      required_error: "Role is required",
+      invalid_type_error: "Invalid role selected",
+    }),
     companyId: z.string().optional(),
     userName: z.string().optional(),
     modifiedBy: z.string().optional(),
