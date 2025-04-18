@@ -22,12 +22,16 @@ export async function POST(req: Request) {
     // Handle the event
     switch (event.type) {
       case "checkout.session.completed":
+        console.log("checkout.session.completed");
         // Handle successful payment
         break;
       case "customer.subscription.updated":
+        console.log("customer.subscription.updated");
         // Handle subscription changes
         break;
       // Add more event handlers as needed
+      default:
+        console.log(`Unhandled event type ${event.type}`);
     }
 
     return new Response(null, { status: 200 });

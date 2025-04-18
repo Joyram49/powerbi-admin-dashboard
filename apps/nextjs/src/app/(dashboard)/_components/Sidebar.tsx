@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   BarChart3,
+  CreditCard,
   FileText,
   Home,
   KeyRound,
@@ -55,6 +56,11 @@ const navigationItems = {
       href: "/admin/reports",
       icon: <FileText className="mr-3 h-5 w-5" />,
       label: "Reports",
+    },
+    {
+      href: "/admin/billing",
+      icon: <CreditCard className="mr-3 h-5 w-5" />,
+      label: "Pricing Plans",
     },
   ],
   user: [

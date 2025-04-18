@@ -17,18 +17,18 @@ interface TierConfig {
 export const tierProducts: Record<Tier, TierConfig> = {
   data_foundation: {
     name: "Data Foundation",
-    recurringPriceId: "price_1XXXXX123DF_SUB",
-    setupFeePriceId: "price_1XXXXX123DF_SETUP",
+    recurringPriceId: "price_1RE3RB2KLgZYaaOjaRTP7jfw",
+    setupFeePriceId: "price_1RE3Si2KLgZYaaOjrsJ72fd7",
   },
   insight_accelerator: {
     name: "Insight Accelerator",
-    recurringPriceId: "price_1XXXXX123IA_SUB",
-    setupFeePriceId: "price_1XXXXX123IA_SETUP",
+    recurringPriceId: "price_1RE3TZ2KLgZYaaOjlPgbBRPG",
+    setupFeePriceId: "price_1RE3UN2KLgZYaaOjaIsY6puy",
   },
   strategic_navigator: {
     name: "Strategic Navigator",
-    recurringPriceId: "price_1XXXXX123SN_SUB",
-    setupFeePriceId: "price_1XXXXX123SN_SETUP",
+    recurringPriceId: "price_1RE3Ut2KLgZYaaOjKRN9SB44",
+    setupFeePriceId: "price_1RE3VH2KLgZYaaOjAiEdjQ2P",
   },
   enterprise: {
     name: "Enterprise",
