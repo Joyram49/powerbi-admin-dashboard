@@ -1,4 +1,3 @@
-// src/components/ui/multi-select.tsx
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -63,6 +62,11 @@ export function MultiSelect({
   const getLabel = (value: string): string => {
     return options.find((option) => option.value === value)?.label ?? value;
   };
+
+  // Filter options to only show unselected items in the dropdown
+  const availableOptions = options.filter(
+    (option) => !selected.includes(option.value),
+  );
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -134,7 +138,7 @@ export function MultiSelect({
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 </div>
               ) : (
-                options.map((option) => (
+                availableOptions.map((option) => (
                   <CommandItem
                     key={option.value}
                     onSelect={() => handleSelect(option.value)}

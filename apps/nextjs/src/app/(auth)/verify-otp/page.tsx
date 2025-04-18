@@ -2,7 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 
-import TokenVerifyForm from "../_components/token-verify-form";
+import TokenVerifyForm from "../_components/TokenVerifyForm";
 
 function VerifyOtpPage() {
   const searchParams = useSearchParams();

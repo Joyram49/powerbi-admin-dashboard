@@ -2,7 +2,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@acme/ui/avatar";
 import { ThemeToggle } from "@acme/ui/theme";
 
 import { api } from "~/trpc/server";
-import { CustomTrigger } from "./sidebar-trigger";
+import { CustomTrigger } from "./SidebarTrigger";
 
 interface UserMetadata {
   firstLetter?: string;
@@ -13,6 +13,24 @@ interface UserMetadata {
 
 export default async function Header() {
   const { user } = await api.auth.getProfile();
+  if (!user) {
+    // Return minimal header for logged out state
+    return (
+      <header className="border-b border-gray-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <div className="flex h-16 items-center justify-between px-6">
+          <div className="flex items-center justify-center gap-x-4 justify-self-start">
+            <CustomTrigger />
+            <h1 className="hidden text-xl font-semibold dark:text-white lg:block">
+              Dashboard
+            </h1>
+          </div>
+          <div className="flex items-center space-x-2">
+            <ThemeToggle />
+          </div>
+        </div>
+      </header>
+    );
+  }
   if (user.id && typeof user.user_metadata.userName === "string") {
     const userMetadata: UserMetadata = {
       userName: user.user_metadata.userName,

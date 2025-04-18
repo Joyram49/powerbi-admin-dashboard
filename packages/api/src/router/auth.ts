@@ -28,7 +28,10 @@ export const createUserSchema = z
             "Password must include at least one uppercase letter, one number, and one special character",
         },
       ),
-    role: z.enum(["superAdmin", "admin", "user"]),
+    role: z.enum(["superAdmin", "admin", "user"], {
+      required_error: "Role is required",
+      invalid_type_error: "Invalid role selected",
+    }),
     companyId: z.string().optional(),
     userName: z.string().optional(),
     modifiedBy: z.string().optional(),
@@ -365,21 +368,21 @@ export const authRouter = createTRPCRouter({
     try {
       const supabase = createClientServer();
       const { data, error } = await supabase.auth.getUser();
+
       if (error) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: error.message || "Failed to get user profile",
-        });
+        // Instead of throwing an error, return a default response
+        console.log(
+          "User not authenticated or session expired:",
+          error.message,
+        );
+        return { user: null };
       }
+
       return data;
     } catch (error) {
-      if (error instanceof TRPCError) {
-        throw error;
-      }
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: String(error),
-      });
+      console.error("Unexpected error in getProfile:", error);
+      // Return a default response instead of throwing
+      return { user: null };
     }
   }),
 

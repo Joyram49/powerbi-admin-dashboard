@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 
-import { SignInForm } from "../_components/sign-in-form";
+import { SignInForm } from "../_components/SignInForm";
 
 function AuthShowcaseSkeleton() {
   return (

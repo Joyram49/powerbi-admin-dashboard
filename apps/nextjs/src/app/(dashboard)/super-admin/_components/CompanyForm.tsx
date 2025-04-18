@@ -8,7 +8,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
-  Save,
   User,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
@@ -43,6 +42,7 @@ import {
 import { Separator } from "@acme/ui/separator";
 import { toast, Toaster } from "@acme/ui/toast";
 
+import type { Company } from "~/types/company";
 import { api } from "~/trpc/react";
 
 const PHONE_NUMBER_REGEX =
@@ -61,7 +61,9 @@ const companyFormSchema = z.object({
       "Invalid phone number format",
     ),
   email: z.string().email("Valid email is required"),
-  adminId: z.string().optional(),
+  adminId: z
+    .string()
+    .min(1, "Please select an existing admin or create a new one"),
 });
 
 const adminFormSchema = z
@@ -119,20 +121,6 @@ interface User {
   email: string;
   role: string;
   status?: "active" | "inactive" | null;
-}
-
-interface AdminUser {
-  id: string;
-  userName: string;
-}
-
-interface Company {
-  id: string;
-  companyName: string;
-  address: string;
-  phone?: string;
-  email: string;
-  admin: AdminUser;
 }
 
 const CompanyAdminForm = ({
@@ -293,7 +281,9 @@ const CompanyAdminForm = ({
     } catch (error) {
       setCompanyFormSubmitted(false);
       toast.error("Submission Error", {
-        description: "Failed to process company data",
+        description: `Failed to process company data: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
       });
     }
   };
@@ -579,7 +569,7 @@ const CompanyAdminForm = ({
                       >
                         <Button
                           type="submit"
-                          className="bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700"
+                          className="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
                           disabled={companyFormSubmitted}
                         >
                           {companyFormSubmitted ? (
@@ -750,7 +740,7 @@ const CompanyAdminForm = ({
                     >
                       <Button
                         type="submit"
-                        className="bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
+                        className="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
                         disabled={adminFormSubmitted}
                       >
                         {adminFormSubmitted ? (

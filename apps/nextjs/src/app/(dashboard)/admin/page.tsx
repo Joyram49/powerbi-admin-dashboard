@@ -1,87 +1,121 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Plus, Search } from "lucide-react";
+import type { ColumnDef } from "@tanstack/react-table";
+import { useCallback, useState } from "react";
 
-import { Badge } from "@acme/ui/badge";
-import { Button } from "@acme/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@acme/ui/card";
-import { Input } from "@acme/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@acme/ui/table";
-
+import { useDebounce } from "~/hooks/useDebounce";
 import { api } from "~/trpc/react";
-import { UsersDataTable } from "../_components/user-data-table";
-import ReportsPage from "../super-admin/reports/page";
+import { DataTable } from "../_components/DataTable";
+import { useUserColumns } from "../super-admin/users/_components/UserColumns";
+import UserModalButton from "../super-admin/users/_components/UserModal";
 
-// Dummy data function for reports
-const getReports = () => {
-  return [
+interface CompanyUser {
+  id: string;
+  userName: string;
+  email: string;
+  role: "user" | "admin" | "superAdmin";
+  status: "active" | "inactive" | null;
+  dateCreated: Date;
+  lastLogin: Date | null;
+  companyId: string | null;
+  modifiedBy: string | null;
+  isSuperAdmin: boolean;
+  passwordHistory: string[] | null;
+  company: {
+    companyName: string;
+  } | null;
+}
+
+export default function AdminPage() {
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+  });
+  const [searchInput, setSearchInput] = useState("");
+  // TODO: Add debounce to search input in api endpoint
+  // const debouncedSearch = useDebounce(searchInput, 500);
+  const [sortBy, setSortBy] = useState<"userName" | "dateCreated">(
+    "dateCreated",
+  );
+
+  // Get user profile to access company ID
+  const { data: profileData } = api.auth.getProfile.useQuery();
+  const userId = profileData?.user?.id;
+  const { data: companies } = api.company.getCompaniesByAdminId.useQuery({
+    companyAdminId: userId!,
+  });
+  const companyId = companies?.data[0]?.id;
+
+  // Fetch users for the company
+  const { data: usersData, isLoading } = api.user.getUsersByCompanyId.useQuery(
     {
-      id: 1,
-      name: "Sample demo report",
-      createdBy: "Admin",
-      createdDate: "2025-03-10",
-      users: 8,
-      active: true,
+      companyId: companyId!,
+      limit: pagination.limit,
+      page: pagination.page,
     },
     {
-      id: 2,
-      name: "Monthly sales report",
-      createdBy: "Admin",
-      createdDate: "2025-03-05",
-      users: 5,
-      active: true,
+      enabled: !!companyId,
     },
-    {
-      id: 3,
-      name: "User activity log",
-      createdBy: "System",
-      createdDate: "2025-02-28",
-      users: 3,
-      active: false,
+  );
+  console.log(usersData);
+  const columns = useUserColumns() as ColumnDef<CompanyUser, unknown>[];
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchInput(value);
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  }, []);
+
+  const handleSortChange = useCallback(
+    (newSortBy: "userName" | "dateCreated") => {
+      setSortBy(newSortBy);
     },
-    {
-      id: 4,
-      name: "Quarterly performance",
-      createdBy: "Admin",
-      createdDate: "2025-01-15",
-      users: 10,
-      active: true,
-    },
-  ];
-};
+    [],
+  );
 
-// Animation variants
-const rowVariants = {
-  hidden: { opacity: 0, scale: 0.95 },
-  visible: { opacity: 1, scale: 1, transition: { duration: 0.3 } },
-};
+  const handlePageSizeChange = useCallback((newPageSize: number) => {
+    setPagination(() => ({
+      limit: newPageSize,
+      page: 1,
+    }));
+  }, []);
 
-const pageVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
-};
-
-export default function AdminDashboard() {
-  const { data } = api.auth.getProfile.useQuery();
-  const userRole = data?.user.user_metadata.role as string;
+  const transformedUsers =
+    usersData?.users.map((user) => ({
+      ...user,
+      isSuperAdmin: user.role === "superAdmin",
+      passwordHistory: [],
+    })) ?? [];
 
   return (
-    <motion.main
-      className="flex-1 overflow-y-auto p-6"
-      initial="hidden"
-      animate="visible"
-      variants={pageVariants}
-    >
-      <UsersDataTable userRole={userRole} />
-    </motion.main>
+    <div className="container mx-auto w-full p-6">
+      <DataTable<CompanyUser, unknown, "userName" | "dateCreated">
+        columns={columns}
+        data={transformedUsers}
+        pagination={{
+          pageCount:
+            usersData?.total && usersData.limit
+              ? Math.ceil(usersData.total / usersData.limit)
+              : 0,
+          page: pagination.page,
+          onPageChange: (page: number) =>
+            setPagination((prev) => ({ ...prev, page })),
+          onPageSizeChange: handlePageSizeChange,
+        }}
+        sorting={{
+          sortBy,
+          onSortChange: handleSortChange,
+          sortOptions: ["userName", "dateCreated"],
+        }}
+        search={{
+          value: searchInput,
+          onChange: handleSearchChange,
+        }}
+        isLoading={isLoading}
+        placeholder="Search by user email..."
+        actionButton={<UserModalButton />}
+        pageSize={pagination.limit}
+        pageSizeOptions={[10, 20, 50, 100]}
+      />
+    </div>
   );
 }

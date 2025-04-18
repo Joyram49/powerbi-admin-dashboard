@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { DataTable } from "./_components/company-data-table";
+
+import type { Company } from "~/types/company"; // Make sure to import the Company type
 import { useDebounce } from "~/hooks/useDebounce";
 import { api } from "~/trpc/react";
-import columns from "./_components/company-columns";
-
-
+import { DataTable } from "../_components/DataTable";
+import { useCompanyColumns } from "./_components/CompanyColumns";
+import CompanyModalButton from "./_components/CompanyModal";
 
 export default function SuperDashboard() {
   const [pagination, setPagination] = useState({
@@ -16,6 +17,7 @@ export default function SuperDashboard() {
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearch = useDebounce(searchInput, 500); // 500ms delay
   const [sortBy, setSortBy] = useState<"companyName" | "dateJoined">();
+  const columns = useCompanyColumns();
 
   const { data: companyData, isLoading } = api.company.getAllCompanies.useQuery(
     {
@@ -25,33 +27,51 @@ export default function SuperDashboard() {
       limit: pagination.limit,
     },
   );
+  console.log(companyData);
+  // Extract actual company data array from the response
+  const companies = companyData?.data ?? [];
 
   const handleSearchChange = useCallback((value: string) => {
     setSearchInput(value);
     setPagination((prev) => ({ ...prev, page: 1 })); // Reset to first page on search
   }, []);
 
+  // Handle page size change
+  const handlePageSizeChange = useCallback((newPageSize: number) => {
+    setPagination({
+      limit: newPageSize,
+      page: 1, // Reset to first page when changing page size
+    });
+  }, []);
+
   return (
     <div className="container mx-auto w-full p-6">
-      <DataTable
+      <DataTable<Company, unknown, "companyName" | "dateJoined">
         columns={columns}
-        data={companyData?.data}
+        data={companies}
         pagination={{
-          pageCount: companyData
-            ? Math.ceil(companyData.total / companyData.limit)
-            : 0,
+          pageCount:
+            companyData?.total && companyData.limit
+              ? Math.ceil(companyData.total / companyData.limit)
+              : 0,
           page: pagination.page,
           onPageChange: (page) => setPagination((prev) => ({ ...prev, page })),
+          onPageSizeChange: handlePageSizeChange, // Add page size change handler
         }}
         sorting={{
           sortBy,
           onSortChange: (newSortBy) => setSortBy(newSortBy),
+          sortOptions: ["companyName", "dateJoined"],
         }}
         search={{
           value: searchInput,
           onChange: handleSearchChange,
         }}
+        placeholder="Search companies..."
+        actionButton={<CompanyModalButton />}
         isLoading={isLoading}
+        pageSize={pagination.limit}
+        pageSizeOptions={[10, 20, 50, 100]}
       />
     </div>
   );

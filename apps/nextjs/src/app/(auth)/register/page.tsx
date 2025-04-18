@@ -1,9 +1,6 @@
 // app/signup/page.tsx
 import type { Metadata } from "next";
-import { SignUpForm } from "../_components/sign-up";
-
-
-
+import { SignUpForm } from "../_components/SignUp";
 
 export const metadata: Metadata = {
   title: "Sign Up",
@@ -14,7 +11,7 @@ export const metadata: Metadata = {
 export default function SignUpPage() {
   return (
     <div className="container mx-auto py-10">
-      <SignUpForm  />
+      <SignUpForm />
     </div>
   );
 }

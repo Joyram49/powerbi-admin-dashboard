@@ -16,6 +16,7 @@ import {
 
 import { Sidebar, SidebarTrigger } from "@acme/ui/sidebar";
 
+import { useActiveTimeTracker } from "~/hooks/userSessionsTrack";
 import { api } from "~/trpc/react";
 
 const navigationItems = {
@@ -80,19 +81,64 @@ const navigationItems = {
 export default function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { data } = api.auth.getProfile.useQuery();
-  const userRole = data?.user.user_metadata.role as string;
+  const { data, isLoading } = api.auth.getProfile.useQuery();
+  const userRole = data?.user?.user_metadata.role as string;
+  const { totalActiveTime, sessionId } = useActiveTimeTracker();
 
   const logoutMutation = api.auth.signOut.useMutation({
     onSuccess: () => {
-      router.push("/login");
+      router.refresh();
     },
   });
-
+  const updateSession = api.session.updateSession.useMutation();
   const handleLogout = async () => {
-    await logoutMutation.mutateAsync();
+    try {
+      // First update the session
+      await updateSession.mutateAsync({
+        sessionId,
+        totalActiveTime,
+      });
+
+      // Then sign out
+      await logoutMutation.mutateAsync();
+
+      // Clear local storage
+      localStorage.removeItem("totalActiveTime");
+
+      // Immediately redirect to prevent additional authenticated API calls
+      router.push("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      // Still redirect even if there's an error
+      router.push("/login");
+    }
   };
 
+  // Show loading state while fetching user role
+  if (isLoading) {
+    return (
+      <Sidebar className="hidden w-full max-w-64 flex-col bg-slate-900 text-white dark:bg-slate-800 lg:flex">
+        <div className="flex h-16 items-center justify-between border-b border-slate-800 bg-slate-900 px-4">
+          <div className="flex items-center">
+            <BarChart3 className="h-6 w-6 text-blue-500" />
+            <span className="ml-2 text-xl font-bold text-white">
+              JOC Analytics
+            </span>
+          </div>
+          <SidebarTrigger className="size-7 p-1 !text-white hover:bg-slate-800" />
+        </div>
+        <nav className="flex-1 overflow-y-auto bg-slate-900 py-4">
+          <div className="animate-pulse space-y-2 px-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-10 rounded bg-slate-800"></div>
+            ))}
+          </div>
+        </nav>
+      </Sidebar>
+    );
+  }
+
+  // Default to user navigation if role is not available
   const items =
     userRole && Object.keys(navigationItems).includes(userRole)
       ? navigationItems[userRole as keyof typeof navigationItems]

@@ -45,7 +45,7 @@ export const sessionRouter = createTRPCRouter({
         .insert(userSessions)
         .values({
           userId,
-          reportId: "57180f3a-075b-410b-a14f-d5e5686b406c",
+          reportId: "333711d6-91e8-4702-ac7a-f87b2aae64aa",
         })
         .returning();
 

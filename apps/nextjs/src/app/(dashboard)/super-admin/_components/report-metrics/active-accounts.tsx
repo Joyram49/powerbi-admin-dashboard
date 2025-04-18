@@ -12,24 +12,9 @@ import {
 import { api } from "~/trpc/server";
 
 async function ActiveAccountsCard() {
+  console.log("active accounts");
   const activeUsersResponse = await api.session.getActiveUsersCount();
-
-  // Check if the response is successful and contains data
-  if (!activeUsersResponse.success) {
-    return (
-      <Card className="@container/card dark:bg-slate-900">
-        <CardHeader className="relative">
-          <CardDescription>Error fetching data</CardDescription>
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1 text-sm">
-          <div className="text-muted-foreground">
-            Unable to retrieve active accounts data.
-          </div>
-        </CardFooter>
-      </Card>
-    );
-  }
-
+  console.log(activeUsersResponse);
   return (
     <Card className="@container/card dark:bg-slate-900">
       <CardHeader className="relative">
