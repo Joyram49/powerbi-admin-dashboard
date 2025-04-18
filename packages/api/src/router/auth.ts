@@ -574,8 +574,8 @@ export const authRouter = createTRPCRouter({
 
         const passwordHistory = userRecord[0]?.passwordHistory ?? [];
 
-        const isPasswordExist = passwordHistory.some((password) =>
-          compareSync(password, input.password),
+        const isPasswordExist = passwordHistory.some((hashedPassword) =>
+          compareSync(input.password, hashedPassword),
         );
 
         // Check if the new password is in the history
@@ -713,8 +713,8 @@ export const authRouter = createTRPCRouter({
         }
 
         // check if the new password was used before
-        const isPasswordExist = passwordHistory.some((password) =>
-          compareSync(password, input.password),
+        const isPasswordExist = passwordHistory.some((hashedPassword) =>
+          compareSync(input.password, hashedPassword),
         );
 
         if (isPasswordExist) {
