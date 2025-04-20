@@ -55,7 +55,7 @@ export function Pagination({
     <div className="flex flex-col gap-4 p-4">
       {/* Items count */}
       {totalItems !== undefined && (
-        <div className="text-sm text-muted-foreground">
+        <div className="text-sm text-muted-foreground dark:text-gray-400">
           Showing {Math.min((currentPage - 1) * pageSize + 1, totalItems)} to{" "}
           {Math.min(currentPage * pageSize, totalItems)} of {totalItems} items
         </div>
@@ -63,7 +63,7 @@ export function Pagination({
 
       {/* Selected rows count - only shown when selected */}
       {showSelectedRowsCount && selectedRows > 0 && (
-        <div className="text-sm text-muted-foreground">
+        <div className="text-sm text-muted-foreground dark:text-gray-400">
           {selectedRows} of {filteredRows} row(s) selected.
         </div>
       )}
@@ -72,14 +72,20 @@ export function Pagination({
         {/* Rows per page selector */}
         {showPageSizeSelector && onPageSizeChange && (
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">Rows per page</span>
+            <span className="text-sm font-medium dark:text-gray-300">
+              Rows per page
+            </span>
             <Select value={`${pageSize}`} onValueChange={handlePageSizeChange}>
-              <SelectTrigger className="h-8 w-16">
+              <SelectTrigger className="h-8 w-16 bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">
                 <SelectValue placeholder={pageSize} />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-white dark:border-gray-700 dark:bg-gray-800">
                 {pageSizeOptions.map((size) => (
-                  <SelectItem key={size} value={`${size}`}>
+                  <SelectItem
+                    key={size}
+                    value={`${size}`}
+                    className="dark:text-white dark:hover:bg-gray-700 dark:focus:bg-gray-700"
+                  >
                     {size}
                   </SelectItem>
                 ))}
@@ -90,7 +96,7 @@ export function Pagination({
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           {/* Page indicator */}
-          <div className="text-sm font-medium">
+          <div className="text-sm font-medium dark:text-gray-300">
             Page {currentPage} of {totalPages || 1}
           </div>
 
@@ -103,7 +109,7 @@ export function Pagination({
                 size="sm"
                 onClick={() => onPageChange(currentPage - 1)}
                 disabled={currentPage <= 1}
-                className="h-8 px-4"
+                className="h-8 bg-white px-4 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700 dark:disabled:border-gray-800 dark:disabled:bg-gray-900 dark:disabled:text-gray-600"
               >
                 Previous
               </Button>
@@ -112,7 +118,7 @@ export function Pagination({
                 size="sm"
                 onClick={() => onPageChange(currentPage + 1)}
                 disabled={currentPage >= totalPages}
-                className="h-8 px-4"
+                className="h-8 bg-white px-4 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700 dark:disabled:border-gray-800 dark:disabled:bg-gray-900 dark:disabled:text-gray-600"
               >
                 Next
               </Button>
@@ -122,7 +128,7 @@ export function Pagination({
             <div className="flex items-center">
               <Button
                 variant="outline"
-                className="h-8 w-8 rounded-l p-0"
+                className="h-8 w-8 rounded-l bg-white p-0 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700 dark:disabled:border-gray-800 dark:disabled:bg-gray-900 dark:disabled:text-gray-600"
                 onClick={() => onPageChange(1)}
                 disabled={currentPage <= 1}
               >
@@ -131,7 +137,7 @@ export function Pagination({
               </Button>
               <Button
                 variant="outline"
-                className="h-8 w-8 border-l-0 p-0"
+                className="h-8 w-8 border-l-0 bg-white p-0 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700 dark:disabled:border-gray-800 dark:disabled:bg-gray-900 dark:disabled:text-gray-600"
                 onClick={() => onPageChange(currentPage - 1)}
                 disabled={currentPage <= 1}
               >
@@ -140,7 +146,7 @@ export function Pagination({
               </Button>
               <Button
                 variant="outline"
-                className="h-8 w-8 border-l-0 p-0"
+                className="h-8 w-8 border-l-0 bg-white p-0 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700 dark:disabled:border-gray-800 dark:disabled:bg-gray-900 dark:disabled:text-gray-600"
                 onClick={() => onPageChange(currentPage + 1)}
                 disabled={currentPage >= totalPages}
               >
@@ -149,7 +155,7 @@ export function Pagination({
               </Button>
               <Button
                 variant="outline"
-                className="h-8 w-8 rounded-r border-l-0 p-0"
+                className="h-8 w-8 rounded-r border-l-0 bg-white p-0 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700 dark:disabled:border-gray-800 dark:disabled:bg-gray-900 dark:disabled:text-gray-600"
                 onClick={() => onPageChange(totalPages)}
                 disabled={currentPage >= totalPages}
               >

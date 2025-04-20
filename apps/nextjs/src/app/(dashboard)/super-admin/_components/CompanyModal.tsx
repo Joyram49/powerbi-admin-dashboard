@@ -41,7 +41,7 @@ const CompanyModalButton = () => {
           >
             <Button
               onClick={() => setIsOpen(false)}
-              className="absolute right-4 top-4 z-10 h-8 w-8 rounded-full bg-gray-100 p-0 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
+              className="absolute right-4 top-4 z-10 h-8 w-8 rounded-full bg-gray-100 p-0 hover:bg-red-700 dark:bg-gray-800 dark:hover:bg-red-600 text-red-600 hover:text-white"
               aria-label="Close"
             >
               <X className="h-4 w-4" />

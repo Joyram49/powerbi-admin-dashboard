@@ -40,7 +40,7 @@ import {
   SelectValue,
 } from "@acme/ui/select";
 import { Separator } from "@acme/ui/separator";
-import { toast, Toaster } from "@acme/ui/toast";
+import { toast } from "@acme/ui/toast";
 
 import type { Company } from "~/types/company";
 import { api } from "~/trpc/react";
@@ -224,7 +224,6 @@ const CompanyAdminForm = ({
     },
   });
 
-  // Removed unused updateAdminMutation
 
   // Create company mutation
   const createCompanyMutation = api.company.create.useMutation({
@@ -496,12 +495,12 @@ const CompanyAdminForm = ({
                                   <SelectValue placeholder="Select an administrator" />
                                 </SelectTrigger>
                               </FormControl>
-                              <SelectContent className="dark:border-gray-700 dark:bg-gray-800">
+                              <SelectContent className="bg-white dark:border-gray-700 dark:bg-gray-800">
                                 {existingAdmins.map((admin: User) => (
                                   <SelectItem
                                     key={admin.id}
                                     value={admin.id}
-                                    className="dark:text-white dark:focus:bg-gray-700"
+                                    className="dark:text-white dark:hover:bg-gray-700 dark:focus:bg-gray-700"
                                   >
                                     {admin.userName}
                                   </SelectItem>
@@ -509,7 +508,7 @@ const CompanyAdminForm = ({
                               </SelectContent>
                             </Select>
                           ) : (
-                            <div className="rounded-md bg-white p-3 text-sm dark:bg-gray-800 dark:text-gray-300">
+                            <div className="rounded-md border bg-white p-3 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
                               No existing company administrators found. Please
                               create a new one.
                             </div>
@@ -555,7 +554,7 @@ const CompanyAdminForm = ({
                           type="button"
                           variant="outline"
                           onClick={() => setFormStep(0)}
-                          className="border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+                          className="border-gray-300 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:hover:bg-gray-800"
                         >
                           <ChevronLeft className="mr-1 h-4 w-4" />
                           Back
@@ -727,7 +726,7 @@ const CompanyAdminForm = ({
                         type="button"
                         variant="outline"
                         onClick={() => setShowAdminForm(false)}
-                        className="border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+                        className="border-gray-300 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:hover:bg-gray-800"
                       >
                         Cancel
                       </Button>
@@ -764,9 +763,6 @@ const CompanyAdminForm = ({
           </Dialog>
         )}
       </AnimatePresence>
-
-      {/* Toast notifications */}
-      <Toaster />
     </div>
   );
 };

@@ -31,6 +31,9 @@ export function useUserColumns() {
       isOpen: boolean;
     } | null>(null);
 
+  const { data: profileData } = api.auth.getProfile.useQuery();
+  const currentUserId = profileData?.user?.id;
+
   return useMemo(() => {
     const columns: ColumnDef<User>[] = [
       {
@@ -228,6 +231,7 @@ export function useUserColumns() {
                         await utils.user.getAllUsers.invalidate();
                         await utils.user.getAdminUsers.invalidate();
                         await utils.user.getAllGeneralUser.invalidate();
+                        await utils.user.getUsersByCompanyId.invalidate();
                       }}
                     />
                   ),
@@ -237,11 +241,12 @@ export function useUserColumns() {
                     await deleteMutation.mutateAsync({
                       userId: user.id,
                       role: user.role,
-                      modifiedBy: "",
+                      modifiedBy: currentUserId ?? "",
                     });
                     await utils.user.getAllUsers.invalidate();
                     await utils.user.getAdminUsers.invalidate();
                     await utils.user.getAllGeneralUser.invalidate();
+                    await utils.user.getUsersByCompanyId.invalidate();
                   },
                   title: "Delete User Account",
                   description:
@@ -259,6 +264,9 @@ export function useUserColumns() {
                   onSuccess={async () => {
                     setSelectedUserForPasswordReset(null);
                     await utils.user.getAllUsers.invalidate();
+                    await utils.user.getAdminUsers.invalidate();
+                    await utils.user.getAllGeneralUser.invalidate();
+                    await utils.user.getUsersByCompanyId.invalidate();
                   }}
                 />
               )}
@@ -269,7 +277,7 @@ export function useUserColumns() {
     ];
 
     return columns;
-  }, [deleteMutation, utils, selectedUserForPasswordReset]);
+  }, [deleteMutation, utils, selectedUserForPasswordReset, currentUserId]);
 }
 
 export default useUserColumns;

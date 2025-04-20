@@ -57,7 +57,7 @@ export default function AdminPage() {
       enabled: !!companyId,
     },
   );
-  console.log(usersData);
+
   const columns = useUserColumns() as ColumnDef<CompanyUser, unknown>[];
 
   const handleSearchChange = useCallback((value: string) => {

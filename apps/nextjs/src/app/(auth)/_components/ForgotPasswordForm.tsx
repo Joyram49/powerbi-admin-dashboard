@@ -350,7 +350,7 @@ export function ForgotPasswordForm() {
         </CardContent>
       </Card>
 
-      <Toaster />
+
     </div>
   );
 }

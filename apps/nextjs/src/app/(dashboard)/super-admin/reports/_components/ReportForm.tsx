@@ -48,6 +48,7 @@ interface ReportFormProps {
   onClose: (shouldRefresh?: boolean) => void;
   initialData?: ReportType | null;
   userRole: "superAdmin" | "admin" | "user";
+  companyId?: string;
 }
 
 // Define form schema
@@ -69,6 +70,7 @@ export default function ReportForm({
   onClose,
   initialData,
   userRole,
+  companyId,
 }: ReportFormProps) {
   const [loading, setLoading] = useState(false);
 
@@ -82,16 +84,16 @@ export default function ReportForm({
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      reportName: initialData?.reportName || "",
-      reportUrl: initialData?.reportUrl || "",
-      companyId: initialData?.company?.id || "",
-      status: initialData?.status || "active",
-      userIds: initialData?.userIds || [],
+      reportName: initialData?.reportName ?? "",
+      reportUrl: initialData?.reportUrl ?? "",
+      companyId: initialData?.company?.id ?? companyId ?? "",
+      status: initialData?.status ?? "active",
+      userIds: initialData?.userIds ?? [],
     },
   });
 
   // Watch for company ID changes to fetch users
-  const companyId = form.watch("companyId");
+  const companyIdForm = form.watch("companyId");
 
   // Fetch companies data
   const { data: companiesData, isLoading: isLoadingCompanies } =
@@ -102,8 +104,8 @@ export default function ReportForm({
   // Fetch users for selected company
   const { data: usersData, isLoading: isLoadingUsers } =
     api.user.getUsersByCompanyId.useQuery(
-      { companyId, limit: 100, page: 1 },
-      { enabled: !!companyId },
+      { companyId: companyIdForm, limit: 100, page: 1 },
+      { enabled: !!companyIdForm },
     );
 
   // Fetch report details when editing - only if we have an ID and haven't set the form yet
@@ -167,7 +169,18 @@ export default function ReportForm({
       setAllUserOptions(formattedUsers);
     }
   }, [usersData]);
-
+  useEffect(() => {
+    if (
+      reportData?.report.userCounts &&
+      allUserOptions.length > 0 &&
+      !form.getValues("userIds").length
+    ) {
+      form.setValue(
+        "userIds",
+        allUserOptions.map((user) => user.value),
+      );
+    }
+  }, [reportData, allUserOptions, form]);
   // Form submission handler
   const onSubmit = (data: z.infer<typeof formSchema>) => {
     setLoading(true);
@@ -216,7 +229,11 @@ export default function ReportForm({
               <FormItem>
                 <FormLabel>Report Name</FormLabel>
                 <FormControl>
-                  <Input placeholder="Enter report name" {...field} />
+                  <Input
+                    placeholder="Enter report name"
+                    {...field}
+                    className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -234,6 +251,7 @@ export default function ReportForm({
                     placeholder="https://example.com/report"
                     type="url"
                     {...field}
+                    className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                   />
                 </FormControl>
                 <FormMessage />
@@ -261,13 +279,17 @@ export default function ReportForm({
                   disabled={!!initialData}
                 >
                   <FormControl>
-                    <SelectTrigger>
+                    <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">
                       <SelectValue placeholder="Select a company" />
                     </SelectTrigger>
                   </FormControl>
-                  <SelectContent>
+                  <SelectContent className="bg-white dark:border-gray-700 dark:bg-gray-800">
                     {companiesData?.data?.map((company) => (
-                      <SelectItem key={company.id} value={company.id}>
+                      <SelectItem
+                        key={company.id}
+                        value={company.id}
+                        className="dark:text-white dark:hover:bg-gray-700 dark:focus:bg-gray-700"
+                      >
                         {company.companyName}
                       </SelectItem>
                     ))}
@@ -286,13 +308,23 @@ export default function ReportForm({
                 <FormLabel>Status</FormLabel>
                 <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
-                    <SelectTrigger>
+                    <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                   </FormControl>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectContent className="bg-white dark:border-gray-700 dark:bg-gray-800">
+                    <SelectItem
+                      value="active"
+                      className="dark:text-white dark:hover:bg-gray-700 dark:focus:bg-gray-700"
+                    >
+                      Active
+                    </SelectItem>
+                    <SelectItem
+                      value="inactive"
+                      className="dark:text-white dark:hover:bg-gray-700 dark:focus:bg-gray-700"
+                    >
+                      Inactive
+                    </SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -312,7 +344,8 @@ export default function ReportForm({
                     selected={field.value}
                     onChange={field.onChange}
                     placeholder="Select users who can access this report"
-                    loading={isLoadingUsers && !!companyId}
+                    loading={isLoadingUsers && !!companyIdForm}
+                    className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                   />
                 </FormControl>
                 <FormMessage />
@@ -325,13 +358,14 @@ export default function ReportForm({
               type="button"
               variant="outline"
               onClick={() => onClose(false)}
+              className="bg-gray-100 text-gray-900 hover:bg-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={loading || isLoadingReport || isLoadingCompanies}
-              className="bg-blue-500 text-white hover:bg-blue-600"
+              className="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
             >
               {loading
                 ? "Processing..."

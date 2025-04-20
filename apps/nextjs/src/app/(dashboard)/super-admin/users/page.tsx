@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { useDebounce } from "~/hooks/useDebounce";
 import { api } from "~/trpc/react";
@@ -9,6 +10,9 @@ import { useUserColumns } from "./_components/UserColumns";
 import UserModalButton from "./_components/UserModal"; // Import your user modal button
 
 export default function UsersPage() {
+  const searchParams = useSearchParams();
+  const companyId = searchParams.get("companyId");
+
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -22,6 +26,19 @@ export default function UsersPage() {
   const columns = useUserColumns();
   const { data: profileData } = api.auth.getProfile.useQuery();
   const userRole = profileData?.user?.user_metadata.role as string;
+
+  const [pageTitle, setPageTitle] = useState("All Users");
+
+  // Set page title based on if we're filtering by company
+  useEffect(() => {
+    if (companyId) {
+      setPageTitle("Company Users");
+      // If we have a company filter, we likely want to see general users
+      setUserType("general");
+    } else {
+      setPageTitle("All Users");
+    }
+  }, [companyId]);
 
   // Determine which queries should be enabled based on user role
   const isSuperAdmin = userRole === "superAdmin";
@@ -43,6 +60,7 @@ export default function UsersPage() {
         limit: pagination.limit,
         searched: debouncedSearch,
         sortBy,
+        companyId: companyId || undefined,
       },
       {
         enabled: isSuperAdmin && userType === "all",
@@ -57,6 +75,7 @@ export default function UsersPage() {
         limit: pagination.limit,
         searched: debouncedSearch,
         sortBy,
+        companyId: companyId || undefined,
       },
       {
         enabled: (isSuperAdmin || isAdmin) && userType === "admin",
@@ -71,6 +90,7 @@ export default function UsersPage() {
         limit: pagination.limit,
         searched: debouncedSearch,
         sortBy,
+        companyId: companyId || undefined,
       },
       {
         enabled: (isSuperAdmin || isAdmin) && userType === "general",
@@ -118,7 +138,43 @@ export default function UsersPage() {
 
   return (
     <div className="container mx-auto w-full p-6">
-      {/* User type selector buttons could go here if needed */}
+      <h1 className="mb-6 text-2xl font-bold">{pageTitle}</h1>
+
+      {/* User type selector - hide if filtering by company */}
+      {!companyId && (
+        <div className="mb-4 flex gap-2">
+          <button
+            onClick={() => setUserType("all")}
+            className={`rounded px-4 py-2 ${
+              userType === "all"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
+            }`}
+          >
+            All Users
+          </button>
+          <button
+            onClick={() => setUserType("admin")}
+            className={`rounded px-4 py-2 ${
+              userType === "admin"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
+            }`}
+          >
+            Admin Users
+          </button>
+          <button
+            onClick={() => setUserType("general")}
+            className={`rounded px-4 py-2 ${
+              userType === "general"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
+            }`}
+          >
+            General Users
+          </button>
+        </div>
+      )}
 
       <DataTable<User, unknown, "userName" | "dateCreated">
         columns={columns}
@@ -143,7 +199,7 @@ export default function UsersPage() {
         }}
         isLoading={isLoading}
         placeholder="Search by user email..."
-        actionButton={<UserModalButton />}
+        actionButton={<UserModalButton companyId={companyId || undefined} />}
         pageSize={pagination.limit}
         pageSizeOptions={[10, 20, 50, 100]}
       />

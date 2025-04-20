@@ -66,7 +66,7 @@ const buttonVariants = {
 
 export function SignInForm() {
   const router = useRouter();
-
+  const utils = api.useUtils();
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
@@ -89,7 +89,7 @@ export function SignInForm() {
       const errorMessage = error.message || "Login failed. Please try again.";
       toast.error(errorMessage);
     },
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
       // result contains user role information
       const userRole = result.user.user_metadata.role as string;
 
@@ -103,11 +103,13 @@ export function SignInForm() {
       createOrUpdateSession.mutate();
       // Redirect to role-specific route
       router.push(roleBasedRoute);
+      await utils.auth.getProfile.invalidate();
+      router.refresh();
     },
   });
 
-  function onSubmit(data: z.infer<typeof FormSchema>) {
-    signIn.mutate(data);
+  async function onSubmit(data: z.infer<typeof FormSchema>) {
+    await signIn.mutateAsync(data);
   }
 
   return (
@@ -285,9 +287,6 @@ export function SignInForm() {
           </Form>
         </CardContent>
       </Card>
-
-      {/* Toast notifications */}
-      <Toaster />
     </div>
   );
 }

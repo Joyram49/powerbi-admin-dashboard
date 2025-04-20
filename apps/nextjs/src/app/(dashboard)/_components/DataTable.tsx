@@ -110,15 +110,15 @@ export function DataTable<TData, TValue, TSortField extends string>({
 
   return (
     <div className="space-y-4">
-      <div className="flex w-full items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="relative">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-full max-w-[300px]">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder={placeholder}
               value={search.value}
               onChange={(event) => search.onChange(event.target.value)}
-              className="w-[300px] bg-white pl-8"
+              className="w-full border-slate-900/10 bg-white pl-8 dark:border-white/10 dark:bg-slate-900"
             />
             {search.value && (
               <Button
@@ -137,7 +137,7 @@ export function DataTable<TData, TValue, TSortField extends string>({
             </div>
           )}
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-2">
           {actionButton}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -146,7 +146,7 @@ export function DataTable<TData, TValue, TSortField extends string>({
                 className="flex items-center gap-x-2 dark:bg-slate-900"
               >
                 <SlidersHorizontal className="h-4 w-4" />
-                <span>Columns</span>
+                <span className="hidden sm:inline">Columns</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
@@ -173,13 +173,16 @@ export function DataTable<TData, TValue, TSortField extends string>({
           </DropdownMenu>
         </div>
       </div>
-      <div className="overflow-hidden rounded-md border-[1px] border-slate-900/10 drop-shadow-sm dark:border-white/10">
+      <div className="overflow-auto rounded-md border-[1px] border-slate-900/10 drop-shadow-sm dark:border-white/10">
         <Table>
           <TableHeader className="bg-white dark:bg-slate-800">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className="font-medium">
+                  <TableHead
+                    key={header.id}
+                    className="whitespace-nowrap font-medium"
+                  >
                     {header.isPlaceholder
                       ? null
                       : flexRender(
@@ -210,7 +213,7 @@ export function DataTable<TData, TValue, TSortField extends string>({
                   className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50"
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell key={cell.id} className="break-words">
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext(),

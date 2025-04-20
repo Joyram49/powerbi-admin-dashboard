@@ -18,9 +18,10 @@ import { UserForm } from "./UserForm";
 
 interface UserModalProps {
   initialData?: User;
+  companyId?: string;
 }
 
-const UserModal: React.FC<UserModalProps> = ({ initialData }) => {
+const UserModal: React.FC<UserModalProps> = ({ initialData, companyId }) => {
   const [open, setOpen] = useState(false);
 
   return (
@@ -52,6 +53,7 @@ const UserModal: React.FC<UserModalProps> = ({ initialData }) => {
               <UserForm
                 initialData={initialData}
                 onClose={() => setOpen(false)}
+                companyId={companyId}
               />
             </CardContent>
           </Card>

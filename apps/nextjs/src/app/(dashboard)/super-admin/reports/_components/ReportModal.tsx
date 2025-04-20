@@ -14,7 +14,11 @@ import {
 
 import ReportForm from "./ReportForm";
 
-const ReportModalButton = () => {
+interface ReportModalButtonProps {
+  companyId?: string;
+}
+
+const ReportModalButton = ({ companyId }: ReportModalButtonProps) => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -41,7 +45,7 @@ const ReportModalButton = () => {
           >
             <Button
               onClick={() => setIsOpen(false)}
-              className="absolute right-4 top-4 z-10 h-8 w-8 rounded-full bg-gray-100 p-0 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
+              className="absolute right-4 top-4 z-10 h-8 w-8 rounded-full bg-gray-100 p-0 text-red-600 hover:bg-red-700 hover:text-white dark:bg-gray-800 dark:hover:bg-red-600"
               aria-label="Close"
             >
               <X className="h-4 w-4" />
@@ -49,6 +53,7 @@ const ReportModalButton = () => {
             <ReportForm
               onClose={() => setIsOpen(false)}
               userRole="superAdmin"
+              companyId={companyId}
             />
           </motion.div>
         </AnimatePresence>
