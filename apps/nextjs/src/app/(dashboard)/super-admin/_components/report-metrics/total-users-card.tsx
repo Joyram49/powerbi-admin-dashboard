@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import { TrendingUpIcon } from "lucide-react";
 
 import { Badge } from "@acme/ui/badge";

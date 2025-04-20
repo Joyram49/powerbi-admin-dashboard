@@ -190,7 +190,7 @@ const CompanyAdminForm = ({
       companyForm.reset();
 
       await utils.company.getAllCompanies.invalidate();
-      if (onClose) onClose();
+      onClose();
     },
     onError: (error) => {
       toast.error("Update Failed", {
@@ -238,7 +238,7 @@ const CompanyAdminForm = ({
       companyForm.reset();
       setFormStep(0);
       await utils.company.getAllCompanies.invalidate();
-      if (onClose) setTimeout(onClose, 1500); // Close modal after showing success toast
+      onClose();
     },
     onError: (error) => {
       setCompanyFormSubmitted(false);

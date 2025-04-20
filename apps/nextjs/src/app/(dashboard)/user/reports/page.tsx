@@ -72,7 +72,10 @@ export default function UserReportsPage() {
         }}
         sorting={{
           sortBy: undefined,
-          onSortChange: () => {}, // Users don't need sorting
+          onSortChange: (_sortField) => {
+            // Sorting disabled for users
+            return;
+          },
           sortOptions: ["reportName", "dateCreated"],
         }}
         search={{

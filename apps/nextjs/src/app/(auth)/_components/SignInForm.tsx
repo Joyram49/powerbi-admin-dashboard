@@ -18,7 +18,7 @@ import {
   FormMessage,
 } from "@acme/ui/form";
 import { Input } from "@acme/ui/input";
-import { toast, Toaster } from "@acme/ui/toast";
+import { toast } from "@acme/ui/toast";
 
 import { api } from "~/trpc/react";
 import { ROLE_ROUTES } from "~/utils/routes";

@@ -322,7 +322,7 @@ export function UserForm({
       }
 
       const updateData = {
-        userId: values.id!,
+        userId: values.id ?? "",
         modifiedBy: currentUserId ?? "",
         role: values.role,
         status: values.status ?? "active",

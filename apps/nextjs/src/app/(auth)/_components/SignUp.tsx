@@ -20,7 +20,7 @@ import {
 } from "@acme/ui/form";
 import { Input } from "@acme/ui/input";
 import { Progress } from "@acme/ui/progress";
-import { toast, Toaster } from "@acme/ui/toast";
+import { toast } from "@acme/ui/toast";
 
 import { api } from "~/trpc/react";
 
@@ -538,8 +538,6 @@ export function SignUpForm() {
           </Form>
         </CardContent>
       </Card>
-
-
     </div>
   );
 }

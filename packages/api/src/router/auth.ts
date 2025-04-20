@@ -22,7 +22,7 @@ export const createUserSchema = z
       .min(12, { message: "Password must be between 12-20 characters" })
       .max(20, { message: "Password must be between 12-20 characters" })
       .regex(
-        /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).+$/,
+        /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).+$/,
         {
           message:
             "Password must include at least one uppercase letter, one number, and one special character",

@@ -88,7 +88,7 @@ const PasswordInput = ({
   label,
   placeholder,
 }: {
-  field: any;
+  field: React.ComponentProps<typeof Input>;
   showPassword: boolean;
   togglePassword: () => void;
   label: string;

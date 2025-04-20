@@ -1,13 +1,13 @@
 "use client";
 
-import type { Column, ColumnDef } from "@tanstack/react-table";
+import type { Column, ColumnDef, Table } from "@tanstack/react-table";
 import React, { useMemo } from "react";
 import { ArrowUpDown } from "lucide-react";
 
 import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
 
-type ReportType = {
+interface ReportType {
   id: string;
   reportName: string;
   reportUrl: string;
@@ -20,7 +20,7 @@ type ReportType = {
     id: string;
     companyName: string;
   } | null;
-};
+}
 
 interface TableMeta {
   sorting?: {
@@ -38,7 +38,7 @@ export function useReportColumns() {
           table,
         }: {
           column: Column<ReportType, unknown>;
-          table: any;
+          table: Table<ReportType>;
         }) => {
           const { sorting } = table.options.meta as TableMeta;
           return (
@@ -77,7 +77,7 @@ export function useReportColumns() {
         accessorKey: "userCounts",
         header: () => <div className="text-center font-medium"># Users</div>,
         cell: ({ row }) => (
-          <div className="text-center">{row.original.userCounts ?? 0}</div>
+          <div className="text-center">{row.original.userCounts || 0}</div>
         ),
       },
       {
@@ -94,7 +94,7 @@ export function useReportColumns() {
           table,
         }: {
           column: Column<ReportType, unknown>;
-          table: any;
+          table: Table<ReportType>;
         }) => {
           const { sorting } = table.options.meta as TableMeta;
           return (

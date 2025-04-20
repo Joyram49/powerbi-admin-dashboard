@@ -40,7 +40,7 @@ export default function ReportsDashboard() {
   const { data: companyReportData, isLoading: isLoadingCompanyReports } =
     api.report.getAllReportsForCompany.useQuery(
       {
-        companyId: companyId!,
+        companyId: companyId ?? "",
         searched: debouncedSearch,
         page: pagination.page,
         limit: pagination.limit,
@@ -115,7 +115,7 @@ export default function ReportsDashboard() {
           onChange: handleSearchChange,
         }}
         placeholder="Search report name..."
-        actionButton={<ReportModalButton companyId={companyId || undefined} />}
+        actionButton={<ReportModalButton companyId={companyId ?? undefined} />}
         isLoading={isLoading}
         pageSize={pagination.limit}
         pageSizeOptions={[10, 20, 50, 100]}

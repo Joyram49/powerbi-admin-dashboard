@@ -1,12 +1,8 @@
-'use client';
+"use client";
 
 import { Badge } from "@acme/ui/badge";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useMemo } from "react";
-
-
-
-
 
 interface ReportType {
   reportId: string;
@@ -22,9 +18,6 @@ interface ReportType {
     companyName: string;
   } | null;
 }
-
-
-
 
 export default function useUserReportColumns() {
   return useMemo(() => {

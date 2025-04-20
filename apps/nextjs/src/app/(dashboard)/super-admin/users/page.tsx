@@ -56,7 +56,7 @@ export default function UsersPage() {
   const { data: companyUsersData, isLoading: isLoadingCompanyUsers } =
     api.user.getUsersByCompanyId.useQuery(
       {
-        companyId: companyId || "",
+        companyId: companyId ?? "",
         page: pagination.page,
         limit: pagination.limit,
       },
@@ -236,7 +236,7 @@ export default function UsersPage() {
         }}
         isLoading={isLoading}
         placeholder="Search by user email..."
-        actionButton={<UserModalButton companyId={companyId || undefined} />}
+        actionButton={<UserModalButton companyId={companyId ?? undefined} />}
         pageSize={pagination.limit}
         pageSizeOptions={[10, 20, 50, 100]}
       />
