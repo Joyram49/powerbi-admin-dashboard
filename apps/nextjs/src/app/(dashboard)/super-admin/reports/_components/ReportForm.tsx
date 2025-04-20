@@ -216,9 +216,9 @@ export default function ReportForm({
 
   return (
     <div className="rounded-lg bg-white p-6 shadow-lg dark:bg-slate-900">
-      <h2 className="mb-6 text-xl font-bold">
+      {/* <h2 className="mb-6 text-xl font-bold">
         {initialData ? "Edit Report" : "Create New Report"}
-      </h2>
+      </h2> */}
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">

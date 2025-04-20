@@ -30,7 +30,7 @@ const ReportModalButton = ({ companyId }: ReportModalButtonProps) => {
         </Button>
       </DialogTrigger>
       <DialogContent
-        className="max-h-[90vh] overflow-auto border-none bg-transparent p-0 shadow-none dark:bg-gray-900 sm:max-w-4xl"
+        className="max-h-[90vh] overflow-auto border-none bg-transparent p-0 shadow-none dark:bg-transparent sm:max-w-4xl"
         onInteractOutside={(e) => e.preventDefault()}
         aria-describedby="Add report dialog box"
       >
@@ -41,7 +41,7 @@ const ReportModalButton = ({ companyId }: ReportModalButtonProps) => {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="relative dark:bg-gray-900"
+            className="relative bg-white dark:bg-gray-900"
           >
             <Button
               onClick={() => setIsOpen(false)}

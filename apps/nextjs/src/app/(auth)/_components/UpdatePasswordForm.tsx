@@ -95,14 +95,14 @@ const PasswordInput = ({
   placeholder: string;
 }) => (
   <FormItem>
-    <FormLabel>{label}</FormLabel>
+    <FormLabel className="dark:text-gray-300">{label}</FormLabel>
     <FormControl>
       <div className="relative">
         <Input
           type={showPassword ? "text" : "password"}
           placeholder={placeholder}
           {...field}
-          className="pr-10"
+          className="bg-white pr-10 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
         />
         <button
           type="button"
@@ -110,14 +110,14 @@ const PasswordInput = ({
           className="absolute right-3 top-1/2 -translate-y-1/2 transform"
         >
           {showPassword ? (
-            <EyeOff className="h-4 w-4 text-gray-500" />
+            <EyeOff className="h-4 w-4 text-gray-500 dark:text-gray-400" />
           ) : (
-            <Eye className="h-4 w-4 text-gray-500" />
+            <Eye className="h-4 w-4 text-gray-500 dark:text-gray-400" />
           )}
         </button>
       </div>
     </FormControl>
-    <FormMessage />
+    <FormMessage className="dark:text-red-400" />
   </FormItem>
 );
 
@@ -148,16 +148,13 @@ const LoadingSpinner = () => (
 );
 
 const ErrorAlert = ({ message }: { message: string }) => (
-  <motion.div
-    initial={{ opacity: 0, y: -10 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.3 }}
+  <Alert
+    variant="destructive"
+    className="dark:border-red-800 dark:bg-red-900/30"
   >
-    <Alert variant="destructive">
-      <AlertTitle>Error</AlertTitle>
-      <AlertDescription>{message}</AlertDescription>
-    </Alert>
-  </motion.div>
+    <AlertTitle className="dark:text-red-300">Error</AlertTitle>
+    <AlertDescription className="dark:text-red-300">{message}</AlertDescription>
+  </Alert>
 );
 
 // Main Component
@@ -347,6 +344,7 @@ export function UpdatePasswordForm({
               variant="outline"
               onClick={onClose}
               disabled={formState.isSubmitting}
+              className="border-gray-300 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:hover:bg-gray-800"
             >
               Cancel
             </Button>
@@ -354,7 +352,7 @@ export function UpdatePasswordForm({
           <Button
             type="submit"
             disabled={formState.isSubmitting}
-            className="bg-blue-500 text-white hover:bg-blue-600"
+            className="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
           >
             {formState.isSubmitting ? <LoadingSpinner /> : "Update Password"}
           </Button>
@@ -366,9 +364,9 @@ export function UpdatePasswordForm({
   if (isModal) {
     return (
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose?.()}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="dark:border-gray-800 dark:bg-gray-900 sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center">
+            <DialogTitle className="flex items-center dark:text-white">
               <Lock className="mr-2 h-5 w-5" />
               Reset User Password
             </DialogTitle>

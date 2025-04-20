@@ -388,7 +388,7 @@ export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
   return (
     <Form {...form}>
       <motion.div
-        className="max-h-[70vh] overflow-y-auto pr-1"
+        className="max-h-[70vh] overflow-y-auto pr-1 dark:bg-gray-900"
         style={{
           scrollbarWidth: "none" /* Firefox */,
           msOverflowStyle: "none" /* IE and Edge */,

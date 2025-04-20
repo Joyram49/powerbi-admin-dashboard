@@ -116,7 +116,7 @@ export default function AppSidebar() {
   // Show loading state while fetching user role
   if (isLoading) {
     return (
-      <Sidebar className="hidden w-full max-w-64 flex-col bg-slate-900 text-white dark:bg-slate-800 lg:flex">
+      <Sidebar className="hidden w-full max-w-64 flex-col bg-slate-900 text-white dark:!border-gray-800 dark:bg-slate-800 lg:flex">
         <div className="flex h-16 items-center justify-between border-b border-slate-800 bg-slate-900 px-4">
           <Link href="/" className="flex items-center">
             <BarChart3 className="h-6 w-6 text-blue-500" />

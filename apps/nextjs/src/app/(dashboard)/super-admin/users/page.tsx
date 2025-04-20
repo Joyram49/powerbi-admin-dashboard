@@ -52,7 +52,20 @@ export default function UsersPage() {
     }
   });
 
-  // For superAdmin, fetch all users when userType is "all"
+  // Use getUsersByCompanyId when companyId is present
+  const { data: companyUsersData, isLoading: isLoadingCompanyUsers } =
+    api.user.getUsersByCompanyId.useQuery(
+      {
+        companyId: companyId || "",
+        page: pagination.page,
+        limit: pagination.limit,
+      },
+      {
+        enabled: !!companyId,
+      },
+    );
+
+  // For superAdmin, fetch all users when userType is "all" and no companyId
   const { data: allUsersData, isLoading: isLoadingAllUsers } =
     api.user.getAllUsers.useQuery(
       {
@@ -60,14 +73,13 @@ export default function UsersPage() {
         limit: pagination.limit,
         searched: debouncedSearch,
         sortBy,
-        companyId: companyId || undefined,
       },
       {
-        enabled: isSuperAdmin && userType === "all",
+        enabled: isSuperAdmin && userType === "all" && !companyId,
       },
     );
 
-  // Fetch admin users for both superAdmin and admin roles when userType is "admin"
+  // Fetch admin users when userType is "admin" and no companyId
   const { data: adminUsersData, isLoading: isLoadingAdminUsers } =
     api.user.getAdminUsers.useQuery(
       {
@@ -75,14 +87,14 @@ export default function UsersPage() {
         limit: pagination.limit,
         searched: debouncedSearch,
         sortBy,
-        companyId: companyId || undefined,
       },
       {
-        enabled: (isSuperAdmin || isAdmin) && userType === "admin",
+        enabled:
+          (isSuperAdmin || isAdmin) && userType === "admin" && !companyId,
       },
     );
 
-  // Fetch general users when userType is "general"
+  // Fetch general users when userType is "general" and no companyId
   const { data: generalUsersData, isLoading: isLoadingGeneralUsers } =
     api.user.getAllGeneralUser.useQuery(
       {
@@ -90,31 +102,58 @@ export default function UsersPage() {
         limit: pagination.limit,
         searched: debouncedSearch,
         sortBy,
-        companyId: companyId || undefined,
       },
       {
-        enabled: (isSuperAdmin || isAdmin) && userType === "general",
+        enabled:
+          (isSuperAdmin || isAdmin) && userType === "general" && !companyId,
       },
     );
 
-  // Determine which data to use based on user role and selected user type
-  const currentData = (() => {
-    if (isSuperAdmin) {
-      // SuperAdmin can see all types
-      return userType === "all"
-        ? allUsersData
-        : userType === "admin"
-          ? adminUsersData
-          : generalUsersData;
-    } else if (isAdmin) {
-      // Admin can only see admin and general users
-      return userType === "admin" ? adminUsersData : generalUsersData;
+  // Determine which data to use
+  const userData = (() => {
+    if (companyId && companyUsersData) {
+      return companyUsersData.users;
+    } else if (userType === "all" && allUsersData) {
+      return allUsersData.data;
+    } else if (userType === "admin" && adminUsersData) {
+      return adminUsersData.data;
+    } else if (userType === "general" && generalUsersData) {
+      return generalUsersData.data;
     }
-    return null;
+    return [];
   })();
-  const userData = currentData?.data;
+
+  const totalItems = (() => {
+    if (companyId && companyUsersData) {
+      return companyUsersData.total;
+    } else if (userType === "all" && allUsersData) {
+      return allUsersData.total;
+    } else if (userType === "admin" && adminUsersData) {
+      return adminUsersData.total;
+    } else if (userType === "general" && generalUsersData) {
+      return generalUsersData.total;
+    }
+    return 0;
+  })();
+
+  const pageLimit = (() => {
+    if (companyId && companyUsersData) {
+      return companyUsersData.limit;
+    } else if (userType === "all" && allUsersData) {
+      return allUsersData.limit;
+    } else if (userType === "admin" && adminUsersData) {
+      return adminUsersData.limit;
+    } else if (userType === "general" && generalUsersData) {
+      return generalUsersData.limit;
+    }
+    return pagination.limit;
+  })();
+
   const isLoading =
-    isLoadingAllUsers || isLoadingAdminUsers || isLoadingGeneralUsers;
+    isLoadingAllUsers ||
+    isLoadingAdminUsers ||
+    isLoadingGeneralUsers ||
+    isLoadingCompanyUsers;
 
   const handleSearchChange = useCallback((value: string) => {
     setSearchInput(value);
@@ -178,12 +217,10 @@ export default function UsersPage() {
 
       <DataTable<User, unknown, "userName" | "dateCreated">
         columns={columns}
-        data={userData ?? []}
+        data={userData}
         pagination={{
           pageCount:
-            currentData?.total && currentData.limit
-              ? Math.ceil(currentData.total / currentData.limit)
-              : 0,
+            totalItems && pageLimit ? Math.ceil(totalItems / pageLimit) : 0,
           page: pagination.page,
           onPageChange: (page) => setPagination((prev) => ({ ...prev, page })),
           onPageSizeChange: handlePageSizeChange,

@@ -26,7 +26,7 @@ const CompanyModalButton = () => {
         </Button>
       </DialogTrigger>
       <DialogContent
-        className="max-h-[90vh] overflow-auto border-none bg-transparent p-0 shadow-none sm:max-w-4xl"
+        className="max-h-[90vh] overflow-auto border-none bg-transparent p-0 shadow-none dark:bg-transparent sm:max-w-4xl"
         onInteractOutside={(e) => e.preventDefault()}
         aria-describedby="Add company dialog box"
       >
@@ -37,11 +37,11 @@ const CompanyModalButton = () => {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="relative"
+            className="relative bg-white dark:bg-gray-900"
           >
             <Button
               onClick={() => setIsOpen(false)}
-              className="absolute right-4 top-4 z-10 h-8 w-8 rounded-full bg-gray-100 p-0 hover:bg-red-700 dark:bg-gray-800 dark:hover:bg-red-600 text-red-600 hover:text-white"
+              className="absolute right-4 top-4 z-10 h-8 w-8 rounded-full bg-gray-100 p-0 text-red-600 hover:bg-red-700 hover:text-white dark:bg-gray-800 dark:hover:bg-red-600"
               aria-label="Close"
             >
               <X className="h-4 w-4" />
