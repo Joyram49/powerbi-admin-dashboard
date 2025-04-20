@@ -1,4 +1,4 @@
-import ActiveAccountsCard from "./active-active-accounts";
+import ActiveAccountsCard from "./active-accounts";
 import TotalReportsCard from "./total-reports-card";
 import UserEngagementCard from "./user-engagement";
 

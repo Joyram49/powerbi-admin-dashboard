@@ -40,7 +40,7 @@ import {
   SelectValue,
 } from "@acme/ui/select";
 import { Separator } from "@acme/ui/separator";
-import { toast, Toaster } from "@acme/ui/toast";
+import { toast } from "@acme/ui/toast";
 
 import type { Company } from "~/types/company";
 import { api } from "~/trpc/react";
@@ -61,7 +61,9 @@ const companyFormSchema = z.object({
       "Invalid phone number format",
     ),
   email: z.string().email("Valid email is required"),
-  adminId: z.string().optional(),
+  adminId: z
+    .string()
+    .min(1, "Please select an existing admin or create a new one"),
 });
 
 const adminFormSchema = z
@@ -121,13 +123,17 @@ interface User {
   status?: "active" | "inactive" | null;
 }
 
+interface CompanyFormProps {
+  onClose: (shouldRefresh?: boolean) => void;
+  setDialogOpen?: (open: boolean) => void;
+  initialData?: Company | null;
+}
+
 const CompanyAdminForm = ({
   onClose,
+  setDialogOpen,
   initialData,
-}: {
-  onClose?: () => void;
-  initialData?: Company;
-}) => {
+}: CompanyFormProps) => {
   const [showAdminForm, setShowAdminForm] = useState(false);
   const [companyFormSubmitted, setCompanyFormSubmitted] = useState(false);
   const [adminFormSubmitted, setAdminFormSubmitted] = useState(false);
@@ -184,7 +190,7 @@ const CompanyAdminForm = ({
       companyForm.reset();
 
       await utils.company.getAllCompanies.invalidate();
-      if (onClose) onClose();
+      onClose();
     },
     onError: (error) => {
       toast.error("Update Failed", {
@@ -222,8 +228,6 @@ const CompanyAdminForm = ({
     },
   });
 
-  // Removed unused updateAdminMutation
-
   // Create company mutation
   const createCompanyMutation = api.company.create.useMutation({
     onSuccess: async (data) => {
@@ -234,7 +238,7 @@ const CompanyAdminForm = ({
       companyForm.reset();
       setFormStep(0);
       await utils.company.getAllCompanies.invalidate();
-      if (onClose) setTimeout(onClose, 1500); // Close modal after showing success toast
+      onClose();
     },
     onError: (error) => {
       setCompanyFormSubmitted(false);
@@ -494,12 +498,12 @@ const CompanyAdminForm = ({
                                   <SelectValue placeholder="Select an administrator" />
                                 </SelectTrigger>
                               </FormControl>
-                              <SelectContent className="dark:border-gray-700 dark:bg-gray-800">
+                              <SelectContent className="bg-white dark:border-gray-700 dark:bg-gray-800">
                                 {existingAdmins.map((admin: User) => (
                                   <SelectItem
                                     key={admin.id}
                                     value={admin.id}
-                                    className="dark:text-white dark:focus:bg-gray-700"
+                                    className="dark:text-white dark:hover:bg-gray-700 dark:focus:bg-gray-700"
                                   >
                                     {admin.userName}
                                   </SelectItem>
@@ -507,7 +511,7 @@ const CompanyAdminForm = ({
                               </SelectContent>
                             </Select>
                           ) : (
-                            <div className="rounded-md bg-white p-3 text-sm dark:bg-gray-800 dark:text-gray-300">
+                            <div className="rounded-md border bg-white p-3 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
                               No existing company administrators found. Please
                               create a new one.
                             </div>
@@ -553,7 +557,7 @@ const CompanyAdminForm = ({
                           type="button"
                           variant="outline"
                           onClick={() => setFormStep(0)}
-                          className="border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+                          className="border-gray-300 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:hover:bg-gray-800"
                         >
                           <ChevronLeft className="mr-1 h-4 w-4" />
                           Back
@@ -567,7 +571,7 @@ const CompanyAdminForm = ({
                       >
                         <Button
                           type="submit"
-                          className="bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700"
+                          className="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
                           disabled={companyFormSubmitted}
                         >
                           {companyFormSubmitted ? (
@@ -724,8 +728,11 @@ const CompanyAdminForm = ({
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => setShowAdminForm(false)}
-                        className="border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+                        onClick={() => {
+                          setDialogOpen?.(false);
+                          onClose(false);
+                        }}
+                        className="bg-gray-100 text-gray-900 hover:bg-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
                       >
                         Cancel
                       </Button>
@@ -738,7 +745,7 @@ const CompanyAdminForm = ({
                     >
                       <Button
                         type="submit"
-                        className="bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
+                        className="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
                         disabled={adminFormSubmitted}
                       >
                         {adminFormSubmitted ? (
@@ -762,9 +769,6 @@ const CompanyAdminForm = ({
           </Dialog>
         )}
       </AnimatePresence>
-
-      {/* Toast notifications */}
-      <Toaster />
     </div>
   );
 };

@@ -1,0 +1,711 @@
+﻿
+PURPOSE:
+ The purpose of this Initiative is to outline the key component to launch a new MVP (Minimum Viable Product) and transition a small batch of users to a new platform. 
+
+
+Branding:
+1. Colors
+   1. #2C93D0  
+   2. #10568A          
+   3. #FFFFFF  
+2. Logos will be provided as file attachments
+LOGIN / MFA
+1. Log in Screen
+   1. Username (textbox)
+      1. Error handling
+         1.  “Username not recognized” 
+   2. Password (textbox) 
+      1. Password strength requirements
+         1. At least 8 characters 
+         2. 1 Upper case Letter 
+         3. 1 Lower case letter 
+         4. 1 Special Character
+      2. Error handling
+         1. “Incorrect password please try again” 
+      3. User should be locked out after 5 incorrect attempts
+         1. “This account has been locked due to numerous incorrect login attempts, please click forgot password to continue.”
+            1. User MUST reset password to unlock account if this occurs
+   3. Forgot Password (button-link) 
+      1. Send a link to users registered email that can be clicked and then redirected to fresh login page where they can reset their credentials using registered email. 
+      2. Clicking “Send” will Send MFA email containing 6-digit code and link where they can reset their password 
+      3.  A screenshot of a password
+
+Description automatically generated    4. MFA Code: 6-digit box to enter MFA code sent to user email upon clicking “login” 
+   1. Resend option if they don’t receive their email 
+   1. Link that becomes active after 30 seconds to prevent spamming the email button
+   2. MFA email should send link to click on in case user closes out of the app to return them to screen to enter their code
+   5. Login (button) 
+   1. Clicking Login attempts login, and success pushes user to the homepage based on their role. 
+   6. Session Length
+   1. User should be logged out automatically after a period of 4 hours (balance between pain of logging in and sharing accounts throughout the day) 
+   2. This should be initiated by a login time associated with their session ID and logged in the database
+   2. Forgot Password Re-direct (Link Screen) (button) 
+   1. Verify MFA code in reset email 
+   1.  A screen shot of a phone
+
+Description automatically generated    2. Clicking Verify should immediately open the “New Password” screen outlined below if code is verified 
+   3. Error Handling
+      1. “You have provided an incorrect access code, please try again”
+      2. New password 
+      1. Must follow strength PW strength requirements
+      1. At least 8 characters 
+      2. 1 Upper case Letter 
+      3. 1 Lower case letter 
+      4. 1 Special Character 
+      5. PW cannot match the last 3 historic passwords in DB
+      3. Repeat password (must match) 
+      1. Error handling if passwords do not match between “New Password” and “Repeat Password” 
+      1. “Passwords do not match, please try again” 
+      4. Save (button) 
+      1. Triggers user password reset in DB 
+      2. Message: “Password Reset Successfully!”
+      3. Automatically re-directs user to login screen 
+      5. Cancel (button) 
+      1. Cancel returns user to login screen 
+      2. The account should remain locked until successful password reset is completed
+      3.  A screenshot of a login screen
+
+Description automatically generated          3. MFA parameters for the app 
+         1. 6-digit code 
+         2. Code expires in 10 minutes 
+         3. Code is emailed to the email user enters IF there is a match to current account in the database 
+         4. Each code must be uniquely generated 
+         5. Each code must be expired after use and not be reused 
+         6. MFA email should be sent securely to avoid interception
+** Follow Supabase Best practices and defaults if necessary**
+USER ROLES
+         1. App User roles 
+         1. Super Admin 
+         1. Landing Page 
+         1. Company List
+         1. All companies in the application shown 
+         2. Menu options 
+         1. Full edit access to all menu(s) and operations 
+         1. Home = Landing Page (company List) 
+         2. Report list 
+         3. User List
+         4. Super Admin List 
+         5. Add Super Admin 
+         6. Billing Portal 
+         7. Password 
+         8. Settings (hide – not ready for this feature in v1) 
+         9. Log out 
+         2. Company Admin
+         1. Landing Page: 
+         1. User List 
+         1. All users listed for the company user is an admin of 
+         2. Menu options 
+         1. User list = Home (landing page) 
+         1. Free to add remove users and edit their details 
+         2. Report List
+         1. Ability to view all reports added to company, no edit access 
+         3. Billing Portal 
+         1. Access to view invoices and manage billing options for that company (only their company should be shown in all parameters in this page)  
+         4. Password
+         1. Opens change PW for logged in user
+         5. Log out
+         3. User 
+         1. Landing page
+         1. IF user has access to only ONE report, then user’s report should be displayed automatically upon login 
+         2. IF user has access to multiple reports, then they will see the report list (Only reports user has access should be shown) 
+         2. Menu Options 
+         1. Settings 
+         2. Log off
+         3. Standard user should not have access to any of the add/edit pages within the application. 
+MENU OPTION FIELDS
+Company list 
+         1. Super Admin Landing Page
+         2. Access: User based outlined above (Super Admin only) 
+         1. Slider toggle 
+         1. Company (active) 
+         2. Users 
+         1. Clicking Users will navigate to the User List
+         3. Reports 
+         1. Clicking reports will navigate to the report List 
+         3. Search Bar Company 
+         1. User will have a search box where they can search companies (Super Admins) 
+         1. Search box should be smart/predictive 
+         2. Ex. Company name is JOC 
+         3. List should be filtered as user types J-O-C to narrow down results without clicking a “search button”
+         4. Metrics cards on App Performance 
+         1. Users (total users) 
+         2. Reports (total Reports) 
+         3. Total Time (Accumulation of time all users have logged in app history)
+         4. Users currently Active (shows the # of users with an active session in the DB) 
+V2: Add metrics from billing table (Companies late on invoices, etc.) 
+Company List Table 
+         1. Add Company Button 
+         1. Clicking Add company will open a form where new companies can be added to the list 
+         2. Table columns 
+         1. ID 
+         1. Id of company in DB 
+         2. Company Name 
+         1. Name of company 
+         3. Admin 
+         1. Company admin
+         1. f 2 listed, display one with earliest created date/time 
+         4. # of users 
+         1. Total # of users in that company (active) 
+         5. # of reports 
+         1. # of reports company has under their account (active) 
+         6. Created Date 
+         1. Date company was added to DB 
+         7. Active 
+         1. Active or Inactive Icon
+         8. Action 
+         1. Edit 
+         1. Edit opens a pre-filled edit form of the company in the row where the edit button was clicked 
+         2. Delete 
+         1. Clicking delete opens a popup that says, “Are you sure you wish to delete “[Company Name]”? This action is not reversible.”
+         2. Confirming will delete the record, closing the popup will send user back to company list 
+         9. Example Mockup for fields / formatting is dicatated by ASSET PACKAGE (vercel, etc.) 
+  
+
+
+
+Add / Edit company Form  
+Form to create new or edit existing company in the DB (Super Admins Only) 
+         1. Company Name (required) 
+         1. Dropdown with free text capabilities 
+         1. If dropdown is selected company details should populate all fields across all tabs 
+         2. Dropdown should only show companies user has access to (Super admins = all, Company admin = company(s) they are admin of)
+         3. If text is entered, new company is being created so all fields should remain blank (Super Admin Only) 
+         2. Company Address 
+         3. Contact 
+         4. Contact Phone 
+         5. Contact Email (required) 
+         6. Users allowed (removed because of billing component, we do not want restrictions on them adding more users. Billing will get sent out automatically based on users 
+         7. Choose Company Admin (removed to its own page)
+         8. Save 
+         1. Save should only be active if new data has been entered 
+         2. Clicking “Save” should add data to DB and exit the form
+         9. Cancel 
+         1. Cancel should exit the add/edit form and return user to their homepage (or page previously viewed)
+Mockup of Add /Edit Company (use SHAD CN Form Builder for consistency) 
+ A white paper with black lines
+
+Description automatically generated 
+
+Report List 
+         1. Data table asset format 
+         2. Only the reports that user has access should be listed in the list 
+         1. Super admin = ALL Reports 
+         2. Company Admin = All Company reports 
+         3. User = All reports company admin has assigned
+         3. Search 
+         1. Smart search box that filters reports as user types 
+         4. Add Report Button (VISIBLE ONLY TO SUPER ADMIN) 
+         1. Clicking this button opens Add New report Form window
+         5. Columns 
+         1. ID regi
+         2. Company Name 
+         3. Report Name
+         4. Report Link Icon(clickable)
+         1. Clicking this icon will open the report 
+         2. URL behind this button needs to be masked and not visible ANYWHERE in the application (or found via developer tools) 
+         5. #users 
+         1. # of users who can access this report 
+         6. Created Date 
+         1. Report created Date 
+         7. Active 
+         1. Active / Inactive 
+         8. Last Accessed 
+         1. Date/time report was last accessed 
+         9. Action (Column NOT Visible to Company Admin OR user) 
+         1. Edit (ONLY VISIBLE TO SUPERADMINS) 
+         1. Edit opens a pre-filled form with information in the DB from previous save that can be changed 
+         2. Delete (ONLY VISIBLE TO SUPER ADMINS) 
+         1. Clicking delete opens a popup that says, “Are you sure you wish to delete “[Report Name]”? This action is not reversible.”
+         2. Confirming will delete the record, closing the popup will send user back to Report List
+
+
+         6. Add / Edit Report tab (visible to Super Admin Only)   
+            1. Form to create new or edit existing reports in the company list 
+            2. Report name 
+            1. Dropdown 
+            1. List previously added reports 
+            2. Selecting one from the dropdown with enter previously saved report information in the available report fields
+            3. User should be able to type in a name if adding a new report 
+            10. Report link (required) 
+            1. Free text 
+            11. Status
+            1. Active 
+            2. Inactive 
+            12. Select Users for Access 
+            1. Multi-Select Dropdown 
+            1. All users that are selected will be added to the report upon save 
+            2. Super Admins = Access to all users in App 
+            3. Company Admins = Only show users for that company within the dropdown 
+Mockup
+ A white paper with black lines
+
+Description automatically generated 
+
+User List
+            1. Data Table asset Format 
+            2. Access 
+            1. Company Admin
+            1. Users with matching company ID listed  
+            2. Super Admin 
+            1. All Application users listed 
+            3. Search Bar 
+            1. Smart search box that filters reports as user types 
+            4. Add User (Button) 
+            1. Clicking button opens “Add User form” 
+            2. When add user button is clicked and form opens, backend action should take place to check current count for company ID to see if additional user can be added without charge. 
+            1. If limit not met, proceed with normal user addition to user table 
+            2. If limit IS met 
+            1. Backend query to check user count (exceeds) 
+            2. Insert charge for additional user in “AdditionalCharges” table (25 per user) 
+            3. Use stripe API to update the subscription qty for their product
+            4. Complete the user addition and add message 
+            1. “User added successfully, your subscription has been updated to include 1 additional user. $25 will be added to your next invoice.”
+            5. Table Format 
+            1. Columns 
+            1. ID 
+            2. Company Name 
+            3. Username
+            4. Role
+            5. Last Login Date 
+            6. Created Date 
+            7. Active
+            1. Active 
+            2. Inactive 
+            8. Action (Accessible to both Company Admins and Super Admins) 
+            1. Edit 
+            1. Clicking Edit will open a pre-filled form with with previously saved details prepopulated 
+            2. Delete 
+            1. Clicking delete opens a popup that says, “Are you sure you wish to delete “[Username]”? This action is not reversible.”
+            2. Confirming will delete the record, closing the popup will send user back to User List
+Add/ Edit User 
+            1. Only accessible for Super Admin and Company Admin 
+            1. If editing all options will be pre-filled with previous save
+            2. Form Options 
+            1. Select or type User Full Name
+            1. Dropdown 
+            1. If Add user was clicked, user can still select a user (they have access to) if they wish to edit 
+            2. Typing into this dropdown will being new user creation 
+            2. Email 
+            1. Free Text 
+            3. Username 
+            1. Free text 
+            1. Conflict Checking
+            1. “Username already Exists please select a new Username”
+            4. Security Role 
+            1. Dropdown 
+            1. SuperAdmin (Available to Super Admin’s Only) 
+            2. Company Admin (Available Company Admin’s and above Only) 
+            3. User (No restrictions, if user has access to this page) 
+            5. Status 
+            1. Dropdown 
+            1. Active 
+            2. Inactive
+            6. Select Report 
+            1. Multi-Select Dropdown 
+            1. All Reports that are selected before save, user will have access to. 
+            1. Only show reports added to relevant company 
+Mockup: 
+ A white paper with black lines
+
+Description automatically generated 
+
+Change Password
+Selecting Password icon in tool bar will be updating the password directly for any user that selects it
+            1.  A screen shot of a phone
+
+Description automatically generated                1. New Password 
+               1. Free text to type new password 
+               1. New password must meet minimum password standards established in the login requirements above 
+               2. Re-type Password 
+               1. Passwords must match 
+               1. Mirror conflict checking established in the login requirements 
+               3. Save 
+               1. Clicking save will log new Password to the DB 
+               1. DB should also log username / datetime of person who made the change and which user was changed. 
+               2. If user clicks Change password in the “Edit User” workflow then user will be editing the password of the user that was selected 
+               1. Mockup Shown above 
+               2. Follow the same procedures outlined in Requirement 1 in the above paragraph. 
+
+
+Billing Page (SuperAdmin)
+               1. Page Assets
+               1. Dashboard 
+               1. https://modernize-nextjs-free.vercel.app/
+               2. Data Table 
+               1. https://next-admin-dash.vercel.app/
+               2. Data must be pulled from the Stripe API to ensure correct company data via Company ID (or relevant Primary keys) is shown for each category.
+               3. Need additional column/filter for company
+               1. I.e. metrics should be able to be generated on a company basis.
+               1. Single filter only, no need for multiple selections. 
+               2. This view will essentially create the company admin dashboard (section below) when the filter is applied for the SuperAdmin
+               4. Top Level Cards 
+               1. Total Revenue (to date, or to filter date) 
+               1. Sum of all the Amount fields from the Billing Table where status = paid
+               2.  Monthly Recurring (revenue) 
+               1. Sum of the amount from the “Subscription Table” for active subscriptions with monthly billing. 
+               2. Clicking this card will show all companies with active subscriptions that make up this total. 
+               3. Outstanding AR 
+               1. Sum of the Amount in the “Billing Table” where Status = “unpaid” or “past-due” 
+               2. Clicking this card will filter the data table at the bottom of the page to this query showing all companies outstanding. 
+               4. # Outstanding 
+               1. Count of Unique companies in the “Billing Table” with either of the following statuses = ‘unpaid’ or ‘past-due’
+               2. Clicking this card will filter the data table at the bottom of the page to this query showing all companies outstanding.
+               5. New Subs 30- Day
+               1. Count of unique companies from the subscription table where DateCreated <= past 30-days 
+               2. Clicking this card will show the company results for this query in the data table 
+               3. Does not change when page level filter is applied 
+               5. Page level filter(s) 
+               1. Dates 
+               1. All Time (default) 
+               2. Last 30days 
+               3. Last 90 Days 
+               6. Data Table 
+               1. Filters
+               1. Company Name
+               1. Smart predictive text box 
+               1. Filtering this box will apply a query to the data table to pull information ONLY regarding this company or companies that fall within the filtered text. 
+               2. Date Filter 
+               1. Page level date filter still applies. No need to have a separate selection within the table 
+               2. Data Table Columns 
+               1. Select Checkbox (multi select enabled) 
+               2. Company Name
+               3. Invoice # (or ID) 
+               4. Invoice created date 
+               5. Invoice Status 
+               6. Amount 
+               7. Clickable PDF URL Link
+               3. Download 
+               1. Clicking download will download a pdf (or equivalent) of the selected invoice(s) 
+               1. If multiple are selected the download will have multiple pages (i.e. Invoices will run concurrently) 
+               7. Page Mockup: 
+               1.                     1. Billing Page (Company Admin) 
+                  2. Data must be pulled from the Stripe API to ensure correct company data via ID is shown for each category. 
+                  1. Company Admins should have NO access to any other ID’s besides their own. 
+                  3. Page Assets 
+                  1. Data table 
+                  1. https://next-admin-dash.vercel.app/
+                  4. Dashboard  A screenshot of a computer
+
+Description automatically generated 
+                     1. Current Plan (bubble) 
+                     1. Price per month (Bold Font)
+                     2. Clickable link that opens current subscription details with Stripe Customer Portal
+                     3.  A screenshot of a facebook page
+
+Description automatically generated                         1. Name of company 
+                        2. Price per month 
+                        3. Renewal Date 
+                        4. # of users enrolled 
+                        2. Payment Method (bubble) 
+                        1. Clickable link to stripe customer portal to add/edit payment methods
+                        2. Current payment method 
+                        3. Edit 
+                        1. Opens Stripe edit payment form 
+                        2.  A screenshot of a credit card
+
+Description automatically generated                            3. Table Structure with Billing History from Stripe API / Webhook
+                           1. Select Checkbox (multi select enabled)
+                           2. Invoice # (or ID) 
+                           3. Invoice created date 
+                           4. Invoice Status 
+                           5. Amount 
+                           6. Clickable PDF URL Link 
+                           4. Download 
+                           1. Clicking download will download a pdf (or equivalent) of the selected invoice(s) 
+                           1. If multiple are selected the download will have multiple pages (i.e. Invoices will run concurrently
+
+
+NEXT JS ASSET PACKAGES: 
+                           1. Data table structure
+https://vercel.com/templates/next.js/admin-dashboard-tailwind-postgres-react-nextjs
+                           1. Report list 
+                           2. User list 
+                           3. Company list 
+                           4. Billing portal 
+                           2. Billing Components
+                           1. https://vercel.com/templates/next.js/modernize-admin-dashboard
+                           2. Use embedded i-frames to open/view their customer details to give the appearance of remaining in the app. 
+                           3. Login
+                           1. Shad CN form builder is fine, unless a more appropriate/comaptible Supabase login is needed. 
+DB STRUCTURE
+(meant to serve as a guide, but not concrete, development team should use their judgement when designing table structure and schema to ensure top performance and navigability of the app) 
+Replicating Current Table structure (with some additional functionality) 
+User Table 
+                           1. UserID (PK)
+                           2. UserName 
+                           3. IsSuperAdmin (Boolean)
+                           4. Email 
+                           5. Company ID (FK)
+                           6. Role (SuperAdmin, Company Admin, User) 
+                           7. Date Created 
+                           1. Date user is first saved to the DB 
+                           8. Last Login 
+                           1. Logs most recent login, overwritten with each login. 
+                           9. Modified By 
+                           1. Logs username of person who made most recent edit to user
+                           10. Status (Active / Inactive) 
+                           11. Company Table 
+                           1. Company ID (PK)
+                           2. Company Name 
+                           3. Address 
+                           4. Phone 
+                           5. Email 
+                           6. SuperAdmin ID
+                           7. NumofEmployees 
+                           8. DateJoined 
+                           9. Status (active / inactive) 
+                           10. Last activity (date time) 
+                           1. Logs last activity date/time of company admin edits
+                           11. Modified By 
+                           1. Logs Username of person who made most recent edits
+Reports Table 
+                           1. Report ID (PK) 
+                           2. Company ID (FK)
+                           3. Report Name 
+                           4. Date Created 
+                           1. Logs created date of report 
+                           5. Last modified 
+                           1. Logs the date/time of most recent modification (Name, URL, Etc.) 
+                           6. Modified by 
+                           1. Logs Username of user who made most recent edit to report table
+                           7. Report URL 
+                           8. Status 
+                           9. Access Count (Number of time report has been accessed) 
+                           10. UserSessions Table 
+                           1. SessionID (PK) 
+                           2. UserID (FK) 
+                           3. StartTime 
+                           4. EndTime 
+                           5. TotalActiveTime 
+                           1. Duration of active time (in seconds) when page is visible
+                           6. TotalInactiveTime
+                           1. Duration of inactive time (in seconds) when page is minimized or not visible
+                           7. ReportID (FK) 
+Mouse Activity Table 
+                           1. ActivityID (PK) 
+                           2. SessionID(FK) 
+                           1. Link to the UserSessions Table 
+                           3. UserID(FK) 
+                           1. Link to the Users Table 
+                           4. MouseEventType 
+                           1. Click, Scroll 
+                           5. Timestamp 
+                           1. Date/time of the mouse event 
+                           6. ReportMetrics Table 
+                           1. Metric ID (PK) 
+                           2. UserID (FK) 
+                           1. Link to Users Table 
+                           3. SessionID(FK) 
+                           1. Link to Sessions Table
+                           4. ActivityID (FK) 
+                           1. Link to the Mouse Activity Table 
+                           5. TotalTimeSpent
+                           1. Total time spent on the page 
+                           6. TotalActiveTime 
+                           1. Total time spend with the page active or visible (in seconds) 
+                           7. ClickCount 
+                           1. # of clicks recorded while viewing that report i-frame 
+Stripe (Billing DB Structure) 
+Billing Table
+This tables serves as the primary data source for the company admin to see invoice history, edit payment options and subscriptions. This will be displayed in a data table on the page. 
+                           1. InvoiceID (PK) 
+                           1. Stripe Webhook 
+                           2. CompanyID (FK) 
+                           1. Internal DB 
+                           1. Linke to the Company table 
+                           3. StripeCustomerID
+                           1. Stripe Webhook 
+                           4. BillingDate 
+                           1. Stripe Webhook 
+                           5. Status 
+                           1. Stripe Webhook 
+                           6. Amount 
+                           1. Stripe Webhook 
+                           7. Plan 
+                           1. Stripe Webhook 
+                           8. PdfLink 
+                           1. Stripe Webhook 
+                           9. PaymentStatus 
+                           1. Stripe Webhook 
+                           10. DateCreated 
+                           1. Internal DB 
+                           11. DateModified 
+                           1. InternalDB 
+Subscription Table 
+Used to display customers Subscription Details in the billing dashboard. There will also be a clickable link to edit their Subscription via the Stripe Customer Portal. 
+
+
+                           1. SubscriptionID (PK) 
+                           1. Stripe Webhook 
+                           2. CompanyID (FK) 
+                           1. Internal DB 
+                           1. Link to company table 
+                           3. StripeCustomerID
+                           1. Stripe Webhook 
+                           4. Plan 
+                           1. Stripe Webhook 
+                           1. Sub plan name 
+                           5. Amount 
+                           1. Stripe Webhook 
+                           6. BillingInterval
+                           1. Stripe Webhook 
+                           1. Month, year, etc. 
+                           7. Status 
+                           1. Stripe Webhook 
+                           8. UserLimit (we set these values) 
+                           1. Data foundation = 2 users 
+                           2. Insight Accelerator = 6 users 
+                           3. Strategic Navigator = 10 users 
+                           1. Company can exceed these limits, but we will charge per user added.
+                           9. CurrentPeriodEnd
+                           1. Stripe Webhook 
+                           1. End of current billing period based on sub 
+                           10. StripePortalLink 
+                           1. Stripe API 
+                           1. Clickable link to customer portal for user to make edits to subscription.
+                           11. DateCreated 
+                           1. Internal DB 
+                           12. DateModified 
+                           1. Internal DB 
+
+
+PaymentMethods Table 
+Used to display customers payment method in the billing dashboard. There will also be a clickable link to edit their payment method via the Stripe Customer Portal. 
+                           1. PaymentMethodID (PK) 
+                           1. Stripe Webhook 
+                           2. CompanyID (FK) 
+                           1. Internal DB 
+                           1. Link to company table 
+                           3. StripeCustomerID 
+                           1. Stripe Webhook 
+                           4. Type 
+                           1. Stripe Webhook 
+                           1. Payment type (card, bank transfer, etc.) 
+                           5. Last4 
+                           1. Stripe Webhook 
+                           6. ExpMonth 
+                           1. Stripe Webhook 
+                           7. ExpYear 
+                           1. Stripe Webhook 
+                           8. IsDefault 
+                           1. Stripe Webhook 
+                           9. StripePortalLink
+                           1. Stripe API 
+                           1. Clickable URL to open Stripe customer portal to edit payment information 
+                           10. DateCreated 
+                           1. Internal DB 
+                           11. Date Modified 
+                           1. Internal DB 
+Future Sprints / Modules (notes)
+                           * NOT FOR INTIAL DEVELOPMENT, but important to review to ensure app can scale to these ideas
+                           * Reporting tool for Super admins to pull DB metrics 
+                           * Analytic dashboard view
+                           * Future use for company admins for their users 
+                           * Training module (another menu item) 
+                           * Onboarding video 
+                           * Cheat sheet links or documentation 
+                           * How-To's / training slides / popups
+                           * Dynamic pricing model 
+                           * Capture current subscription plan and embed correct upgrade pricing and links based on current plan 
+                           * I.e. If the user is on Data Foundations plan (2,000 build fee + 200/Mon), an upgrade to insight accelerator should open a payment link that only charges the difference between current plan and upgraded plan. 3500(new build fee)-2000(old build fee) = $1500 + new monthly fee 
+                           * This will have to be done programmatically using some “if/then” logic to pull current plan, build a pricing table, and embed payment links using the if then logic (payment links will be set up in advance in stripe.)
+Customer Linking (Future): 
+                           * The sales funnel process will enable users to checkout and subscribe to our services outside the app, more specifically on our website. The funnel will allow users to select their product, sign user agreements, conduct stripe checkout, and send onboarding emails automatically (out of scope for this project). 
+                           * However, this project needs to include mechanisms to link those subscriptions and purchases to the companies as they are created in the sign-up process. 
+                           * An example would be a Webhook listener to Stripe for new subscriptions, customer ID’s etc. We need to index these and store them in an appropriate table (future customers for example)
+                           * When the user signs up, they will use the same credentials to create their company admin account, and we will need to link the subscription to the customer and move them to the appropriate table. 
+
+
+
+
+
+
+
+
+🧾 1. Admin Subscription Purchase Timing
+When and how should an Company Admin user purchase a subscription package?
+- After deliberation with Kenny on our side, we have decided the following: 
+ 
+ 
+We will need to create onboarding links to the app depending on which product they have purchased. When the customer purchases a product (one-time build fee), we will be sending them an automated email (handled outside the app, I will build some automation for this). 
+ 
+What we will need for this process: 
+- Separate login routes for each product link
+o We will need to generate a login link for each product (Data foundations, insight accelerator, and strategic navigator, enterprise will need to be configured by a superadmin since its custom) 
+o When a user logs into this weblink (dependent on product) we can have a popup occur 
+▪ “Hi! We noticed your new here, let’s get you wired up! 
+• User confirms popup
+o -> user re-directed to customer portal checkout session related to that specific product login route (so we can charge the correct monthly subscription). 
+- To build the automation on my side, I will need the URLs for these routes to ensure I send customers to the correct place during sign up. So when these are generated please send them to me. 
+ 
+ 
+ 
+Should this occur immediately after the admin account is created? |
+- We should setup a flow to when a new account is created it prompts user to sign up for a subscription. 
+Should we redirect the admin to Stripe Checkout or Customer Portal right after they log in for
+the first time?
+ 
+Yes, the system should recognize if a company admin does not have a subscription active in their company id (or equivalent check), and prompt them for activating subscription (mentioned above)
+ 
+Billing Rules: If user signs up (company created_date > 15th day of the month, then subscription should not charge until the following month) 
+- EX. Company starts April 16th, 2025, subscription activates June 1st 2025. 
+ 
+🧑‍💼 2. Admin Owning Multiple Companies
+You’ve mentioned that an admin can manage multiple companies.
+How should we handle user additions in this case?
+Currently, our “Add User” form doesn’t include a company selector.
+Do we assume users are being added to the admin’s “current active company”?
+- Yes, when an admin enters a company, we should attach that company id to any actions. I.e. Add user, will add a user to that specific company, and charge the via the stripe API to that company ID subscription and so on.
+ 
+Should we enforce selecting a company during the “Add User” process?
+- This is a great question. I think the best way to handle this is to remove the “Add User” and Add Report button from the dashboard. Instead, we let the user click the “Pencil Icon” to open the editing. This will effectively tell us which company was selected so we can target that company id for any edits in the DB.
+- If they click the pencil icon on the user’s tab (add/edit user opens)
+- If they click the pencil on the report (add/edit repots opens) (for super admin since company admins can’t add/edit reports).
+How do we determine which company is being billed if the user limit is exceeded?
+- We likely need to run a script/query at the end of the month for active users per company id and calculate the overages based on the package tiers below.
+ 
+ 
+💰 3. Subscription Package Details (Stripe Line Items / Products)
+Could you please clarify how the initial subscription package should be structured?
+You mentioned an initial one-time charge, followed by monthly billing based on a plan. Is this:
+A one-time onboarding/setup fee + recurring monthly subscription?
+1. We plan on having the build fee (one time setup fee) paid for outside of the app (so we can assume this has been completed by the time the user enters the app). We will only handle the recurring subscription, add/remove users, and additional product purchases (future) inside the app
+Or a first month prepaid, then recurring monthly charge?
+Build fee will be completed outside the app (on our website, I will manage this process, and re-direct user to the proper login route mentioned at the top of this document). 
+What are the details of each package tier (e.g., Data Foundation, Insight Accelerator, etc.)?
+ 
+What is the price, included user limit, and billing interval for each?
+  
+
+ 
+The breakdown as it is relevant to the app + Stripe (ABOVE GRAPHIC IS OUTDATED): 
+Data Foundation: 
+- $200 per month, 2 licenses (over 2 is billed $25per user)
+Insight Accelerator:
+- $350 per month, 6 licenses (Over 6 is billed $25 per user 
+Strategic Navigator:
+- $600 Per month, 10 licenses (over 10 is billed $25 per user) 
+Enterprise: 
+- Monthly price is custom BUT we will charge for each additional user over 10 users.
+ 
+ 
+ 
+Should the Stripe line items reflect both:
+Base package price
+Additional users (as quantity-based items)
+- We plan on billing once per month at the end of the month and the invoice should reflect the base subscription i.e. ($600 per month + additional users) = total monthly cost.
+ 
+ 
+ 
+ 
+Other comments / requirements: 
+Notes: Remove price from subscription card, ($18/mo.) keep “current plan” to showcase which plan they are on but remove price
+1. Clicking Current Plan bubble should open a stripe customer portal where a user can “Upgrade” their subscription. The portal should only show plans to upgrade to. 
+a. Example strategic navigator will not show insight accelerator or data foundations. 
+2. If a company admin adds a new company, we also need to make sure we are billing for that additional location in their subscription
+a. This might require editing the DB and making the user select a HQ location for a idto primary key all the secondary locations to so they can be queried for billing
+i. Ex. Business_id (PK) for the business -> location_id (FK) for each location so we can tie all locations back to the business for billing. 
+ii. Each location will have a billing component of $100 (so if 4 locations there should be a line that says multi-location (400) or something to that effect. 
+ 
+Last point(s) and might need your insights here. Our “enterprise” plan is custom pricing package, so we will need to be able to create these subscriptions at the super admin level by setting the pricing per month or manually configuring them in stripe and having our app retrieve this data via the API. 
+We will also need a way to allow some companies to onboard to the app without creating a subscription (because they will be billed outside of stripe due to preference i.e. mailing checks) so there will need to be some way to override the subscription step. Perhaps we can use a coupon code for this like “outside billing” that reduces their invoice to zero since billing will be maintained outside of the stripe integration for these clients.

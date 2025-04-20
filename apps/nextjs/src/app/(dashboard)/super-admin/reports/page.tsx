@@ -1,135 +1,125 @@
 "use client";
 
-import { useState } from "react";
-import { Plus } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
-import { Button } from "@acme/ui/button";
-import { Input } from "@acme/ui/input";
-import { toast } from "@acme/ui/toast";
-
+import type { ReportType } from "./_components/ReportForm";
 import { useDebounce } from "~/hooks/useDebounce";
 import { api } from "~/trpc/react";
-import { DeleteReportDialog } from "./_components/DeleteReportDialog";
-import { ReportsDataTable } from "./_components/report-data-table";
-import { ReportModal } from "./_components/ReportFormModal";
+import { DataTable } from "../../_components/DataTable";
+import useReportColumns from "./_components/ReportColumns";
+import ReportModalButton from "./_components/ReportModal";
 
-// Define report type based on your Drizzle schema
-interface Report {
-  id: string;
-  reportName: string;
-  reportUrl: string;
-  accessCount: number | null;
-  dateCreated: Date | null;
-  status: "active" | "inactive" | null;
-  lastModifiedAt: Date | null;
-  company: {
-    id: string;
-    companyName: string;
-  } | null;
-  userCount?: number;
-}
+export default function ReportsDashboard() {
+  const searchParams = useSearchParams();
+  const companyId = searchParams.get("companyId");
 
-type UserRole = "superAdmin" | "admin" | "user";
-
-export default function ReportsPage() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const debouncedSearch = useDebounce(searchTerm, 500);
-
-  const { data } = api.auth.getProfile.useQuery();
-  const userRole = data?.user.user_metadata.role as UserRole;
-
-  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
-
-  const { mutate: deleteReport } = api.report.deleteReport.useMutation({
-    onSuccess: () => {
-      toast.success("Delete successful", {
-        description: "Report deleted successfully",
-      });
-      setIsDeleteDialogOpen(false);
-    },
-    onError: (error) => {
-      toast.error("Error", {
-        description: error.message,
-      });
-    },
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
   });
+  const [searchInput, setSearchInput] = useState("");
+  const debouncedSearch = useDebounce(searchInput, 500); // 500ms delay
+  const [sortBy, setSortBy] = useState<"reportName" | "dateCreated">();
+  const columns = useReportColumns();
+  const { data } = api.auth.getProfile.useQuery();
+  const userRole = data?.user?.user_metadata.role as string;
 
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
-  };
+  const [pageTitle, setPageTitle] = useState("All Reports");
 
-  const handleOpenReportModal = (report: Report | null = null) => {
-    setSelectedReport(report);
-    setIsReportModalOpen(true);
-  };
-
-  const handleOpenDeleteDialog = (report: Report) => {
-    setSelectedReport(report);
-    setIsDeleteDialogOpen(true);
-  };
-
-  const handleDeleteReport = () => {
-    if (selectedReport) {
-      deleteReport({ reportId: selectedReport.id });
+  // Set page title based on if we're filtering by company
+  useEffect(() => {
+    if (companyId) {
+      setPageTitle("Company Reports");
+    } else {
+      setPageTitle("All Reports");
     }
-  };
+  }, [companyId]);
 
-  const handleReportModalClose = () => {
-    setIsReportModalOpen(false);
-    setSelectedReport(null);
-  };
+  // If we have a companyId, use the company-specific report API
+  const { data: companyReportData, isLoading: isLoadingCompanyReports } =
+    api.report.getAllReportsForCompany.useQuery(
+      {
+        companyId: companyId ?? "",
+        searched: debouncedSearch,
+        page: pagination.page,
+        limit: pagination.limit,
+      },
+      {
+        enabled: userRole === "superAdmin" && !!companyId,
+      },
+    );
+
+  // If no companyId, use the general report API
+  const { data: reportData, isLoading: isLoadingAllReports } =
+    api.report.getAllReports.useQuery(
+      {
+        searched: debouncedSearch,
+        sortBy: sortBy,
+        page: pagination.page,
+        limit: pagination.limit,
+      },
+      {
+        enabled: userRole === "superAdmin" && !companyId,
+      },
+    );
+
+  // Determine which data to use
+  const reports = companyId
+    ? (companyReportData?.reports ?? [])
+    : (reportData?.data ?? []);
+
+  const total = companyId
+    ? (companyReportData?.total ?? 0)
+    : (reportData?.total ?? 0);
+
+  const pageLimit = companyId
+    ? (companyReportData?.limit ?? pagination.limit)
+    : (reportData?.limit ?? pagination.limit);
+
+  const isLoading = companyId ? isLoadingCompanyReports : isLoadingAllReports;
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchInput(value);
+    setPagination((prev) => ({ ...prev, page: 1 })); // Reset to first page on search
+  }, []);
+
+  // Handle page size change
+  const handlePageSizeChange = useCallback((newPageSize: number) => {
+    setPagination({
+      limit: newPageSize,
+      page: 1, // Reset to first page when changing page size
+    });
+  }, []);
 
   return (
-    <div className="container py-10">
-      <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Reports</h1>
-        {userRole === "superAdmin" && (
-          <Button
-            onClick={() => handleOpenReportModal()}
-            className="bg-blue-500 text-white hover:bg-blue-600"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Report
-          </Button>
-        )}
-      </div>
+    <div className="container mx-auto w-full p-6">
+      <h1 className="mb-6 text-2xl font-bold">{pageTitle}</h1>
 
-      <div className="mb-6">
-        <Input
-          placeholder="Search reports..."
-          value={searchTerm}
-          onChange={handleSearch}
-          className="max-w-sm"
-          type="search"
-        />
-      </div>
-
-      <ReportsDataTable
-        userRole={userRole}
-        onEdit={handleOpenReportModal}
-        onDelete={handleOpenDeleteDialog}
-        searchQuery={debouncedSearch}
+      <DataTable<ReportType, unknown, "reportName" | "dateCreated">
+        columns={columns}
+        data={reports}
+        pagination={{
+          pageCount: total && pageLimit ? Math.ceil(total / pageLimit) : 0,
+          page: pagination.page,
+          onPageChange: (page) => setPagination((prev) => ({ ...prev, page })),
+          onPageSizeChange: handlePageSizeChange,
+        }}
+        sorting={{
+          sortBy,
+          onSortChange: (newSortBy) => setSortBy(newSortBy),
+          sortOptions: ["reportName", "dateCreated"],
+        }}
+        search={{
+          value: searchInput,
+          onChange: handleSearchChange,
+        }}
+        placeholder="Search report name..."
+        actionButton={<ReportModalButton companyId={companyId ?? undefined} />}
+        isLoading={isLoading}
+        pageSize={pagination.limit}
+        pageSizeOptions={[10, 20, 50, 100]}
       />
-
-      {isReportModalOpen && (
-        <ReportModal
-          isOpen={isReportModalOpen}
-          onClose={handleReportModalClose}
-          report={selectedReport}
-          userRole={userRole}
-        />
-      )}
-
-      {isDeleteDialogOpen && (
-        <DeleteReportDialog
-          isOpen={isDeleteDialogOpen}
-          onClose={() => setIsDeleteDialogOpen(false)}
-          onDelete={handleDeleteReport}
-          reportName={selectedReport?.reportName ?? ""}
-        />
-      )}
     </div>
   );
 }

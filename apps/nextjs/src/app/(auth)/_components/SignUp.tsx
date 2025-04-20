@@ -20,7 +20,7 @@ import {
 } from "@acme/ui/form";
 import { Input } from "@acme/ui/input";
 import { Progress } from "@acme/ui/progress";
-import { toast, Toaster } from "@acme/ui/toast";
+import { toast } from "@acme/ui/toast";
 
 import { api } from "~/trpc/react";
 
@@ -81,7 +81,7 @@ interface requestedDataType {
   userName: string;
   email: string;
   password: string;
-  companyId: string;
+  companyId?: string;
 }
 export function SignUpForm() {
   const [isSubmitting, _setIsSubmitting] = useState(false);
@@ -140,8 +140,7 @@ export function SignUpForm() {
   function onSubmit(data: z.infer<typeof FormSchema>) {
     const requestedData: requestedDataType = {
       ...data,
-      role: "user",
-      companyId: "890cb7d9-9a78-47dc-9550-c474949e46a8",
+      role: "superAdmin",
     };
     register.mutate(requestedData, {
       onError: (error) => {
@@ -149,9 +148,9 @@ export function SignUpForm() {
       },
       onSuccess: () => {
         toast.success(`Signup successful, Verify your email`);
-
         form.reset();
         router.push(`/verify-otp?email=${encodeURIComponent(data.email)}`);
+        router.refresh();
       },
     });
   }
@@ -539,9 +538,6 @@ export function SignUpForm() {
           </Form>
         </CardContent>
       </Card>
-
-      {/* Toast notifications */}
-      <Toaster />
     </div>
   );
 }

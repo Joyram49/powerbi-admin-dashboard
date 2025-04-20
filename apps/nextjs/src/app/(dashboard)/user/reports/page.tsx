@@ -5,82 +5,77 @@ import { useCallback, useState } from "react";
 import { useDebounce } from "~/hooks/useDebounce";
 import { api } from "~/trpc/react";
 import { DataTable } from "../../_components/DataTable";
-import { useReportColumns } from "./_components/ReportColumns";
+import useUserReportColumns from "./_components/ReportColumns";
 
 interface ReportType {
-  id: string;
+  reportId: string;
   reportName: string;
   reportUrl: string;
   dateCreated: Date | null;
   lastModifiedAt: Date | null;
   status: "active" | "inactive" | null;
   accessCount: number | null;
-  userCounts: number;
+  userCount: number;
   company: {
     id: string;
     companyName: string;
   } | null;
 }
 
-export default function AdminReportsPage() {
+export default function UserReportsPage() {
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
   });
   const [searchInput, setSearchInput] = useState("");
-  const debouncedSearch = useDebounce(searchInput, 500);
-  const [sortBy, setSortBy] = useState<"reportName" | "dateCreated">(
-    "dateCreated",
+  const debouncedSearch = useDebounce(searchInput, 500); // 500ms delay
+
+  // Get columns from our custom hook
+  const columns = useUserReportColumns();
+
+  // Fetch user's reports
+  const { data: reportData, isLoading } = api.report.getAllReportsUser.useQuery(
+    {
+      searched: debouncedSearch,
+      page: pagination.page,
+      limit: pagination.limit,
+    },
   );
 
-  // Fetch reports for the admin
-  const { data: reportsData, isLoading } =
-    api.report.getAllReportsAdmin.useQuery({
-      searched: debouncedSearch,
-      limit: pagination.limit,
-      page: pagination.page,
-      sortBy,
-    });
-
-  const columns = useReportColumns();
+  // Extract actual report data array from the response
+  const reports = reportData?.reports ?? [];
 
   const handleSearchChange = useCallback((value: string) => {
     setSearchInput(value);
-    setPagination((prev) => ({ ...prev, page: 1 }));
+    setPagination((prev) => ({ ...prev, page: 1 })); // Reset to first page on search
   }, []);
 
-  const handleSortChange = useCallback(
-    (newSortBy: "reportName" | "dateCreated") => {
-      setSortBy(newSortBy);
-    },
-    [],
-  );
-
+  // Handle page size change
   const handlePageSizeChange = useCallback((newPageSize: number) => {
-    setPagination(() => ({
+    setPagination({
       limit: newPageSize,
-      page: 1,
-    }));
+      page: 1, // Reset to first page when changing page size
+    });
   }, []);
 
   return (
-    <div className="container mx-auto w-full p-6">
+    <div className="container mx-auto py-10">
+      <h1 className="mb-8 text-3xl font-bold">My Reports</h1>
       <DataTable<ReportType, unknown, "reportName" | "dateCreated">
         columns={columns}
-        data={reportsData?.reports ?? []}
+        data={reports}
         pagination={{
-          pageCount:
-            reportsData?.total && reportsData.limit
-              ? Math.ceil(reportsData.total / reportsData.limit)
-              : 0,
+          pageCount: Math.ceil((reportData?.total ?? 0) / pagination.limit),
           page: pagination.page,
-          onPageChange: (page: number) =>
-            setPagination((prev) => ({ ...prev, page })),
+          onPageChange: (page) => setPagination((prev) => ({ ...prev, page })),
           onPageSizeChange: handlePageSizeChange,
         }}
         sorting={{
-          sortBy,
-          onSortChange: handleSortChange,
+          sortBy: undefined,
+          onSortChange: (_sortField) => {
+            // Sorting disabled for users
+            return;
+          },
           sortOptions: ["reportName", "dateCreated"],
         }}
         search={{
@@ -90,7 +85,6 @@ export default function AdminReportsPage() {
         isLoading={isLoading}
         placeholder="Search reports..."
         pageSize={pagination.limit}
-        pageSizeOptions={[10, 20, 50, 100]}
       />
     </div>
   );

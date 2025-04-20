@@ -14,23 +14,6 @@ import { api } from "~/trpc/server";
 async function TotalUsersCard() {
   const totalUsersResponse = await api.user.getAllActiveUsers();
 
-  // Check if the response is successful and contains total
-  if (!totalUsersResponse.success) {
-    return (
-      <Card className="@container/card dark:bg-slate-900">
-        <CardHeader className="relative">
-          <CardDescription>Error fetching data</CardDescription>{" "}
-          {/* Display an error message */}
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1 text-sm">
-          <div className="text-muted-foreground">
-            Unable to retrieve user data.
-          </div>
-        </CardFooter>
-      </Card>
-    );
-  }
-
   return (
     <Card className="@container/card dark:bg-slate-900">
       <CardHeader className="relative">

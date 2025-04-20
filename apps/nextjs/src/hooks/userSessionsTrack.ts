@@ -9,7 +9,7 @@ const ACTIVE_TIME_KEY = "totalActiveTime";
 
 export function useActiveTimeTracker() {
   const [totalActiveTime, setTotalActiveTime] = useState(0);
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string>("");
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
@@ -41,7 +41,7 @@ export function useActiveTimeTracker() {
         // User just logged out
         localStorage.removeItem(ACTIVE_TIME_KEY);
         setTotalActiveTime(0);
-        setSessionId(null);
+        setSessionId("");
         wasSessionActive.current = false;
       }
       return;

@@ -63,6 +63,11 @@ export function MultiSelect({
     return options.find((option) => option.value === value)?.label ?? value;
   };
 
+  // Filter options to only show unselected items in the dropdown
+  const availableOptions = options.filter(
+    (option) => !selected.includes(option.value),
+  );
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (
@@ -89,7 +94,7 @@ export function MultiSelect({
           role="combobox"
           aria-expanded={open}
           className={cn(
-            "h-auto min-h-10 w-full justify-between border border-input px-3 py-2",
+            "h-auto min-h-10 w-full justify-between border border-input bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-800 dark:text-white",
             selected.length > 0 ? "text-start" : "",
             className,
           )}
@@ -99,12 +104,16 @@ export function MultiSelect({
           <div className="flex flex-wrap gap-1">
             {selected.length > 0 ? (
               selected.map((value) => (
-                <Badge key={value} variant="secondary" className="mb-1 mr-1">
+                <Badge
+                  key={value}
+                  variant="secondary"
+                  className="mb-1 mr-1 dark:bg-gray-700 dark:text-gray-100"
+                >
                   {getLabel(value)}
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="ml-1 h-4 w-4 rounded-full p-0"
+                    className="ml-1 h-4 w-4 rounded-full p-0 dark:hover:bg-gray-600"
                     onClick={(e) => handleRemove(e, value)}
                   >
                     <X className="h-3 w-3" />
@@ -112,7 +121,9 @@ export function MultiSelect({
                 </Badge>
               ))
             ) : (
-              <span className="text-muted-foreground">{placeholder}</span>
+              <span className="text-muted-foreground dark:text-gray-400">
+                {placeholder}
+              </span>
             )}
           </div>
           {loading ? (
@@ -122,27 +133,35 @@ export function MultiSelect({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full min-w-[200px] p-0" align="start">
-        <Command>
-          <CommandInput placeholder="Search..." />
-          <CommandList>
-            <CommandEmpty>No results found.</CommandEmpty>
-            <CommandGroup>
+      <PopoverContent
+        className="w-full min-w-[200px] border p-0 dark:border-gray-700 dark:bg-gray-800"
+        align="start"
+      >
+        <Command className="dark:bg-gray-800">
+          <CommandInput
+            placeholder="Search..."
+            className="dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-400"
+          />
+          <CommandList className="dark:bg-gray-800">
+            <CommandEmpty className="dark:text-gray-400">
+              No results found.
+            </CommandEmpty>
+            <CommandGroup className="dark:bg-gray-800">
               {loading ? (
                 <div className="flex items-center justify-center py-6">
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground dark:text-gray-400" />
                 </div>
               ) : (
-                options.map((option) => (
+                availableOptions.map((option) => (
                   <CommandItem
                     key={option.value}
                     onSelect={() => handleSelect(option.value)}
-                    className="cursor-pointer"
+                    className="cursor-pointer dark:text-white dark:hover:bg-gray-700 dark:focus:bg-gray-700"
                   >
                     <div className="flex w-full items-center justify-between">
                       <span>{option.label}</span>
                       {selected.includes(option.value) && (
-                        <Check className="h-4 w-4 text-primary" />
+                        <Check className="h-4 w-4 text-primary dark:text-blue-400" />
                       )}
                     </div>
                   </CommandItem>
