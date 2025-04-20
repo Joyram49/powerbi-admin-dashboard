@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -224,7 +225,18 @@ export default function ReportForm({
   }
 
   return (
-    <div className="rounded-lg bg-white p-6 shadow-lg dark:border-gray-600 dark:bg-gray-900">
+    <motion.div
+      className="max-h-[70vh] overflow-y-auto rounded-lg p-6 pr-1 dark:border-gray-600 dark:bg-gray-900"
+      style={{
+        scrollbarWidth: "none" /* Firefox */,
+        msOverflowStyle: "none" /* IE and Edge */,
+      }}
+    >
+      <style jsx>{`
+        div::-webkit-scrollbar {
+          display: none; /* Chrome, Safari, Opera */
+        }
+      `}</style>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <FormField
@@ -384,6 +396,6 @@ export default function ReportForm({
           </div>
         </form>
       </Form>
-    </div>
+    </motion.div>
   );
 }
