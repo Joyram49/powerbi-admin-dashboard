@@ -4,14 +4,14 @@ import { ForgotPasswordForm } from "../_components/ForgotPasswordForm";
 
 export default function ForgotPasswordPage() {
   return (
-    <div className="flex flex-col items-center justify-center px-4 py-12">
-      <div className="w-full  rounded-lg border border-gray-200 bg-white p-8 shadow-md">
+    <div className="flex flex-col items-center justify-center px-4 py-12 dark:bg-gray-900">
+      <div className="w-full rounded-lg border border-gray-200 bg-white p-8 shadow-md dark:border-gray-700 dark:bg-gray-800">
         <div className="mb-6 flex flex-col items-center">
           {/* App logo/icon */}
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="h-8 w-8 text-blue-600"
+              className="h-8 w-8 text-blue-600 dark:text-blue-400"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -24,10 +24,10 @@ export default function ForgotPasswordPage() {
               />
             </svg>
           </div>
-          <h1 className="text-center text-2xl font-bold text-gray-900">
+          <h1 className="text-center text-2xl font-bold text-gray-900 dark:text-white">
             Forgot Password
           </h1>
-          <p className="mt-2 text-center text-sm text-gray-600">
+          <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
             Please enter your email to receive a verification code
           </p>
         </div>
@@ -37,7 +37,7 @@ export default function ForgotPasswordPage() {
         <div className="mt-6 text-center">
           <Link
             href="/login"
-            className="text-sm font-medium text-blue-600 hover:text-blue-800"
+            className="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
           >
             Return to login
           </Link>

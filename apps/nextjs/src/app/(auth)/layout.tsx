@@ -1,4 +1,3 @@
-import React, { Suspense } from "react";
 import Image from "next/image";
 
 import AuthFooter from "./_components/AuthFooter";
@@ -14,7 +13,7 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
           height={200}
           className="absolute top-0 mx-auto"
         />
-        <Suspense fallback="Loading...">{children}</Suspense>
+        {children}
       </div>
       <AuthFooter />
     </main>

@@ -121,13 +121,21 @@ export function EntityActions<T>({
     <>
       <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="h-8 w-8 p-0">
+          <Button
+            variant="ghost"
+            className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-900"
+          >
             <span className="sr-only">Open menu</span>
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="dark:bg-slate-800">
-          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+        <DropdownMenuContent
+          align="end"
+          className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"
+        >
+          <DropdownMenuLabel className="dark:text-gray-200">
+            Actions
+          </DropdownMenuLabel>
 
           {/* Copy actions */}
           {copyActions.length > 0 && (
@@ -136,12 +144,12 @@ export function EntityActions<T>({
                 <DropdownMenuItem
                   key={`copy-${index}`}
                   onClick={() => handleCopyAction(action.field)}
-                  className="cursor-pointer hover:dark:bg-slate-900"
+                  className="cursor-pointer hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
                 >
                   {action.label}
                 </DropdownMenuItem>
               ))}
-              <DropdownMenuSeparator />
+              <DropdownMenuSeparator className="dark:bg-gray-700" />
             </>
           )}
 
@@ -154,7 +162,8 @@ export function EntityActions<T>({
                 setTimeout(action.onClick, 100);
               }}
               className={
-                action.className ?? "cursor-pointer hover:dark:bg-slate-900"
+                action.className ??
+                "cursor-pointer hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
               }
             >
               {action.icon && <span className="mr-2">{action.icon}</span>}
@@ -166,7 +175,7 @@ export function EntityActions<T>({
           {editAction && (
             <DropdownMenuItem
               onClick={handleEditClick}
-              className="cursor-pointer hover:dark:bg-slate-900"
+              className="cursor-pointer hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
             >
               <Edit className="mr-2 h-4 w-4" />
               Edit | {entityDisplayName}
@@ -177,7 +186,7 @@ export function EntityActions<T>({
           {deleteAction && (
             <DropdownMenuItem
               onClick={handleDeleteClick}
-              className="cursor-pointer text-red-500 hover:!bg-red-50 dark:hover:!bg-red-900/30"
+              className="cursor-pointer text-red-500 hover:!bg-red-50 dark:text-red-600 dark:hover:!bg-red-900 dark:hover:text-white"
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Delete | {entityDisplayName}
@@ -194,9 +203,9 @@ export function EntityActions<T>({
             if (!open) setIsEditModalOpen(false);
           }}
         >
-          <DialogContent>
+          <DialogContent className="dark:border-gray-700 dark:bg-gray-900">
             <DialogHeader>
-              <DialogTitle>
+              <DialogTitle className="dark:text-white">
                 {editAction.title ?? `Edit ${entityName}`}
               </DialogTitle>
             </DialogHeader>
@@ -213,25 +222,26 @@ export function EntityActions<T>({
             if (!open) setIsDeleteDialogOpen(false);
           }}
         >
-          <DialogContent>
+          <DialogContent className="dark:border-gray-700 dark:bg-gray-900">
             <DialogHeader>
-              <DialogTitle>
+              <DialogTitle className="dark:text-white">
                 {deleteAction.title ?? `Delete ${entityName}`}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <p>
+              <p className="dark:text-gray-200">
                 {deleteAction.description ??
                   `Are you sure you want to delete the ${entityName.toLowerCase()}: `}
                 <strong>{entityDisplayName}</strong>?
               </p>
-              <p className="text-sm text-red-500">
+              <p className="text-sm text-red-500 dark:text-red-600">
                 This action cannot be undone.
               </p>
               <div className="flex justify-end gap-2">
                 <Button
                   variant="outline"
                   onClick={() => setIsDeleteDialogOpen(false)}
+                  className="dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
                 >
                   Cancel
                 </Button>
@@ -239,6 +249,7 @@ export function EntityActions<T>({
                   variant="destructive"
                   onClick={handleDelete}
                   disabled={isDeletePending}
+                  className="dark:bg-red-700 dark:hover:bg-red-600"
                 >
                   {isDeletePending
                     ? "Deleting..."

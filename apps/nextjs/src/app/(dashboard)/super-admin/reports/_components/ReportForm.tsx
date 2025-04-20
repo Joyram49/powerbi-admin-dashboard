@@ -46,6 +46,7 @@ export interface ReportType {
 
 interface ReportFormProps {
   onClose: (shouldRefresh?: boolean) => void;
+  setDialogOpen?: (open: boolean) => void;
   initialData?: ReportType | null;
   userRole: "superAdmin" | "admin" | "user";
   companyId?: string;
@@ -68,6 +69,7 @@ const formSchema = z.object({
 
 export default function ReportForm({
   onClose,
+  setDialogOpen,
   initialData,
   userRole,
   companyId,
@@ -209,17 +211,20 @@ export default function ReportForm({
         <p className="mb-4 text-center">
           You don't have permission to manage reports.
         </p>
-        <Button onClick={() => onClose(false)}>Close</Button>
+        <Button
+          onClick={() => {
+            setDialogOpen?.(false);
+            onClose(false);
+          }}
+        >
+          Close
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg bg-white p-6 shadow-lg dark:bg-slate-900">
-      {/* <h2 className="mb-6 text-xl font-bold">
-        {initialData ? "Edit Report" : "Create New Report"}
-      </h2> */}
-
+    <div className="rounded-lg bg-white p-6 shadow-lg dark:border-gray-600 dark:bg-gray-900">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <FormField
@@ -357,7 +362,10 @@ export default function ReportForm({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onClose(false)}
+              onClick={() => {
+                setDialogOpen?.(false);
+                onClose(false);
+              }}
               className="bg-gray-100 text-gray-900 hover:bg-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
             >
               Cancel

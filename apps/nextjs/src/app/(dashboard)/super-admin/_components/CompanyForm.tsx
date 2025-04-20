@@ -123,13 +123,17 @@ interface User {
   status?: "active" | "inactive" | null;
 }
 
+interface CompanyFormProps {
+  onClose: (shouldRefresh?: boolean) => void;
+  setDialogOpen?: (open: boolean) => void;
+  initialData?: Company | null;
+}
+
 const CompanyAdminForm = ({
   onClose,
+  setDialogOpen,
   initialData,
-}: {
-  onClose?: () => void;
-  initialData?: Company;
-}) => {
+}: CompanyFormProps) => {
   const [showAdminForm, setShowAdminForm] = useState(false);
   const [companyFormSubmitted, setCompanyFormSubmitted] = useState(false);
   const [adminFormSubmitted, setAdminFormSubmitted] = useState(false);
@@ -223,7 +227,6 @@ const CompanyAdminForm = ({
       });
     },
   });
-
 
   // Create company mutation
   const createCompanyMutation = api.company.create.useMutation({
@@ -725,8 +728,11 @@ const CompanyAdminForm = ({
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => setShowAdminForm(false)}
-                        className="border-gray-300 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:hover:bg-gray-800"
+                        onClick={() => {
+                          setDialogOpen?.(false);
+                          onClose(false);
+                        }}
+                        className="bg-gray-100 text-gray-900 hover:bg-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
                       >
                         Cancel
                       </Button>

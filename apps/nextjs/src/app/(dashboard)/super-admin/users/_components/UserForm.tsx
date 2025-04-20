@@ -187,11 +187,17 @@ const buttonVariants = {
 
 interface UserFormProps {
   onClose?: () => void;
+  setDialogOpen?: (open: boolean) => void;
   initialData?: User;
   companyId?: string;
 }
 
-export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
+export function UserForm({
+  onClose,
+  setDialogOpen,
+  initialData,
+  companyId,
+}: UserFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [formSubmitError, setFormSubmitError] = useState<string | null>(null);
@@ -256,15 +262,15 @@ export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
   const form = useForm<FormValues>({
     resolver: zodResolver(userSchema),
     defaultValues: {
-      id: initialData?.id || "",
-      userName: initialData?.userName || "",
+      id: initialData?.id ?? "",
+      userName: initialData?.userName ?? "",
       password: "",
       confirmPassword: "",
-      email: initialData?.email || "",
-      role: initialData?.role! || "user",
-      companyId: initialData?.companyId || companyId || "",
+      email: initialData?.email ?? "",
+      role: initialData?.role ?? "user",
+      companyId: initialData?.companyId ?? companyId ?? "",
       sendWelcomeEmail: true,
-      status: initialData?.status! || "active",
+      status: initialData?.status ?? "active",
     },
     mode: "onChange",
   });
@@ -711,12 +717,10 @@ export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
               type="button"
               variant="outline"
               onClick={() => {
-                form.reset();
-                setFormSubmitError(null);
-                if (onClose) onClose();
+                setDialogOpen?.(false);
+                onClose?.();
               }}
-              className="border-gray-300 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:hover:bg-gray-800"
-              disabled={isSubmitting}
+              className="border-gray-300 bg-gray-100 text-gray-900 hover:bg-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
             >
               Cancel
             </Button>
