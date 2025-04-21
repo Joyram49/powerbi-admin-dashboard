@@ -27,7 +27,6 @@ export default function SuperDashboard() {
       limit: pagination.limit,
     },
   );
-  console.log(companyData);
   // Extract actual company data array from the response
   const companies = companyData?.data ?? [];
 

@@ -20,6 +20,7 @@ import {
 import { Input } from "@acme/ui/input";
 import { toast, Toaster } from "@acme/ui/toast";
 
+import { useSessionActivity } from "~/hooks/useSessionActivity";
 import { api } from "~/trpc/react";
 import { ROLE_ROUTES } from "~/utils/routes";
 
@@ -66,6 +67,7 @@ const buttonVariants = {
 
 export function SignInForm() {
   const router = useRouter();
+  const { createSession } = useSessionActivity();
 
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
@@ -75,21 +77,25 @@ export function SignInForm() {
     },
     mode: "onChange",
   });
-  const createOrUpdateSession = api.session.createOrUpdateSession.useMutation({
-    onError: (error) => {
-      console.error("Session creation failed:", error);
-      // We don't show this error to the user as the login was successful
-    },
-    onSuccess: (result) => {
-      console.log("Session created/updated:", result);
-    },
-  });
+
   const signIn = api.auth.signIn.useMutation({
     onError: (error) => {
       const errorMessage = error.message || "Login failed. Please try again.";
       toast.error(errorMessage);
     },
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
+      // Clean up any existing activity data
+      localStorage.removeItem("userActivityData");
+      localStorage.removeItem("auth_event_time");
+
+      // Create a user session after successful login
+      try {
+        await createSession();
+      } catch (error) {
+        console.error("Failed to create session:", error);
+        // Continue with login process even if session creation fails
+      }
+
       // result contains user role information
       const userRole = result.user.user_metadata.role as string;
 
@@ -100,8 +106,8 @@ export function SignInForm() {
 
       toast.success("Login successful");
       form.reset();
-      createOrUpdateSession.mutate();
-      // Redirect to role-specific route
+
+      // Redirect to role-specific route regardless of session creation success
       router.push(roleBasedRoute);
     },
   });
@@ -203,7 +209,7 @@ export function SignInForm() {
               </motion.div>
 
               {/* Submit Button */}
-              <motion.div variants={itemVariants} className="pt-4">
+              <motion.div variants={itemVariants}>
                 <motion.div
                   variants={buttonVariants}
                   whileHover="hover"
