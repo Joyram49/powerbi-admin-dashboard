@@ -1,11 +1,13 @@
 "use client";
 
 import type { Column, ColumnDef, Table } from "@tanstack/react-table";
-import React, { useMemo } from "react";
-import { ArrowUpDown } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { ArrowUpDown, ExternalLinkIcon } from "lucide-react";
 
 import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
+
+import ReportViewer from "~/app/(dashboard)/_components/ReportViewer";
 
 interface ReportType {
   id: string;
@@ -29,7 +31,22 @@ interface TableMeta {
 }
 
 export function useReportColumns() {
-  return useMemo(() => {
+  // State for report viewer
+  const [selectedReport, setSelectedReport] = useState<ReportType | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  const openReportDialog = (report: ReportType) => {
+    setSelectedReport(report);
+    setIsDialogOpen(true);
+  };
+
+  const closeReportDialog = () => {
+    setIsDialogOpen(false);
+    // Small delay to allow animation to complete
+    setTimeout(() => setSelectedReport(null), 300);
+  };
+
+  const columns: ColumnDef<ReportType, unknown>[] = useMemo(() => {
     const columns: ColumnDef<ReportType, unknown>[] = [
       {
         accessorKey: "reportName",
@@ -61,6 +78,23 @@ export function useReportColumns() {
         cell: ({ row }) => (
           <div className="text-center font-semibold">
             {row.original.reportName}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "reportUrl",
+        header: () => <div className="text-center font-medium">Report URL</div>,
+        cell: ({ row }) => (
+          <div className="text-center">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => openReportDialog(row.original)}
+              className="mx-auto flex cursor-pointer items-center space-x-1 border border-primary/90 bg-primary/10 px-2 py-1 text-primary hover:bg-primary/20"
+            >
+              <ExternalLinkIcon className="h-4 w-4" />
+              <span>Open</span>
+            </Button>
           </div>
         ),
       },
@@ -163,6 +197,14 @@ export function useReportColumns() {
 
     return columns;
   }, []);
+
+  return {
+    columns,
+    ReportViewer,
+    isDialogOpen,
+    selectedReport,
+    closeReportDialog,
+  };
 }
 
 export default useReportColumns;

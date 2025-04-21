@@ -3,6 +3,7 @@ import {
   numeric,
   pgEnum,
   pgTable,
+  text,
   timestamp,
   uuid,
   varchar,
@@ -19,9 +20,11 @@ export const billingIntervalEnum = pgEnum("billing_interval", [
 
 export const subscriptions = pgTable("subscription", {
   id: uuid("id").notNull().primaryKey().defaultRandom(),
-  companyId: uuid("company_id").references(() => companies.id, {
-    onDelete: "set null",
-  }),
+  companyId: uuid("company_id")
+    .notNull()
+    .references(() => companies.id, {
+      onDelete: "set null",
+    }),
   stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
   plan: varchar("plan", { length: 255 }).notNull(),
   amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
@@ -31,7 +34,7 @@ export const subscriptions = pgTable("subscription", {
   currentPeriodEnd: timestamp("current_period_end", {
     withTimezone: true,
   }).notNull(),
-  stripePortalUrl: varchar("stripe_portal_url", { length: 255 }),
+  stripePortalUrl: text("stripe_portal_url"),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

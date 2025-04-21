@@ -2,6 +2,7 @@ import {
   boolean,
   integer,
   pgTable,
+  text,
   timestamp,
   uuid,
   varchar,
@@ -11,16 +12,18 @@ import { companies } from "./company";
 
 export const paymentMethods = pgTable("payment_methods", {
   id: uuid("id").notNull().primaryKey().defaultRandom(),
-  companyId: uuid("company_id").references(() => companies.id, {
-    onDelete: "set null",
-  }),
+  companyId: uuid("company_id")
+    .notNull()
+    .references(() => companies.id, {
+      onDelete: "set null",
+    }),
   stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
   paymentMethodType: varchar("payment_method_type", { length: 255 }),
   last4: varchar("last4", { length: 4 }),
   expMonth: integer("exp_month"),
   expYear: integer("exp_year"),
   isDefault: boolean("is_default").notNull().default(false),
-  stripePortalUrl: varchar("stripe_portal_url", { length: 255 }),
+  stripePortalUrl: text("stripe_portal_url"),
   dateCreated: timestamp("date_created", { withTimezone: true })
     .notNull()
     .defaultNow(),

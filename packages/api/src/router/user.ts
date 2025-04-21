@@ -288,6 +288,7 @@ export const userRouter = createTRPCRouter({
 
   // this is used to get all users by company id for the superAdmin and admin
   getUsersByCompanyId: protectedProcedure
+
     .input(
       z
         .object({

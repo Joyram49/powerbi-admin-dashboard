@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   BarChart3,
+  CreditCard,
   FileText,
   Home,
   KeyRound,
@@ -15,7 +16,7 @@ import {
 
 import { Sidebar, SidebarTrigger } from "@acme/ui/sidebar";
 
-import { useActiveTimeTracker } from "~/hooks/userSessionsTrack";
+import { useSessionActivity } from "~/hooks/useSessionActivity";
 import { api } from "~/trpc/react";
 
 const navigationItems = {
@@ -59,8 +60,8 @@ const navigationItems = {
     },
     {
       href: "/admin/billing",
-      icon: <Receipt className="mr-3 h-5 w-5" />,
-      label: "Billing Portal",
+      icon: <CreditCard className="mr-3 h-5 w-5" />,
+      label: "Pricing Plans",
     },
   ],
   user: [
@@ -68,11 +69,6 @@ const navigationItems = {
       href: "/user",
       icon: <Home className="mr-3 h-5 w-5" />,
       label: "Home",
-    },
-    {
-      href: "/report",
-      icon: <FileText className="mr-3 h-5 w-5" />,
-      label: "Reports",
     },
   ],
 };
@@ -82,34 +78,73 @@ export default function AppSidebar() {
   const router = useRouter();
   const { data, isLoading } = api.auth.getProfile.useQuery();
   const userRole = data?.user?.user_metadata.role as string;
-  const { totalActiveTime, sessionId } = useActiveTimeTracker();
+  const { updateSession, getSessionId, fetchSession, getActiveTime } =
+    useSessionActivity();
   const utils = api.useUtils();
   const logoutMutation = api.auth.signOut.useMutation({
     onSuccess: async () => {
       await utils.auth.getProfile.invalidate();
     },
   });
-  const updateSession = api.session.updateSession.useMutation();
-  const handleLogout = async () => {
+
+  // This function needs to be used as an onClick handler
+  const handleLogout = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+
+    // Visual feedback
+    const button = e.currentTarget;
+    const originalText = button.textContent ?? "";
+    button.textContent = "Saving activity...";
+    button.setAttribute("disabled", "true");
+    button.style.opacity = "0.7";
+
     try {
-      // First update the session
-      await updateSession.mutateAsync({
-        sessionId,
-        totalActiveTime,
-      });
+      // Step 1: Try to fetch the session from server first if not in local storage
+      let sessionId = await getSessionId(true); // true = fetch from server if needed
 
-      // Then sign out
+      if (!sessionId) {
+        // If still not found, explicitly fetch it
+        sessionId = await fetchSession();
+      }
+
+      // Get real-time active time for logging
+      const currentActiveTime = getActiveTime();
+      console.log(
+        "Current active time:",
+        currentActiveTime,
+        "ms",
+        (currentActiveTime / 1000).toFixed(2),
+        "seconds",
+      );
+
+      // Step 2: Update the session if it exists
+      if (sessionId) {
+        console.log("Updating session before logout:", sessionId);
+        const updateResult = await updateSession();
+        console.log(
+          "Session update result:",
+          updateResult ? "Success" : "Failed",
+        );
+      } else {
+        console.log("No active session to update");
+      }
+
+      // Clean up activity data in localStorage - just one item now
+      localStorage.removeItem("userActivityData");
+
+      // Step 3: Only proceed with sign out AFTER the session is updated
+      button.textContent = "Signing out...";
       await logoutMutation.mutateAsync();
+      console.log("Signed out successfully");
 
-      // Clear local storage
-      localStorage.removeItem("totalActiveTime");
-
-      // Immediately redirect to prevent additional authenticated API calls
+      // Step 4: Redirect
       router.push("/login");
     } catch (error) {
-      console.error("Logout error:", error);
-      // Still redirect even if there's an error
-      router.push("/login");
+      console.error("Logout process error:", error);
+      // Reset button appearance
+      button.textContent = originalText;
+      button.removeAttribute("disabled");
+      button.style.opacity = "1";
     }
   };
 
@@ -180,6 +215,7 @@ export default function AppSidebar() {
         {/* Logout Button */}
         <button
           onClick={handleLogout}
+          data-sign-out="true"
           className="flex w-full items-center px-4 py-2 text-left text-slate-300 hover:bg-slate-800 hover:text-white"
         >
           <LogOut className="mr-3 h-5 w-5" />

@@ -42,7 +42,13 @@ export default function AdminReportsPage() {
       sortBy,
     });
 
-  const columns = useReportColumns();
+  const {
+    columns,
+    ReportViewer,
+    isDialogOpen,
+    selectedReport,
+    closeReportDialog,
+  } = useReportColumns();
 
   const handleSearchChange = useCallback((value: string) => {
     setSearchInput(value);
@@ -92,6 +98,13 @@ export default function AdminReportsPage() {
         pageSize={pagination.limit}
         pageSizeOptions={[10, 20, 50, 100]}
       />
+      {isDialogOpen && selectedReport && (
+        <ReportViewer
+          isOpen={isDialogOpen}
+          onClose={closeReportDialog}
+          report={selectedReport}
+        />
+      )}
     </div>
   );
 }

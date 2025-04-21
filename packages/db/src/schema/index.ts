@@ -1,11 +1,14 @@
 import { relations } from "drizzle-orm";
 
+import { billings } from "./billing";
 import { companies } from "./company";
 import { loginAttempts } from "./login-attempts";
 import { mouseActivities } from "./mouse-activity";
+import { paymentMethods } from "./payment-method";
 import { posts } from "./post";
 import { reports } from "./report";
 import { reportMetrics } from "./report-metrics";
+import { subscriptions } from "./subscription";
 import { users } from "./user";
 import { userReports } from "./userReports";
 import { userSessions } from "./userSessions";
@@ -37,6 +40,9 @@ export const companyRelations = relations(companies, ({ one, many }) => ({
     references: [users.id], // Now users is fully loaded
   }),
   employees: many(users),
+  billings: many(billings),
+  subscriptions: many(subscriptions),
+  paymentMethods: many(paymentMethods),
 }));
 
 // Post relations
@@ -112,5 +118,29 @@ export const reportMetricsRelations = relations(reportMetrics, ({ one }) => ({
   mouseActivity: one(mouseActivities, {
     fields: [reportMetrics.mouseActivityId],
     references: [mouseActivities.id],
+  }),
+}));
+
+// billing relations
+export const billingRelations = relations(billings, ({ one }) => ({
+  company: one(companies, {
+    fields: [billings.companyId],
+    references: [companies.id],
+  }),
+}));
+
+// subscriptions relations
+export const subscriptionReations = relations(subscriptions, ({ one }) => ({
+  company: one(companies, {
+    fields: [subscriptions.companyId],
+    references: [companies.id],
+  }),
+}));
+
+// payment methods relations
+export const paymentMethodRelations = relations(paymentMethods, ({ one }) => ({
+  company: one(companies, {
+    fields: [paymentMethods.companyId],
+    references: [companies.id],
   }),
 }));
