@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, eq, isNotNull, isNull, sum } from "drizzle-orm";
+import { and, eq, isNull, sum } from "drizzle-orm";
 import { z } from "zod";
 
 import { db, userSessions } from "@acme/db";
@@ -10,42 +10,44 @@ export const sessionRouter = createTRPCRouter({
   // this endpoint is create session for new user or update for existing user
   createOrUpdateSession: protectedProcedure.mutation(async ({ ctx }) => {
     const userId = ctx.session.user.id;
+    console.log("userId", userId);
 
     try {
-      // Check if an active session already exists
-      const existingSession = await db
+      // First, check if ANY session exists for this user (active or not)
+      const anyExistingSession = await db
         .select()
         .from(userSessions)
-        .where(
-          and(eq(userSessions.userId, userId), isNotNull(userSessions.endTime)),
-        )
+        .where(eq(userSessions.userId, userId))
         .limit(1);
 
-      if (existingSession.length > 0) {
-        // If a session exists, update it (reset `endTime` if necessary)
-        const existingSessionId = existingSession[0]?.id ?? "";
+      if (anyExistingSession.length > 0) {
+        // A session exists for this user, update it instead of creating a new one
+        const existingSessionId = anyExistingSession[0]?.id ?? "";
         const updatedSession = await db
           .update(userSessions)
           .set({
             startTime: new Date(),
-            endTime: null,
+            endTime: null, // Mark as active by clearing end time
+            // Don't reset accumulated times
           })
           .where(eq(userSessions.id, existingSessionId))
           .returning();
 
         return {
           success: true,
-          message: "Active session found and updated",
+          message: "Existing session updated and reactivated",
           data: updatedSession[0],
         };
       }
 
-      // If no session exists, create a new one
+      // If no session exists at all for this user, create a new one
       const newSession = await db
         .insert(userSessions)
         .values({
           userId,
-          reportId: "333711d6-91e8-4702-ac7a-f87b2aae64aa",
+          startTime: new Date(),
+          totalActiveTime: 0,
+          totalInactiveTime: 0,
         })
         .returning();
 
@@ -58,6 +60,35 @@ export const sessionRouter = createTRPCRouter({
       if (error instanceof TRPCError) {
         throw error;
       }
+      console.error("Session creation error:", error);
+
+      // Add specific error handling for unique constraint violation
+      const pgError = error as { code: string; constraint_name?: string };
+      if (
+        pgError.code === "23505" &&
+        pgError.constraint_name === "user_sessions_user_id_unique"
+      ) {
+        // If we get here, it means another request created a session in parallel
+        // Let's try to get and return the existing session
+        try {
+          const existingSession = await db
+            .select()
+            .from(userSessions)
+            .where(eq(userSessions.userId, userId))
+            .limit(1);
+
+          if (existingSession.length > 0) {
+            return {
+              success: true,
+              message: "Using existing session due to concurrent creation",
+              data: existingSession[0],
+            };
+          }
+        } catch (innerError) {
+          console.error("Failed to fetch after constraint error:", innerError);
+        }
+      }
+
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: "Failed to create or update session",

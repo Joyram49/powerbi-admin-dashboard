@@ -7,6 +7,7 @@ import { cn } from "@acme/ui";
 import { ThemeProvider } from "@acme/ui/theme";
 import { Toaster } from "@acme/ui/toast";
 
+import { ActivityTracker } from "~/components/ActivityTracker";
 import { TRPCReactProvider } from "~/trpc/react";
 
 import "~/app/globals.css";
@@ -50,7 +51,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <TRPCReactProvider>{children}</TRPCReactProvider>
+          <TRPCReactProvider>
+            <ActivityTracker>{children}</ActivityTracker>
+          </TRPCReactProvider>
 
           <Toaster richColors closeButton position="top-right" />
         </ThemeProvider>

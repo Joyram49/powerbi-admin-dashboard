@@ -3,6 +3,7 @@ import { companyRouter } from "./router/company";
 import { postRouter } from "./router/post";
 import { reportRouter } from "./router/report";
 import { sessionRouter } from "./router/session";
+import { stripeRouter } from "./router/stripe";
 import { userRouter } from "./router/user";
 import { createTRPCRouter } from "./trpc";
 
@@ -13,6 +14,7 @@ export const appRouter = createTRPCRouter({
   report: reportRouter,
   user: userRouter,
   session: sessionRouter,
+  stripe: stripeRouter,
 });
 
 // export type definition of API

@@ -17,9 +17,9 @@ export const userSessions = pgTable("user_sessions", {
   totalActiveTime: integer("total_active_time").default(0).notNull(), // in seconds
   totalInactiveTime: integer("total_inactive_time").default(0).notNull(), // in seconds
 
-  reportId: uuid("report_id")
-    .notNull()
-    .references(() => reports.id, { onDelete: "set null" }),
+  reportId: uuid("report_id").references(() => reports.id, {
+    onDelete: "set null",
+  }),
 });
 
 export type UserSession = typeof userSessions.$inferSelect;
