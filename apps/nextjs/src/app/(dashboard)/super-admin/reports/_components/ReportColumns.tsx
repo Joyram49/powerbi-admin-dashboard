@@ -2,12 +2,11 @@
 
 import type { Column, ColumnDef, Row, Table } from "@tanstack/react-table";
 import React, { useMemo, useState } from "react";
-import { ArrowUpDown, ExternalLinkIcon, X } from "lucide-react";
+import { ArrowUpDown, ExternalLinkIcon } from "lucide-react";
 
 import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
 import { Checkbox } from "@acme/ui/checkbox";
-
 
 import type { ReportType } from "./ReportForm";
 import { EntityActions } from "~/app/(dashboard)/_components/EntityActions";
