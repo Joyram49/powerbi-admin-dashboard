@@ -212,13 +212,28 @@ const CompanyAdminForm = ({
       adminForm.reset();
       setShowAdminForm(false);
 
-      // Refresh admin users list
-      await utils.user.getAdminUsers.invalidate();
+      // Add the new admin to the existing admins list and update the form
+      if (adminUser.user) {
+        // Add the new admin to the existingAdmins list so it shows in the dropdown
+        const newAdmin = {
+          id: adminUser.user.id,
+          userName:
+            (adminUser.user.user_metadata as { userName?: string }).userName ??
+            adminUser.user.email ??
+            "",
+          email: adminUser.user.email ?? "",
+          role: "admin",
+        };
+        setExistingAdmins((prev) => [...prev, newAdmin]);
 
-      // Update the company form with the new admin ID
-      if (adminUser.user?.id) {
+        // Update the form value with the new admin ID
         companyForm.setValue("adminId", adminUser.user.id);
+        // Trigger validation to clear any error messages
+        await companyForm.trigger("adminId");
       }
+
+      // Refresh admin users list in the background
+      await utils.user.getAdminUsers.invalidate();
     },
     onError: (error) => {
       setAdminFormSubmitted(false);
@@ -492,6 +507,7 @@ const CompanyAdminForm = ({
                             <Select
                               onValueChange={field.onChange}
                               defaultValue={field.value}
+                              value={field.value}
                             >
                               <FormControl>
                                 <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">

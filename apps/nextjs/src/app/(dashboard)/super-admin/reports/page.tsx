@@ -13,7 +13,6 @@ import ReportModalButton from "./_components/ReportModal";
 export default function ReportsDashboard() {
   const searchParams = useSearchParams();
   const companyId = searchParams.get("companyId");
-
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -21,10 +20,18 @@ export default function ReportsDashboard() {
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearch = useDebounce(searchInput, 500); // 500ms delay
   const [sortBy, setSortBy] = useState<"reportName" | "dateCreated">();
-  const columns = useReportColumns();
+
+  // Get columns and report viewer from the hook
+  const {
+    columns,
+    ReportViewer,
+    isDialogOpen,
+    selectedReport,
+    closeReportDialog,
+  } = useReportColumns();
+
   const { data } = api.auth.getProfile.useQuery();
   const userRole = data?.user?.user_metadata.role as string;
-
   const [pageTitle, setPageTitle] = useState("All Reports");
 
   // Set page title based on if we're filtering by company
@@ -68,15 +75,12 @@ export default function ReportsDashboard() {
   const reports = companyId
     ? (companyReportData?.reports ?? [])
     : (reportData?.data ?? []);
-
   const total = companyId
     ? (companyReportData?.total ?? 0)
     : (reportData?.total ?? 0);
-
   const pageLimit = companyId
     ? (companyReportData?.limit ?? pagination.limit)
     : (reportData?.limit ?? pagination.limit);
-
   const isLoading = companyId ? isLoadingCompanyReports : isLoadingAllReports;
 
   const handleSearchChange = useCallback((value: string) => {
@@ -92,10 +96,14 @@ export default function ReportsDashboard() {
     });
   }, []);
 
+  const reportById = api.report.getReportById.useQuery({
+    reportId: "c0e4bcba-51e7-4f55-95f7-55d00b2ea701",
+  });
+  console.log(reportById);
+
   return (
     <div className="container mx-auto w-full p-6">
       <h1 className="mb-6 text-2xl font-bold">{pageTitle}</h1>
-
       <DataTable<ReportType, unknown, "reportName" | "dateCreated">
         columns={columns}
         data={reports}
@@ -119,6 +127,13 @@ export default function ReportsDashboard() {
         isLoading={isLoading}
         pageSize={pagination.limit}
         pageSizeOptions={[10, 20, 50, 100]}
+      />
+
+      {/* Add the Report Viewer component */}
+      <ReportViewer
+        isOpen={isDialogOpen}
+        onClose={closeReportDialog}
+        report={selectedReport}
       />
     </div>
   );

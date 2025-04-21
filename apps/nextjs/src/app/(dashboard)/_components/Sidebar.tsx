@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import {
   BarChart3,
   CreditCard,
@@ -11,14 +13,11 @@ import {
   Settings,
   Users,
 } from "lucide-react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
 
 import { Sidebar, SidebarTrigger } from "@acme/ui/sidebar";
 
 import { useSessionActivity } from "~/hooks/useSessionActivity";
 import { api } from "~/trpc/react";
-import { navigationItems } from "../config/navigation";
 
 const navigationItems = {
   superAdmin: [
@@ -71,11 +70,6 @@ const navigationItems = {
       icon: <Home className="mr-3 h-5 w-5" />,
       label: "Home",
     },
-    {
-      href: "/report",
-      icon: <FileText className="mr-3 h-5 w-5" />,
-      label: "Reports",
-    },
   ],
 };
 
@@ -84,8 +78,9 @@ export default function AppSidebar() {
   const router = useRouter();
   const { data, isLoading } = api.auth.getProfile.useQuery();
   const userRole = data?.user?.user_metadata.role as string;
-  const { updateSession, getSessionId, fetchSession, getActiveTime } = useSessionActivity();
-
+  const { updateSession, getSessionId, fetchSession, getActiveTime } =
+    useSessionActivity();
+  const utils = api.useUtils();
   const logoutMutation = api.auth.signOut.useMutation({
     onSuccess: async () => {
       await utils.auth.getProfile.invalidate();
@@ -106,28 +101,37 @@ export default function AppSidebar() {
     try {
       // Step 1: Try to fetch the session from server first if not in local storage
       let sessionId = await getSessionId(true); // true = fetch from server if needed
-      
+
       if (!sessionId) {
         // If still not found, explicitly fetch it
         sessionId = await fetchSession();
       }
-      
+
       // Get real-time active time for logging
       const currentActiveTime = getActiveTime();
-      console.log("Current active time:", currentActiveTime, "ms", (currentActiveTime / 1000).toFixed(2), "seconds");
-      
+      console.log(
+        "Current active time:",
+        currentActiveTime,
+        "ms",
+        (currentActiveTime / 1000).toFixed(2),
+        "seconds",
+      );
+
       // Step 2: Update the session if it exists
       if (sessionId) {
         console.log("Updating session before logout:", sessionId);
         const updateResult = await updateSession();
-        console.log("Session update result:", updateResult ? "Success" : "Failed");
+        console.log(
+          "Session update result:",
+          updateResult ? "Success" : "Failed",
+        );
       } else {
         console.log("No active session to update");
       }
-      
+
       // Clean up activity data in localStorage - just one item now
       localStorage.removeItem("userActivityData");
-      
+
       // Step 3: Only proceed with sign out AFTER the session is updated
       button.textContent = "Signing out...";
       await logoutMutation.mutateAsync();

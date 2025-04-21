@@ -68,7 +68,7 @@ const buttonVariants = {
 export function SignInForm() {
   const router = useRouter();
   const { createSession } = useSessionActivity();
-
+  const utils = api.useUtils();
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
