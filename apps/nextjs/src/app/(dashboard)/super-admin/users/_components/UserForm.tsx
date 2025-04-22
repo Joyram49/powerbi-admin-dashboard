@@ -41,7 +41,7 @@ const userSchema = z
     password: z.string().optional(),
     confirmPassword: z.string().optional(),
     email: z.string().email("Valid email is required"),
-    role: z.enum(["user", "admin", "superAdmin"], {
+    role: z.enum(["superAdmin", "admin", "user"], {
       required_error: "Role is required",
     }),
     companyId: z.string().uuid().optional(),
@@ -145,11 +145,8 @@ const userSchema = z
   .refine(
     (data) => {
       // Company ID is required if role is "user"
-      if (
-        data.role === "user" &&
-        (!data.companyId || data.companyId.trim() === "")
-      ) {
-        return false;
+      if (data.role === "user") {
+        return !!data.companyId && data.companyId.trim() !== "";
       }
       return true;
     },
@@ -190,10 +187,17 @@ const buttonVariants = {
 
 interface UserFormProps {
   onClose?: () => void;
+  setDialogOpen?: (open: boolean) => void;
   initialData?: User;
+  companyId?: string;
 }
 
-export function UserForm({ onClose, initialData }: UserFormProps) {
+export function UserForm({
+  onClose,
+  setDialogOpen,
+  initialData,
+  companyId,
+}: UserFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [formSubmitError, setFormSubmitError] = useState<string | null>(null);
@@ -220,6 +224,7 @@ export function UserForm({ onClose, initialData }: UserFormProps) {
       await utils.user.getAllUsers.invalidate();
       await utils.user.getAdminUsers.invalidate();
       await utils.user.getAllGeneralUser.invalidate();
+      await utils.user.getUsersByCompanyId.invalidate();
       if (onClose) onClose();
     },
     onError: (error) => {
@@ -240,6 +245,7 @@ export function UserForm({ onClose, initialData }: UserFormProps) {
       await utils.user.getAllUsers.invalidate();
       await utils.user.getAdminUsers.invalidate();
       await utils.user.getAllGeneralUser.invalidate();
+      await utils.user.getUsersByCompanyId.invalidate();
       if (onClose) onClose();
     },
     onError: (error) => {
@@ -256,15 +262,14 @@ export function UserForm({ onClose, initialData }: UserFormProps) {
   const form = useForm<FormValues>({
     resolver: zodResolver(userSchema),
     defaultValues: {
-      id: initialData?.userId ?? initialData?.id ?? "", // Ensure ID has a default value
+      id: initialData?.id ?? "",
       userName: initialData?.userName ?? "",
-      email: initialData?.email ?? "",
-      role: initialData?.role ?? "user",
-      companyId: initialData?.companyId ?? "",
       password: "",
       confirmPassword: "",
+      email: initialData?.email ?? "",
+      role: initialData?.role ?? "user",
+      companyId: initialData?.companyId ?? companyId ?? "",
       sendWelcomeEmail: true,
-      modifiedBy: currentUserId ?? "",
       status: initialData?.status ?? "active",
     },
     mode: "onChange",
@@ -272,16 +277,16 @@ export function UserForm({ onClose, initialData }: UserFormProps) {
 
   // Reset form when initial data changes
   useEffect(() => {
+    const role = initialData?.role ?? "user";
     form.reset({
-      id: initialData?.userId ?? initialData?.id ?? "", // Ensure ID has a default value
+      id: initialData?.id ?? "",
       userName: initialData?.userName ?? "",
       email: initialData?.email ?? "",
-      role: initialData?.role ?? "user",
-      companyId: initialData?.companyId ?? "",
+      role: initialData?.role,
+      companyId: role === "user" ? (initialData?.companyId ?? "") : undefined,
       password: "",
       confirmPassword: "",
       sendWelcomeEmail: true,
-      modifiedBy: currentUserId ?? "",
       status: initialData?.status ?? "active",
     });
     setFormSubmitError(null);
@@ -317,7 +322,7 @@ export function UserForm({ onClose, initialData }: UserFormProps) {
       }
 
       const updateData = {
-        userId: values.id!,
+        userId: values.id ?? "",
         modifiedBy: currentUserId ?? "",
         role: values.role,
         status: values.status ?? "active",
@@ -360,20 +365,23 @@ export function UserForm({ onClose, initialData }: UserFormProps) {
         role: values.role,
         password: values.password,
         userName: values.userName,
-        companyId: values.companyId,
+        companyId: values.role === "user" ? values.companyId : undefined,
         modifiedBy: currentUserId ?? "",
         status: values.status ?? "active",
         sendWelcomeEmail: values.sendWelcomeEmail,
       };
 
-      console.log("Creating user:", createData);
       createUserMutation.mutate(createData);
     }
   };
 
   const role = form.watch("role");
-  const isUpdateMode = !!initialData?.userId || !!initialData?.id;
-
+  const isUpdateMode = !!initialData?.id;
+  useEffect(() => {
+    if (role !== "user") {
+      form.setValue("companyId", undefined);
+    }
+  }, [role, form]);
   const handlePasswordUpdateSuccess = () => {
     setIsPasswordModalOpen(false);
     toast.success("Password updated successfully");
@@ -385,351 +393,363 @@ export function UserForm({ onClose, initialData }: UserFormProps) {
 
   return (
     <Form {...form}>
-      <motion.form
-        onSubmit={form.handleSubmit(onSubmit)}
-        className="space-y-4"
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
+      <motion.div
+        className="max-h-[70vh] overflow-y-auto pr-1 dark:bg-gray-900"
+        style={{
+          scrollbarWidth: "none" /* Firefox */,
+          msOverflowStyle: "none" /* IE and Edge */,
+        }}
       >
-        {/* Error display if form submission fails */}
-        {formSubmitError && (
-          <motion.div
-            variants={itemVariants}
-            className="rounded-md bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/30 dark:text-red-400"
-          >
-            <p className="font-medium">Error: {formSubmitError}</p>
-          </motion.div>
-        )}
-
-        {/* Username Field */}
-        <motion.div variants={itemVariants}>
-          <FormField
-            control={form.control}
-            name="userName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
-                  Username
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="Enter username"
-                    {...field}
-                    className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                  />
-                </FormControl>
-                <FormMessage className="text-xs dark:text-red-400" />
-              </FormItem>
-            )}
-          />
-        </motion.div>
-
-        {/* Email Field */}
-        <motion.div variants={itemVariants}>
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
-                  Email
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    type="email"
-                    placeholder="Enter email"
-                    {...field}
-                    className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                  />
-                </FormControl>
-                <FormMessage className="text-xs dark:text-red-400" />
-              </FormItem>
-            )}
-          />
-        </motion.div>
-
-        {/* Password Fields (only for new users or when changing) */}
-        {!isUpdateMode && (
-          <>
-            <motion.div variants={itemVariants}>
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
-                      Password
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="Enter password"
-                        {...field}
-                        className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                      />
-                    </FormControl>
-                    <FormMessage className="text-xs dark:text-red-400" />
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Min. 12 characters with uppercase, lowercase, numbers and
-                      special characters (!@#$%^&*)
-                    </p>
-                  </FormItem>
-                )}
-              />
+        <style jsx>{`
+          div::-webkit-scrollbar {
+            display: none; /* Chrome, Safari, Opera */
+          }
+        `}</style>
+        <motion.form
+          onSubmit={form.handleSubmit(onSubmit)}
+          className="space-y-4"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+        >
+          {/* Error display if form submission fails */}
+          {formSubmitError && (
+            <motion.div
+              variants={itemVariants}
+              className="rounded-md bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/30 dark:text-red-400"
+            >
+              <p className="font-medium">Error: {formSubmitError}</p>
             </motion.div>
+          )}
 
-            <motion.div variants={itemVariants}>
-              <FormField
-                control={form.control}
-                name="confirmPassword"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
-                      Confirm Password
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="Confirm password"
-                        {...field}
-                        className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                      />
-                    </FormControl>
-                    <FormMessage className="text-xs dark:text-red-400" />
-                  </FormItem>
-                )}
-              />
-            </motion.div>
-          </>
-        )}
-
-        {/* Status Field */}
-        <motion.div variants={itemVariants}>
-          <FormField
-            control={form.control}
-            name="status"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
-                  Status
-                </FormLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                  value={field.value}
-                >
-                  <FormControl>
-                    <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">
-                      <SelectValue placeholder="Select user status" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent className="dark:bg-gray-900">
-                    <SelectItem
-                      value="active"
-                      className="dark:hover:bg-gray-800"
-                    >
-                      Active
-                    </SelectItem>
-                    <SelectItem
-                      value="inactive"
-                      className="dark:hover:bg-gray-800"
-                    >
-                      Inactive
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage className="text-xs dark:text-red-400" />
-              </FormItem>
-            )}
-          />
-        </motion.div>
-
-        {/* Role Field */}
-        <motion.div variants={itemVariants}>
-          <FormField
-            control={form.control}
-            name="role"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
-                  Role
-                </FormLabel>
-                <Select
-                  onValueChange={(value) => {
-                    field.onChange(value);
-                    // Reset company selection if changing from user to admin/superAdmin
-                    if (value !== "user") {
-                      form.setValue("companyId", "");
-                    }
-                  }}
-                  value={field.value}
-                  disabled={!!initialData?.id} // Only disable in update mode
-                >
-                  <FormControl>
-                    <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">
-                      <SelectValue placeholder="Select user role" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent className="dark:bg-gray-900">
-                    <SelectItem
-                      value="user"
-                      className="dark:bg-gray-900 dark:hover:bg-gray-800"
-                    >
-                      User
-                    </SelectItem>
-                    {userRole === "superAdmin" && (
-                      <>
-                        <SelectItem
-                          value="admin"
-                          className="dark:hover:bg-gray-800"
-                        >
-                          Admin
-                        </SelectItem>
-                        <SelectItem
-                          value="superAdmin"
-                          className="dark:hover:bg-gray-800"
-                        >
-                          Super Admin
-                        </SelectItem>
-                      </>
-                    )}
-                  </SelectContent>
-                </Select>
-                <FormMessage className="text-xs dark:text-red-400" />
-              </FormItem>
-            )}
-          />
-        </motion.div>
-
-        {/* Company Field (for users) */}
-        {role === "user" && (
+          {/* Username Field */}
           <motion.div variants={itemVariants}>
             <FormField
               control={form.control}
-              name="companyId"
+              name="userName"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
-                    Company <span className="ml-1 text-red-500">*</span>
+                    Username
                   </FormLabel>
-                  {companies?.data && companies.data.length > 0 ? (
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value ?? ""}
-                    >
-                      <FormControl>
-                        <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">
-                          <SelectValue placeholder="Select company" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent className="dark:bg-gray-900">
-                        {companies.data.map((company) => (
-                          <SelectItem
-                            key={company.id}
-                            value={company.id}
-                            className="dark:hover:bg-gray-800"
-                          >
-                            {company.companyName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <div className="text-sm text-amber-600 dark:text-amber-400">
-                      No companies available. Please create a company first.
-                    </div>
-                  )}
+                  <FormControl>
+                    <Input
+                      placeholder="Enter username"
+                      {...field}
+                      className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                    />
+                  </FormControl>
                   <FormMessage className="text-xs dark:text-red-400" />
                 </FormItem>
               )}
             />
           </motion.div>
-        )}
 
-        {/* Send Welcome Email Checkbox (for new users) */}
-        {!isUpdateMode && (
-          <motion.div variants={itemVariants} className="space-y-2">
+          {/* Email Field */}
+          <motion.div variants={itemVariants}>
             <FormField
               control={form.control}
-              name="sendWelcomeEmail"
+              name="email"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                <FormItem>
+                  <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
+                    Email
+                  </FormLabel>
                   <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      className="border-blue-600 data-[state=checked]:bg-blue-500 data-[state=checked]:text-white dark:border-gray-600"
+                    <Input
+                      type="email"
+                      placeholder="Enter email"
+                      {...field}
+                      className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                      disabled={isUpdateMode}
                     />
                   </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel className="text-sm font-medium dark:text-gray-300">
-                      Send Welcome Email
-                    </FormLabel>
-                  </div>
+                  <FormMessage className="text-xs dark:text-red-400" />
                 </FormItem>
               )}
             />
           </motion.div>
-        )}
 
-        {/* Password Update Section for Existing Users */}
-        {isUpdateMode && initialData.id && (
+          {/* Password Fields (only for new users or when changing) */}
+          {!isUpdateMode && (
+            <>
+              <motion.div variants={itemVariants}>
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
+                        Password
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          placeholder="Enter password"
+                          {...field}
+                          className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                        />
+                      </FormControl>
+                      <FormMessage className="text-xs dark:text-red-400" />
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Min. 12 characters with uppercase, lowercase, numbers
+                        and special characters (!@#$%^&*)
+                      </p>
+                    </FormItem>
+                  )}
+                />
+              </motion.div>
+
+              <motion.div variants={itemVariants}>
+                <FormField
+                  control={form.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
+                        Confirm Password
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          placeholder="Confirm password"
+                          {...field}
+                          className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                        />
+                      </FormControl>
+                      <FormMessage className="text-xs dark:text-red-400" />
+                    </FormItem>
+                  )}
+                />
+              </motion.div>
+            </>
+          )}
+
+          {/* Status Field */}
           <motion.div variants={itemVariants}>
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
+                    Status
+                  </FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                    value={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                        <SelectValue placeholder="Select user status" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent className="bg-white dark:border-gray-700 dark:bg-gray-800">
+                      <SelectItem
+                        value="active"
+                        className="dark:text-white dark:hover:bg-gray-700 dark:focus:bg-gray-700"
+                      >
+                        Active
+                      </SelectItem>
+                      <SelectItem
+                        value="inactive"
+                        className="dark:text-white dark:hover:bg-gray-700 dark:focus:bg-gray-700"
+                      >
+                        Inactive
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage className="text-xs dark:text-red-400" />
+                </FormItem>
+              )}
+            />
+          </motion.div>
+
+          {/* Role Field */}
+          <motion.div variants={itemVariants}>
+            <FormField
+              control={form.control}
+              name="role"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
+                    Role
+                  </FormLabel>
+                  <Select
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      // Reset company selection if changing to admin/superAdmin
+                      if (value === "admin" || value === "superAdmin") {
+                        form.setValue("companyId", "");
+                      }
+                    }}
+                    value={field.value}
+                    disabled={!!initialData?.id} // Only disable in update mode
+                  >
+                    <FormControl>
+                      <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                        <SelectValue placeholder="Select user role" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent className="bg-white dark:border-gray-700 dark:bg-gray-800">
+                      {userRole === "superAdmin" && (
+                        <>
+                          <SelectItem
+                            value="superAdmin"
+                            className="dark:text-white dark:hover:bg-gray-700 dark:focus:bg-gray-700"
+                          >
+                            Super Admin
+                          </SelectItem>
+                          <SelectItem
+                            value="admin"
+                            className="dark:text-white dark:hover:bg-gray-700 dark:focus:bg-gray-700"
+                          >
+                            Admin
+                          </SelectItem>
+                        </>
+                      )}
+                      <SelectItem
+                        value="user"
+                        className="dark:text-white dark:hover:bg-gray-700 dark:focus:bg-gray-700"
+                      >
+                        User
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage className="text-xs dark:text-red-400" />
+                </FormItem>
+              )}
+            />
+          </motion.div>
+
+          {/* Company Field (for users) */}
+          {role === "user" && (
+            <motion.div variants={itemVariants}>
+              <FormField
+                control={form.control}
+                name="companyId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center text-sm font-medium dark:text-gray-300">
+                      Company <span className="ml-1 text-red-500">*</span>
+                    </FormLabel>
+                    {companies?.data && companies.data.length > 0 ? (
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value ?? ""}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                            <SelectValue placeholder="Select company" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="bg-white dark:border-gray-700 dark:bg-gray-800">
+                          {companies.data.map((company) => (
+                            <SelectItem
+                              key={company.id}
+                              value={company.id}
+                              className="dark:text-white dark:hover:bg-gray-700 dark:focus:bg-gray-700"
+                            >
+                              {company.companyName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <div className="rounded border border-amber-300 bg-amber-50 p-2 text-sm text-amber-600 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                        No companies available. Please create a company first.
+                      </div>
+                    )}
+                    <FormMessage className="text-xs dark:text-red-400" />
+                  </FormItem>
+                )}
+              />
+            </motion.div>
+          )}
+
+          {/* Send Welcome Email Checkbox (for new users) */}
+          {!isUpdateMode && (
+            <motion.div variants={itemVariants} className="space-y-2">
+              <FormField
+                control={form.control}
+                name="sendWelcomeEmail"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        className="border-blue-600 data-[state=checked]:bg-blue-500 data-[state=checked]:text-white dark:border-gray-600 dark:data-[state=checked]:bg-blue-600"
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel className="text-sm font-medium dark:text-gray-300">
+                        Send Welcome Email
+                      </FormLabel>
+                    </div>
+                  </FormItem>
+                )}
+              />
+            </motion.div>
+          )}
+
+          {/* Password Update Section for Existing Users */}
+          {isUpdateMode && initialData.id && (
+            <motion.div variants={itemVariants}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsPasswordModalOpen(true)}
+                className="w-full bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700"
+              >
+                Reset Password
+              </Button>
+            </motion.div>
+          )}
+
+          {/* Submit Buttons */}
+          <motion.div
+            className="flex justify-end gap-3 pt-2"
+            variants={itemVariants}
+          >
             <Button
               type="button"
               variant="outline"
-              onClick={() => setIsPasswordModalOpen(true)}
-              className="w-full"
+              onClick={() => {
+                setDialogOpen?.(false);
+                onClose?.();
+              }}
+              className="border-gray-300 bg-gray-100 text-gray-900 hover:bg-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
             >
-              Reset Password
+              Cancel
             </Button>
-          </motion.div>
-        )}
-
-        {/* Submit Buttons */}
-        <motion.div
-          className="flex justify-end gap-3 pt-2"
-          variants={itemVariants}
-        >
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              form.reset();
-              setFormSubmitError(null);
-              if (onClose) onClose();
-            }}
-            className="border-gray-300 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800"
-            disabled={isSubmitting}
-          >
-            Cancel
-          </Button>
-          <motion.div
-            variants={buttonVariants}
-            whileHover="hover"
-            whileTap="tap"
-          >
-            <Button
-              type="submit"
-              className="bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
-              disabled={isSubmitting}
+            <motion.div
+              variants={buttonVariants}
+              whileHover="hover"
+              whileTap="tap"
             >
-              {isSubmitting ? (
-                <div className="flex items-center">
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </div>
-              ) : (
-                <div className="flex items-center text-white">
-                  <Save className="mr-2 h-4 w-4" />
-                  {isUpdateMode ? "Update" : "Save"}
-                </div>
-              )}
-            </Button>
+              <Button
+                type="submit"
+                className="bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <div className="flex items-center">
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </div>
+                ) : (
+                  <div className="flex items-center text-white">
+                    <Save className="mr-2 h-4 w-4" />
+                    {isUpdateMode ? "Update" : "Save"}
+                  </div>
+                )}
+              </Button>
+            </motion.div>
           </motion.div>
-        </motion.div>
-      </motion.form>
+        </motion.form>
+      </motion.div>
 
       {/* Password Update Modal */}
       {isUpdateMode && initialData.id && (

@@ -1,12 +1,13 @@
-'use client';
+"use client";
+
+import type { ColumnDef } from "@tanstack/react-table";
+import { useMemo, useState } from "react";
+import { ExternalLinkIcon } from "lucide-react";
 
 import { Badge } from "@acme/ui/badge";
-import type { ColumnDef } from "@tanstack/react-table";
-import { useMemo } from "react";
+import { Button } from "@acme/ui/button";
 
-
-
-
+import ReportViewer from "~/app/(dashboard)/_components/ReportViewer";
 
 interface ReportType {
   reportId: string;
@@ -23,11 +24,23 @@ interface ReportType {
   } | null;
 }
 
-
-
-
 export default function useUserReportColumns() {
-  return useMemo(() => {
+  // State for report viewer
+  const [selectedReport, setSelectedReport] = useState<ReportType | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  const openReportDialog = (report: ReportType) => {
+    setSelectedReport(report);
+    setIsDialogOpen(true);
+  };
+
+  const closeReportDialog = () => {
+    setIsDialogOpen(false);
+    // Small delay to allow animation to complete
+    setTimeout(() => setSelectedReport(null), 300);
+  };
+
+  const columns: ColumnDef<ReportType>[] = useMemo(() => {
     const columns: ColumnDef<ReportType>[] = [
       {
         accessorKey: "reportId",
@@ -100,14 +113,20 @@ export default function useUserReportColumns() {
         header: () => <div className="text-center font-medium">Actions</div>,
         cell: ({ row }) => (
           <div className="text-center">
-            <a
-              href={row.original.reportUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:underline"
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                openReportDialog({
+                  ...row.original,
+                  id: row.original.reportId, // Map reportId to id for ReportViewer
+                } as unknown as ReportType)
+              }
+              className="mx-auto flex cursor-pointer items-center space-x-1 border border-primary/90 bg-primary/10 px-2 py-1 text-primary hover:bg-primary/20"
             >
-              View Report
-            </a>
+              <ExternalLinkIcon className="h-4 w-4" />
+              <span>Open</span>
+            </Button>
           </div>
         ),
       },
@@ -115,4 +134,12 @@ export default function useUserReportColumns() {
 
     return columns;
   }, []);
+
+  return {
+    columns,
+    ReportViewer,
+    isDialogOpen,
+    selectedReport,
+    closeReportDialog,
+  };
 }

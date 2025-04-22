@@ -138,7 +138,17 @@ export function useCompanyColumns() {
           <div className="text-center font-medium"># employees</div>
         ),
         cell: ({ row }) => (
-          <div className="text-center">{row.original.employeeCount}</div>
+          <Link
+            href={`/super-admin/users?companyId=${row.original.id}`}
+            className="flex justify-center"
+          >
+            <Button
+              variant="link"
+              className="bg-gray-100 text-center dark:bg-gray-800"
+            >
+              {row.original.employeeCount}
+            </Button>
+          </Link>
         ),
       },
       {

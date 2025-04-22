@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import {
   BarChart3,
   CreditCard,
@@ -11,14 +13,11 @@ import {
   Settings,
   Users,
 } from "lucide-react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
 
 import { Sidebar, SidebarTrigger } from "@acme/ui/sidebar";
 
 import { useSessionActivity } from "~/hooks/useSessionActivity";
 import { api } from "~/trpc/react";
-import { navigationItems } from "../config/navigation";
 
 const navigationItems = {
   superAdmin: [
@@ -71,11 +70,6 @@ const navigationItems = {
       icon: <Home className="mr-3 h-5 w-5" />,
       label: "Home",
     },
-    {
-      href: "/report",
-      icon: <FileText className="mr-3 h-5 w-5" />,
-      label: "Reports",
-    },
   ],
 };
 
@@ -87,8 +81,8 @@ export default function AppSidebar() {
   const { updateSession, getSessionId, fetchSession } = useSessionActivity();
 
   const logoutMutation = api.auth.signOut.useMutation({
-    onSuccess: () => {
-      router.refresh();
+    onSuccess: async () => {
+      await utils.auth.getProfile.invalidate();
     },
   });
 
@@ -105,22 +99,22 @@ export default function AppSidebar() {
 
     try {
       // Step 1: Try to fetch the session from server first if not in local storage
-      let sessionId = await getSessionId(true); 
-      
+      let sessionId = await getSessionId(true);
+
       if (!sessionId) {
         sessionId = await fetchSession();
       }
-      
+
       // Step 2: Update the session if it exists
       if (sessionId) {
         await updateSession();
       }
-      
+
       // Clean up activity data in localStorage
       localStorage.removeItem("userActivityData");
       localStorage.removeItem("auth_event_time");
       localStorage.removeItem("session_tracker_id");
-      
+
       // Step 3: Sign out
       button.textContent = "Signing out...";
       await logoutMutation.mutateAsync();
@@ -139,14 +133,14 @@ export default function AppSidebar() {
   // Show loading state while fetching user role
   if (isLoading) {
     return (
-      <Sidebar className="hidden w-full max-w-64 flex-col bg-slate-900 text-white dark:bg-slate-800 lg:flex">
+      <Sidebar className="hidden w-full max-w-64 flex-col bg-slate-900 text-white dark:!border-gray-800 dark:bg-slate-800 lg:flex">
         <div className="flex h-16 items-center justify-between border-b border-slate-800 bg-slate-900 px-4">
-          <div className="flex items-center">
+          <Link href="/" className="flex items-center">
             <BarChart3 className="h-6 w-6 text-blue-500" />
             <span className="ml-2 text-xl font-bold text-white">
               JOC Analytics
             </span>
-          </div>
+          </Link>
           <SidebarTrigger className="size-7 p-1 !text-white hover:bg-slate-800" />
         </div>
         <nav className="flex-1 overflow-y-auto bg-slate-900 py-4">
@@ -169,12 +163,12 @@ export default function AppSidebar() {
   return (
     <Sidebar className="hidden w-full max-w-64 flex-col bg-slate-900 text-white dark:bg-slate-800 lg:flex">
       <div className="flex h-16 items-center justify-between border-b border-slate-800 bg-slate-900 px-4">
-        <div className="flex items-center">
+        <Link href="/" className="flex items-center">
           <BarChart3 className="h-6 w-6 text-blue-500" />
           <span className="ml-2 text-xl font-bold text-white">
             JOC Analytics
           </span>
-        </div>
+        </Link>
         <SidebarTrigger className="size-7 p-1 !text-white hover:bg-slate-800" />
       </div>
       <nav className="flex-1 overflow-y-auto bg-slate-900 py-4">

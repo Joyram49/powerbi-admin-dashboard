@@ -20,7 +20,7 @@ import {
 } from "@acme/ui/form";
 import { Input } from "@acme/ui/input";
 import { Progress } from "@acme/ui/progress";
-import { toast, Toaster } from "@acme/ui/toast";
+import { toast } from "@acme/ui/toast";
 
 import { api } from "~/trpc/react";
 
@@ -148,9 +148,9 @@ export function SignUpForm() {
       },
       onSuccess: () => {
         toast.success(`Signup successful, Verify your email`);
-
         form.reset();
         router.push(`/verify-otp?email=${encodeURIComponent(data.email)}`);
+        router.refresh();
       },
     });
   }
@@ -538,9 +538,6 @@ export function SignUpForm() {
           </Form>
         </CardContent>
       </Card>
-
-      {/* Toast notifications */}
-      <Toaster />
     </div>
   );
 }

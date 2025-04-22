@@ -1,13 +1,15 @@
 "use client";
 
-import type { Column, ColumnDef } from "@tanstack/react-table";
-import React, { useMemo } from "react";
-import { ArrowUpDown } from "lucide-react";
+import type { Column, ColumnDef, Table } from "@tanstack/react-table";
+import React, { useMemo, useState } from "react";
+import { ArrowUpDown, ExternalLinkIcon } from "lucide-react";
 
 import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
 
-type ReportType = {
+import ReportViewer from "~/app/(dashboard)/_components/ReportViewer";
+
+interface ReportType {
   id: string;
   reportName: string;
   reportUrl: string;
@@ -20,7 +22,7 @@ type ReportType = {
     id: string;
     companyName: string;
   } | null;
-};
+}
 
 interface TableMeta {
   sorting?: {
@@ -29,7 +31,22 @@ interface TableMeta {
 }
 
 export function useReportColumns() {
-  return useMemo(() => {
+  // State for report viewer
+  const [selectedReport, setSelectedReport] = useState<ReportType | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  const openReportDialog = (report: ReportType) => {
+    setSelectedReport(report);
+    setIsDialogOpen(true);
+  };
+
+  const closeReportDialog = () => {
+    setIsDialogOpen(false);
+    // Small delay to allow animation to complete
+    setTimeout(() => setSelectedReport(null), 300);
+  };
+
+  const columns: ColumnDef<ReportType, unknown>[] = useMemo(() => {
     const columns: ColumnDef<ReportType, unknown>[] = [
       {
         accessorKey: "reportName",
@@ -38,7 +55,7 @@ export function useReportColumns() {
           table,
         }: {
           column: Column<ReportType, unknown>;
-          table: any;
+          table: Table<ReportType>;
         }) => {
           const { sorting } = table.options.meta as TableMeta;
           return (
@@ -65,6 +82,23 @@ export function useReportColumns() {
         ),
       },
       {
+        accessorKey: "reportUrl",
+        header: () => <div className="text-center font-medium">Report URL</div>,
+        cell: ({ row }) => (
+          <div className="text-center">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => openReportDialog(row.original)}
+              className="mx-auto flex cursor-pointer items-center space-x-1 border border-primary/90 bg-primary/10 px-2 py-1 text-primary hover:bg-primary/20"
+            >
+              <ExternalLinkIcon className="h-4 w-4" />
+              <span>Open</span>
+            </Button>
+          </div>
+        ),
+      },
+      {
         accessorKey: "company",
         header: () => <div className="text-center font-medium">Company</div>,
         cell: ({ row }) => (
@@ -77,7 +111,7 @@ export function useReportColumns() {
         accessorKey: "userCounts",
         header: () => <div className="text-center font-medium"># Users</div>,
         cell: ({ row }) => (
-          <div className="text-center">{row.original.userCounts ?? 0}</div>
+          <div className="text-center">{row.original.userCounts || 0}</div>
         ),
       },
       {
@@ -94,7 +128,7 @@ export function useReportColumns() {
           table,
         }: {
           column: Column<ReportType, unknown>;
-          table: any;
+          table: Table<ReportType>;
         }) => {
           const { sorting } = table.options.meta as TableMeta;
           return (
@@ -163,6 +197,14 @@ export function useReportColumns() {
 
     return columns;
   }, []);
+
+  return {
+    columns,
+    ReportViewer,
+    isDialogOpen,
+    selectedReport,
+    closeReportDialog,
+  };
 }
 
 export default useReportColumns;

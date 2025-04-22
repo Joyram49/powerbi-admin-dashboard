@@ -43,7 +43,7 @@ export const createUserSchema = z
       return !!data.companyId;
     },
     {
-      message: "Company ID is required for  user roles",
+      message: "Company ID is required for user roles",
       path: ["companyId"],
     },
   );

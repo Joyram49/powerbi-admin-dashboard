@@ -18,7 +18,7 @@ import {
   FormMessage,
 } from "@acme/ui/form";
 import { Input } from "@acme/ui/input";
-import { toast, Toaster } from "@acme/ui/toast";
+import { toast } from "@acme/ui/toast";
 
 import { useSessionActivity } from "~/hooks/useSessionActivity";
 import { api } from "~/trpc/react";
@@ -68,7 +68,7 @@ const buttonVariants = {
 export function SignInForm() {
   const router = useRouter();
   const { createSession } = useSessionActivity();
-
+  const utils = api.useUtils();
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
@@ -109,11 +109,13 @@ export function SignInForm() {
 
       // Redirect to role-specific route regardless of session creation success
       router.push(roleBasedRoute);
+      await utils.auth.getProfile.invalidate();
+      router.refresh();
     },
   });
 
-  function onSubmit(data: z.infer<typeof FormSchema>) {
-    signIn.mutate(data);
+  async function onSubmit(data: z.infer<typeof FormSchema>) {
+    await signIn.mutateAsync(data);
   }
 
   return (
@@ -291,9 +293,6 @@ export function SignInForm() {
           </Form>
         </CardContent>
       </Card>
-
-      {/* Toast notifications */}
-      <Toaster />
     </div>
   );
 }

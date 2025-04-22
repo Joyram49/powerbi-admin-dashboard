@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { Package2, X } from "lucide-react";
+import { motion } from "framer-motion";
+import { Package2 } from "lucide-react";
 
 import { Button } from "@acme/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@acme/ui/dialog";
@@ -25,30 +26,24 @@ const CompanyModalButton = () => {
           Add company
         </Button>
       </DialogTrigger>
-      <DialogContent
-        className="max-h-[90vh] overflow-auto border-none bg-transparent p-0 shadow-none sm:max-w-4xl"
-        onInteractOutside={(e) => e.preventDefault()}
-        aria-describedby="Add company dialog box"
-      >
-        <DialogTitle className="sr-only">Add company dialog</DialogTitle>
-        <AnimatePresence>
+      <DialogContent className="border-gray-200 bg-white p-0 dark:border-gray-700 dark:bg-gray-900 sm:max-w-4xl">
+        <DialogHeader className="border-b border-gray-200 bg-gray-50 px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.2 }}
-            className="relative"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5 }}
           >
-            <Button
-              onClick={() => setIsOpen(false)}
-              className="absolute right-4 top-4 z-10 h-8 w-8 rounded-full bg-gray-100 p-0 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
-              aria-label="Close"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-            <CompanyAdminForm onClose={() => setIsOpen(false)} />
+            <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">
+              Add Company
+            </DialogTitle>
           </motion.div>
-        </AnimatePresence>
+        </DialogHeader>
+        <div className="p-6">
+          <CompanyAdminForm
+            onClose={() => setIsOpen(false)}
+            setDialogOpen={setIsOpen}
+          />
+        </div>
       </DialogContent>
     </Dialog>
   );

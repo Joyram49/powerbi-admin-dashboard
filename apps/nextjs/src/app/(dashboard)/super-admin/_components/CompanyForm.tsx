@@ -40,7 +40,7 @@ import {
   SelectValue,
 } from "@acme/ui/select";
 import { Separator } from "@acme/ui/separator";
-import { toast, Toaster } from "@acme/ui/toast";
+import { toast } from "@acme/ui/toast";
 
 import type { Company } from "~/types/company";
 import { api } from "~/trpc/react";
@@ -123,13 +123,17 @@ interface User {
   status?: "active" | "inactive" | null;
 }
 
+interface CompanyFormProps {
+  onClose: (shouldRefresh?: boolean) => void;
+  setDialogOpen?: (open: boolean) => void;
+  initialData?: Company | null;
+}
+
 const CompanyAdminForm = ({
   onClose,
+  setDialogOpen,
   initialData,
-}: {
-  onClose?: () => void;
-  initialData?: Company;
-}) => {
+}: CompanyFormProps) => {
   const [showAdminForm, setShowAdminForm] = useState(false);
   const [companyFormSubmitted, setCompanyFormSubmitted] = useState(false);
   const [adminFormSubmitted, setAdminFormSubmitted] = useState(false);
@@ -186,7 +190,7 @@ const CompanyAdminForm = ({
       companyForm.reset();
 
       await utils.company.getAllCompanies.invalidate();
-      if (onClose) onClose();
+      onClose();
     },
     onError: (error) => {
       toast.error("Update Failed", {
@@ -208,13 +212,28 @@ const CompanyAdminForm = ({
       adminForm.reset();
       setShowAdminForm(false);
 
-      // Refresh admin users list
-      await utils.user.getAdminUsers.invalidate();
+      // Add the new admin to the existing admins list and update the form
+      if (adminUser.user) {
+        // Add the new admin to the existingAdmins list so it shows in the dropdown
+        const newAdmin = {
+          id: adminUser.user.id,
+          userName:
+            (adminUser.user.user_metadata as { userName?: string }).userName ??
+            adminUser.user.email ??
+            "",
+          email: adminUser.user.email ?? "",
+          role: "admin",
+        };
+        setExistingAdmins((prev) => [...prev, newAdmin]);
 
-      // Update the company form with the new admin ID
-      if (adminUser.user?.id) {
+        // Update the form value with the new admin ID
         companyForm.setValue("adminId", adminUser.user.id);
+        // Trigger validation to clear any error messages
+        await companyForm.trigger("adminId");
       }
+
+      // Refresh admin users list in the background
+      await utils.user.getAdminUsers.invalidate();
     },
     onError: (error) => {
       setAdminFormSubmitted(false);
@@ -223,8 +242,6 @@ const CompanyAdminForm = ({
       });
     },
   });
-
-  // Removed unused updateAdminMutation
 
   // Create company mutation
   const createCompanyMutation = api.company.create.useMutation({
@@ -236,7 +253,7 @@ const CompanyAdminForm = ({
       companyForm.reset();
       setFormStep(0);
       await utils.company.getAllCompanies.invalidate();
-      if (onClose) setTimeout(onClose, 1500); // Close modal after showing success toast
+      onClose();
     },
     onError: (error) => {
       setCompanyFormSubmitted(false);
@@ -490,18 +507,19 @@ const CompanyAdminForm = ({
                             <Select
                               onValueChange={field.onChange}
                               defaultValue={field.value}
+                              value={field.value}
                             >
                               <FormControl>
                                 <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">
                                   <SelectValue placeholder="Select an administrator" />
                                 </SelectTrigger>
                               </FormControl>
-                              <SelectContent className="dark:border-gray-700 dark:bg-gray-800">
+                              <SelectContent className="bg-white dark:border-gray-700 dark:bg-gray-800">
                                 {existingAdmins.map((admin: User) => (
                                   <SelectItem
                                     key={admin.id}
                                     value={admin.id}
-                                    className="dark:text-white dark:focus:bg-gray-700"
+                                    className="dark:text-white dark:hover:bg-gray-700 dark:focus:bg-gray-700"
                                   >
                                     {admin.userName}
                                   </SelectItem>
@@ -509,7 +527,7 @@ const CompanyAdminForm = ({
                               </SelectContent>
                             </Select>
                           ) : (
-                            <div className="rounded-md bg-white p-3 text-sm dark:bg-gray-800 dark:text-gray-300">
+                            <div className="rounded-md border bg-white p-3 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
                               No existing company administrators found. Please
                               create a new one.
                             </div>
@@ -555,7 +573,7 @@ const CompanyAdminForm = ({
                           type="button"
                           variant="outline"
                           onClick={() => setFormStep(0)}
-                          className="border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+                          className="border-gray-300 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:hover:bg-gray-800"
                         >
                           <ChevronLeft className="mr-1 h-4 w-4" />
                           Back
@@ -726,8 +744,11 @@ const CompanyAdminForm = ({
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => setShowAdminForm(false)}
-                        className="border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+                        onClick={() => {
+                          setDialogOpen?.(false);
+                          onClose(false);
+                        }}
+                        className="bg-gray-100 text-gray-900 hover:bg-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
                       >
                         Cancel
                       </Button>
@@ -764,9 +785,6 @@ const CompanyAdminForm = ({
           </Dialog>
         )}
       </AnimatePresence>
-
-      {/* Toast notifications */}
-      <Toaster />
     </div>
   );
 };

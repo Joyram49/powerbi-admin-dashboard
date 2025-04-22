@@ -2,8 +2,6 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import { useCallback, useState } from "react";
-
-import { useDebounce } from "~/hooks/useDebounce";
 import { api } from "~/trpc/react";
 import { DataTable } from "../_components/DataTable";
 import { useUserColumns } from "../super-admin/users/_components/UserColumns";
@@ -42,14 +40,14 @@ export default function AdminPage() {
   const { data: profileData } = api.auth.getProfile.useQuery();
   const userId = profileData?.user?.id;
   const { data: companies } = api.company.getCompaniesByAdminId.useQuery({
-    companyAdminId: userId!,
+    companyAdminId: userId ?? "",
   });
   const companyId = companies?.data[0]?.id;
 
   // Fetch users for the company
   const { data: usersData, isLoading } = api.user.getUsersByCompanyId.useQuery(
     {
-      companyId: companyId!,
+      companyId: companyId ?? "",
       limit: pagination.limit,
       page: pagination.page,
     },
@@ -57,7 +55,7 @@ export default function AdminPage() {
       enabled: !!companyId,
     },
   );
-  console.log(usersData);
+
   const columns = useUserColumns() as ColumnDef<CompanyUser, unknown>[];
 
   const handleSearchChange = useCallback((value: string) => {

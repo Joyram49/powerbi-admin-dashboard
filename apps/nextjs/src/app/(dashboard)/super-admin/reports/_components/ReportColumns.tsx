@@ -1,7 +1,7 @@
 "use client";
 
 import type { Column, ColumnDef, Row, Table } from "@tanstack/react-table";
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { ArrowUpDown, ExternalLinkIcon } from "lucide-react";
 
 import { Badge } from "@acme/ui/badge";
@@ -10,6 +10,7 @@ import { Checkbox } from "@acme/ui/checkbox";
 
 import type { ReportType } from "./ReportForm";
 import { EntityActions } from "~/app/(dashboard)/_components/EntityActions";
+import ReportViewer from "~/app/(dashboard)/_components/ReportViewer";
 import { api } from "~/trpc/react";
 import ReportForm from "./ReportForm";
 
@@ -24,7 +25,22 @@ export function useReportColumns() {
   const utils = api.useUtils();
   const deleteMutation = api.report.deleteReport.useMutation();
 
-  return useMemo(() => {
+  // State for report viewer
+  const [selectedReport, setSelectedReport] = useState<ReportType | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  const openReportDialog = (report: ReportType) => {
+    setSelectedReport(report);
+    setIsDialogOpen(true);
+  };
+
+  const closeReportDialog = () => {
+    setIsDialogOpen(false);
+    // Small delay to allow animation to complete
+    setTimeout(() => setSelectedReport(null), 300);
+  };
+
+  const columns = useMemo(() => {
     const columns: ColumnDef<ReportType>[] = [
       {
         id: "select",
@@ -101,21 +117,18 @@ export function useReportColumns() {
       },
       {
         accessorKey: "reportUrl",
-        header: () => <div className="text-center font-medium">URL</div>,
+        header: () => <div className="text-center font-medium">Report URL</div>,
         cell: ({ row }) => (
           <div className="text-center">
-            <button
-              onClick={() =>
-                window.open(
-                  row.original.reportUrl,
-                  "_blank",
-                  "noopener,noreferrer",
-                )
-              }
-              className="cursor-pointer"
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => openReportDialog(row.original)}
+              className="mx-auto flex cursor-pointer items-center space-x-1 border border-primary/90 bg-primary/10 px-2 py-1 text-primary hover:bg-primary/20"
             >
               <ExternalLinkIcon className="h-4 w-4" />
-            </button>
+              <span>Open</span>
+            </Button>
           </div>
         ),
       },
@@ -262,6 +275,14 @@ export function useReportColumns() {
 
     return columns;
   }, [deleteMutation, utils]);
+
+  return {
+    columns,
+    ReportViewer,
+    isDialogOpen,
+    selectedReport,
+    closeReportDialog,
+  };
 }
 
 export default useReportColumns;

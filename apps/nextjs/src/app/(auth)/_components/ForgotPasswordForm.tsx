@@ -18,7 +18,7 @@ import {
   FormMessage,
 } from "@acme/ui/form";
 import { Input } from "@acme/ui/input";
-import { toast, Toaster } from "@acme/ui/toast";
+import { toast } from "@acme/ui/toast";
 
 import { api } from "~/trpc/react";
 
@@ -349,8 +349,6 @@ export function ForgotPasswordForm() {
           )}
         </CardContent>
       </Card>
-
-      <Toaster />
     </div>
   );
 }
