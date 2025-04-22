@@ -476,6 +476,7 @@ export const reportRouter = createTRPCRouter({
           }
         }
 
+        // Fetch the report with company information
         report = await db.query.reports.findFirst({
           columns: {
             companyId: false,
@@ -503,10 +504,22 @@ export const reportRouter = createTRPCRouter({
             message: "Report not found",
           });
         }
+
+        // Just fetch the user IDs related to this report
+        const userIds = await db
+          .select({
+            userId: userReports.userId,
+          })
+          .from(userReports)
+          .where(eq(userReports.reportId, reportId));
+
         return {
           success: true,
           message: "Report fetched successfully",
-          report,
+          report: {
+            ...report,
+            usersList: userIds.map((item) => item.userId),
+          },
         };
       } catch (error) {
         if (error instanceof TRPCError) {
