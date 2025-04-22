@@ -84,7 +84,7 @@ export default function AppSidebar() {
   const router = useRouter();
   const { data, isLoading } = api.auth.getProfile.useQuery();
   const userRole = data?.user?.user_metadata.role as string;
-  const { updateSession, getSessionId, fetchSession, getActiveTime } = useSessionActivity();
+  const { updateSession, getSessionId, fetchSession } = useSessionActivity();
 
   const logoutMutation = api.auth.signOut.useMutation({
     onSuccess: () => {
@@ -105,33 +105,25 @@ export default function AppSidebar() {
 
     try {
       // Step 1: Try to fetch the session from server first if not in local storage
-      let sessionId = await getSessionId(true); // true = fetch from server if needed
+      let sessionId = await getSessionId(true); 
       
       if (!sessionId) {
-        // If still not found, explicitly fetch it
         sessionId = await fetchSession();
       }
       
-      // Get real-time active time for logging
-      const currentActiveTime = getActiveTime();
-      console.log("Current active time:", currentActiveTime, "ms", (currentActiveTime / 1000).toFixed(2), "seconds");
-      
       // Step 2: Update the session if it exists
       if (sessionId) {
-        console.log("Updating session before logout:", sessionId);
-        const updateResult = await updateSession();
-        console.log("Session update result:", updateResult ? "Success" : "Failed");
-      } else {
-        console.log("No active session to update");
+        await updateSession();
       }
       
-      // Clean up activity data in localStorage - just one item now
+      // Clean up activity data in localStorage
       localStorage.removeItem("userActivityData");
+      localStorage.removeItem("auth_event_time");
+      localStorage.removeItem("session_tracker_id");
       
-      // Step 3: Only proceed with sign out AFTER the session is updated
+      // Step 3: Sign out
       button.textContent = "Signing out...";
       await logoutMutation.mutateAsync();
-      console.log("Signed out successfully");
 
       // Step 4: Redirect
       router.push("/login");

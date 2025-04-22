@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 // Interface for activity events
 export interface ActivityEvent {
@@ -18,9 +18,9 @@ interface ActivityData {
 }
 
 // Define type for saved data in localStorage
-interface StoredActivityData {
+export interface StoredActivityData {
   lastEvent: string | null;
-  lastActivity: string | null; // Stored as string in JSON
+  lastActivity: string | null;
   totalInactiveTime: number;
   totalActiveTime: number;
 }
@@ -56,7 +56,6 @@ function checkUserLoggedIn(): boolean {
 
   const cookies = document.cookie.split(";");
 
-  // Check if there's a cookie that starts with "sb-" AND has a non-empty value
   return cookies.some((cookie) => {
     const [name, value] = cookie.trim().split("=");
     const isSessionCookie = name.startsWith("sb-");
@@ -66,21 +65,12 @@ function checkUserLoggedIn(): boolean {
   });
 }
 
-// Helper to format time
-function formatTime(milliseconds: number): string {
-  const seconds = Math.floor(milliseconds / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-
-  return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
-}
-
 // Main hook for activity tracking
 export function useActivityTracking() {
   // Track user login state
   const [isUserLoggedIn, setIsUserLoggedIn] = useState<boolean>(false);
 
-  // Activity data state - used regardless of login state
+  // Activity data state
   const [activityData, setActivityData] = useState<ActivityData>({
     lastEvent: null,
     lastActivity: null,
@@ -89,13 +79,45 @@ export function useActivityTracking() {
     isActive: false,
   });
 
-  // Refs to avoid unnecessary re-renders - used only when logged in
+  // Refs to avoid unnecessary re-renders
   const isActiveRef = useRef(false);
   const lastActivityRef = useRef<Date | null>(null);
+  const lastEventRef = useRef<string | null>(null);
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
   const activeStartTimeRef = useRef<Date | null>(null);
   const inactiveStartTimeRef = useRef<Date | null>(null);
   const mouseMoveCountRef = useRef(0);
+
+  // Store base accumulated times to avoid resetting during state transitions
+  const baseTimesRef = useRef({
+    baseActiveTime: 0,
+    baseInactiveTime: 0,
+  });
+
+  // Calculate current real-time values
+  const getCurrentTimes = useCallback(() => {
+    const now = Date.now();
+    let currentActiveTime = baseTimesRef.current.baseActiveTime;
+    let currentInactiveTime = baseTimesRef.current.baseInactiveTime;
+
+    // If actively using the site, add to active time
+    if (isActiveRef.current && activeStartTimeRef.current) {
+      const additionalActiveTime = now - activeStartTimeRef.current.getTime();
+      currentActiveTime += additionalActiveTime;
+    }
+
+    // If in an inactive state, add to inactive time
+    if (!isActiveRef.current && inactiveStartTimeRef.current) {
+      const additionalInactiveTime =
+        now - inactiveStartTimeRef.current.getTime();
+      currentInactiveTime += additionalInactiveTime;
+    }
+
+    return {
+      totalActiveTime: currentActiveTime,
+      totalInactiveTime: currentInactiveTime,
+    };
+  }, []);
 
   // Reset activity tracking data
   const resetActivityData = useCallback(() => {
@@ -110,52 +132,53 @@ export function useActivityTracking() {
     // Reset refs
     isActiveRef.current = false;
     lastActivityRef.current = null;
+    lastEventRef.current = null;
     activeStartTimeRef.current = null;
     inactiveStartTimeRef.current = null;
     mouseMoveCountRef.current = 0;
+    baseTimesRef.current = {
+      baseActiveTime: 0,
+      baseInactiveTime: 0,
+    };
 
-    // Clear localStorage
     localStorage.removeItem(STORAGE_KEY);
   }, []);
 
   // Check login status and update state
   useEffect(() => {
-    // Function to check login status and update state
     const checkLoginStatus = () => {
       const isLoggedIn = checkUserLoggedIn();
 
-      // If login state changed
       if (isLoggedIn !== isUserLoggedIn) {
         setIsUserLoggedIn(isLoggedIn);
 
-        // If user logged out, clear data
         if (!isLoggedIn) {
           localStorage.removeItem(STORAGE_KEY);
           resetActivityData();
 
-          // Ensure all timers are cleared
           if (inactivityTimerRef.current) {
             clearTimeout(inactivityTimerRef.current);
             inactivityTimerRef.current = null;
           }
 
-          // Reset all refs explicitly
           isActiveRef.current = false;
           lastActivityRef.current = null;
+          lastEventRef.current = null;
           activeStartTimeRef.current = null;
           inactiveStartTimeRef.current = null;
           mouseMoveCountRef.current = 0;
+          baseTimesRef.current = {
+            baseActiveTime: 0,
+            baseInactiveTime: 0,
+          };
         }
       }
     };
 
-    // Initial check
     checkLoginStatus();
 
-    // Setup interval to check periodically
     const checkInterval = setInterval(checkLoginStatus, 5000);
 
-    // Check when storage or visibility changes
     window.addEventListener("storage", checkLoginStatus);
     document.addEventListener("visibilitychange", checkLoginStatus);
 
@@ -166,68 +189,103 @@ export function useActivityTracking() {
     };
   }, [isUserLoggedIn, resetActivityData]);
 
-  // Handle activity state transitions - only effective when logged in
+  // Handle activity state transitions
   const handleActive = useCallback(() => {
     if (!isUserLoggedIn) return;
 
     if (!isActiveRef.current) {
+      // If transitioning from inactive to active, finalize inactive time
+      if (inactiveStartTimeRef.current) {
+        const now = Date.now();
+        const inactiveDuration = now - inactiveStartTimeRef.current.getTime();
+
+        baseTimesRef.current.baseInactiveTime += inactiveDuration;
+        inactiveStartTimeRef.current = null;
+      }
+
       isActiveRef.current = true;
       activeStartTimeRef.current = new Date();
 
-      if (inactiveStartTimeRef.current) {
-        const inactiveDuration =
-          Date.now() - inactiveStartTimeRef.current.getTime();
+      // Important: Store current times, but don't create a new dependency on activityData
+      const { totalActiveTime, totalInactiveTime } = getCurrentTimes();
 
-        setActivityData((prev) => ({
-          ...prev,
-          totalInactiveTime: prev.totalInactiveTime + inactiveDuration,
-          isActive: true,
-        }));
+      // Set state with active flag and current calculated times
+      setActivityData((prev) => ({
+        ...prev,
+        isActive: true,
+        totalActiveTime,
+        totalInactiveTime,
+      }));
 
-        inactiveStartTimeRef.current = null;
-      } else {
-        setActivityData((prev) => ({
-          ...prev,
-          isActive: true,
-        }));
+      // Save to localStorage with the current data, not creating a circular reference
+      try {
+        const dataToSave: StoredActivityData = {
+          totalActiveTime,
+          totalInactiveTime,
+          lastActivity: lastActivityRef.current
+            ? lastActivityRef.current.toISOString()
+            : null,
+          lastEvent: lastEventRef.current,
+        };
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+      } catch {
+        // Silent error handling
       }
     }
-  }, [isUserLoggedIn]);
+  }, [isUserLoggedIn, getCurrentTimes]);
 
   const handleInactive = useCallback(() => {
     if (!isUserLoggedIn) return;
 
     if (isActiveRef.current) {
+      // If transitioning from active to inactive, finalize active time
+      if (activeStartTimeRef.current) {
+        const now = Date.now();
+        const activeDuration = now - activeStartTimeRef.current.getTime();
+
+        baseTimesRef.current.baseActiveTime += activeDuration;
+        activeStartTimeRef.current = null;
+      }
+
       isActiveRef.current = false;
       inactiveStartTimeRef.current = new Date();
 
-      // Clear any pending inactivity timer
       if (inactivityTimerRef.current) {
         clearTimeout(inactivityTimerRef.current);
         inactivityTimerRef.current = null;
       }
 
-      if (activeStartTimeRef.current) {
-        const activeDuration =
-          Date.now() - activeStartTimeRef.current.getTime();
+      // Important: Store current times, but don't create a new dependency on activityData
+      const { totalActiveTime, totalInactiveTime } = getCurrentTimes();
 
-        setActivityData((prev) => ({
-          ...prev,
-          totalActiveTime: prev.totalActiveTime + activeDuration,
-          isActive: false,
-        }));
+      // Set state with inactive flag and current calculated times
+      setActivityData((prev) => ({
+        ...prev,
+        isActive: false,
+        totalActiveTime,
+        totalInactiveTime,
+      }));
 
-        activeStartTimeRef.current = null;
-      } else {
-        setActivityData((prev) => ({
-          ...prev,
-          isActive: false,
-        }));
+      // Save to localStorage with the current data, not creating a circular reference
+      try {
+        const dataToSave: StoredActivityData = {
+          totalActiveTime,
+          totalInactiveTime,
+          lastActivity: lastActivityRef.current
+            ? lastActivityRef.current.toISOString()
+            : null,
+          lastEvent: lastEventRef.current,
+        };
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+      } catch {
+        // Silent error handling
       }
     }
-  }, [isUserLoggedIn]);
+  }, [isUserLoggedIn, getCurrentTimes]);
 
-  // Main function to update activity data - only effective when logged in
+  // Main function to update activity data
   const updateActivity = useCallback(
     (eventType: string) => {
       if (!isUserLoggedIn) return;
@@ -236,7 +294,6 @@ export function useActivityTracking() {
       if (eventType === "mousemove") {
         mouseMoveCountRef.current++;
         if (mouseMoveCountRef.current % MOUSE_MOVE_THROTTLE !== 0) {
-          // Still count as activity but don't process the event
           handleActive();
           return;
         }
@@ -244,45 +301,57 @@ export function useActivityTracking() {
 
       const now = new Date();
 
-      // Cancel any pending inactivity timeout and set a new one
       if (inactivityTimerRef.current) {
         clearTimeout(inactivityTimerRef.current);
       }
 
-      // Set timer for inactivity
       inactivityTimerRef.current = setTimeout(() => {
         handleInactive();
       }, INACTIVITY_THRESHOLD);
 
-      // Set the current activity state to active
       handleActive();
 
-      // Update activity timestamp
       lastActivityRef.current = now;
+      lastEventRef.current = eventType;
 
-      // Update activity data
+      // Update activity state by reading from prev state, not activityData directly
+      const { totalActiveTime, totalInactiveTime } = getCurrentTimes();
+
       setActivityData((prev) => ({
         ...prev,
         lastEvent: eventType,
         lastActivity: now,
         isActive: true,
+        totalActiveTime,
+        totalInactiveTime,
       }));
+
+      // Save updated data to localStorage
+      try {
+        const dataToSave: StoredActivityData = {
+          totalActiveTime,
+          totalInactiveTime,
+          lastActivity: now.toISOString(),
+          lastEvent: eventType,
+        };
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+      } catch {
+        // Silent error handling
+      }
     },
-    [handleActive, handleInactive, isUserLoggedIn],
+    [handleActive, handleInactive, isUserLoggedIn, getCurrentTimes],
   );
 
   // Load data from localStorage on login status change
   useEffect(() => {
-    // Only load data if user is logged in
     if (!isUserLoggedIn) return;
 
     try {
       const savedData = localStorage.getItem(STORAGE_KEY);
       if (savedData) {
-        // Parse with type assertion and validation
         const parsedData = JSON.parse(savedData) as Partial<StoredActivityData>;
 
-        // Validate required properties are numbers
         const totalActiveTime =
           typeof parsedData.totalActiveTime === "number"
             ? parsedData.totalActiveTime
@@ -293,10 +362,14 @@ export function useActivityTracking() {
             ? parsedData.totalInactiveTime
             : 0;
 
-        // Convert string date to Date object if it exists
         const lastActivity = parsedData.lastActivity
           ? new Date(parsedData.lastActivity)
           : null;
+
+        baseTimesRef.current = {
+          baseActiveTime: totalActiveTime,
+          baseInactiveTime: totalInactiveTime,
+        };
 
         setActivityData((prev) => ({
           ...prev,
@@ -305,40 +378,55 @@ export function useActivityTracking() {
           lastActivity,
         }));
 
-        // Set refs to match initial state
         isActiveRef.current = false;
         lastActivityRef.current = lastActivity;
+        lastEventRef.current = parsedData.lastEvent;
       }
     } catch {
       resetActivityData();
     }
   }, [isUserLoggedIn, resetActivityData]);
 
-  // Save data to localStorage when it changes
+  // Make sure we save the final state when component unmounts
   useEffect(() => {
-    // Only save data if user is logged in
-    if (!isUserLoggedIn) return;
+    return () => {
+      if (isUserLoggedIn) {
+        // Get the latest calculated times
+        const { totalActiveTime, totalInactiveTime } = getCurrentTimes();
 
-    try {
-      const dataToSave: StoredActivityData = {
-        totalActiveTime: activityData.totalActiveTime,
-        totalInactiveTime: activityData.totalInactiveTime,
-        lastActivity: activityData.lastActivity
-          ? activityData.lastActivity.toISOString()
-          : null,
-        lastEvent: activityData.lastEvent,
-      };
+        // Save final state without creating a dependency on activityData
+        try {
+          const dataToSave: StoredActivityData = {
+            totalActiveTime,
+            totalInactiveTime,
+            lastActivity: lastActivityRef.current
+              ? lastActivityRef.current.toISOString()
+              : null,
+            lastEvent: lastEventRef.current,
+          };
 
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
-    } catch {
-      // Silent error handling
-    }
-  }, [activityData, isUserLoggedIn]);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+        } catch {
+          // Silent error handling
+        }
+      }
+    };
+  }, [isUserLoggedIn, getCurrentTimes]);
 
   // Attach event listeners - only when logged in
   useEffect(() => {
-    // Skip if not logged in
     if (!isUserLoggedIn) return;
+
+    // Initialize activity period if needed
+    if (!activeStartTimeRef.current && !inactiveStartTimeRef.current) {
+      isActiveRef.current = true;
+      activeStartTimeRef.current = new Date();
+
+      setActivityData((prev) => ({
+        ...prev,
+        isActive: true,
+      }));
+    }
 
     const handleEvent = (e: Event) => {
       updateActivity(e.type);
@@ -369,18 +457,28 @@ export function useActivityTracking() {
     };
   }, [updateActivity, handleInactive, isUserLoggedIn]);
 
-  // Prepare formatted time strings
-  const formattedActiveTime = formatTime(activityData.totalActiveTime);
-  const formattedInactiveTime = formatTime(activityData.totalInactiveTime);
+  // Memoize return values to prevent unnecessary re-renders
+  const returnValues = useMemo(
+    () => ({
+      isActive: isUserLoggedIn ? activityData.isActive : false,
+      lastActivity: isUserLoggedIn ? activityData.lastActivity : null,
+      lastEvent: isUserLoggedIn ? activityData.lastEvent : null,
+      // Return real-time values from the ref when needed
+      totalActiveTime: isUserLoggedIn ? getCurrentTimes().totalActiveTime : 0,
+      totalInactiveTime: isUserLoggedIn
+        ? getCurrentTimes().totalInactiveTime
+        : 0,
+      resetActivityData,
+    }),
+    [
+      isUserLoggedIn,
+      activityData.isActive,
+      activityData.lastActivity,
+      activityData.lastEvent,
+      getCurrentTimes,
+      resetActivityData,
+    ],
+  );
 
-  return {
-    isActive: isUserLoggedIn ? activityData.isActive : false,
-    lastActivity: isUserLoggedIn ? activityData.lastActivity : null,
-    lastEvent: isUserLoggedIn ? activityData.lastEvent : null,
-    totalActiveTime: isUserLoggedIn ? activityData.totalActiveTime : 0,
-    totalInactiveTime: isUserLoggedIn ? activityData.totalInactiveTime : 0,
-    formattedActiveTime: isUserLoggedIn ? formattedActiveTime : "0h 0m 0s",
-    formattedInactiveTime: isUserLoggedIn ? formattedInactiveTime : "0h 0m 0s",
-    resetActivityData,
-  };
+  return returnValues;
 }

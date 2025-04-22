@@ -1,4 +1,5 @@
-import { Suspense } from "react";
+"use client";
+
 import { TrendingUpIcon } from "lucide-react";
 
 import { Badge } from "@acme/ui/badge";
@@ -10,10 +11,42 @@ import {
   CardTitle,
 } from "@acme/ui/card";
 
-import { api } from "~/trpc/server";
+import { api } from "~/trpc/react";
+import ErrorCard from "./error-card";
+import SkeletonCard from "./skeleton-card";
 
-async function TotalUsersCard() {
-  const totalUsersResponse = await api.user.getAllActiveUsers();
+function TotalUsersCard() {
+  const {
+    data: totalUsersResponse,
+    isError,
+    error,
+    isLoading,
+  } = api.user.getAllActiveUsers.useQuery(undefined, {
+    // Only run this query if the component is mounted (client-side)
+    retry: 1,
+    refetchOnWindowFocus: false,
+  });
+
+  if (isLoading) {
+    return <SkeletonCard />;
+  }
+
+  if (isError) {
+    console.error("Error fetching total users:", error);
+
+    // Handle unauthorized error
+    if (error.data?.code === "UNAUTHORIZED") {
+      return <ErrorCard message="Not authorized to view this data" />;
+    }
+
+    return (
+      <ErrorCard message={error.message || "Failed to fetch total users"} />
+    );
+  }
+
+  if (!totalUsersResponse?.users) {
+    return <ErrorCard message="No user data available" />;
+  }
 
   return (
     <Card className="@container/card dark:bg-slate-900">

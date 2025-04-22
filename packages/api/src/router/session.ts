@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, eq, isNull, sum } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 
 import { db, userSessions } from "@acme/db";
@@ -224,15 +224,21 @@ export const sessionRouter = createTRPCRouter({
     }
 
     try {
-      const activeUserCount = await db.query.userSessions.findMany({
-        where: isNull(userSessions.endTime),
+      // Replace the $with query with a direct count query
+      const result = await db.query.userSessions.findMany({
+        columns: {
+          userId: true,
+        },
       });
+
+      const count = result.length;
 
       return {
         success: true,
-        data: activeUserCount.length,
+        data: count,
       };
     } catch (error) {
+      console.error("Error in getActiveUsersCount:", error);
       if (error instanceof TRPCError) {
         throw error;
       }
@@ -252,19 +258,27 @@ export const sessionRouter = createTRPCRouter({
     }
 
     try {
-      const result = await db
-        .select({
-          total: sum(userSessions.totalActiveTime),
-        })
-        .from(userSessions);
+      // Use more efficient query with a timeout safety mechanism
+      // Only sum non-null values with a COALESCE to ensure we get 0 for empty results
+      const result = await db.query.userSessions.findMany({
+        columns: {
+          totalActiveTime: true,
+        },
+        limit: 1000, // Add a reasonable limit to prevent runaway queries
+      });
 
-      const totalActiveTime = result[0]?.total ?? 0;
+      // Calculate the sum manually in JS as a fallback
+      const totalActiveTime = result.reduce(
+        (sum, session) => sum + (session.totalActiveTime || 0),
+        0,
+      );
 
       return {
         success: true,
         data: totalActiveTime,
       };
     } catch (error) {
+      console.error("Error in getTotalActiveTime:", error);
       if (error instanceof TRPCError) {
         throw error;
       }

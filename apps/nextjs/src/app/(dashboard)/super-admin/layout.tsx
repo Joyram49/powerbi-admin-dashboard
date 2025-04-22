@@ -1,7 +1,7 @@
 import React from "react";
 
-import SuperAdminTabs from "./_components/SuperAdminTab";
 import ReportMetrics from "./_components/report-metrics/report-metrics";
+import SuperAdminTabs from "./_components/SuperAdminTab";
 
 function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   return (

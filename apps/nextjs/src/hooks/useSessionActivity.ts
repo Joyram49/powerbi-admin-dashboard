@@ -6,9 +6,6 @@ import { TRPCClientError } from "@trpc/client";
 import { useActivityTracking } from "~/hooks/useActivityTracking";
 import { api } from "~/trpc/react";
 
-// Constants
-const SESSION_ID_STORAGE_KEY = "session_tracker_id";
-
 // Define type for TRPC error data
 interface TRPCErrorData {
   code?: string;
@@ -17,12 +14,15 @@ interface TRPCErrorData {
   message?: string;
 }
 
+// Session ID storage key (the only data we'll store)
+const SESSION_ID_STORAGE_KEY = "session_tracker_id";
+
 /**
- * Simplified session tracking functionality that can be manually called
- * at specific points in the authentication flow.
+ * Simplified session tracking functionality that uses data from useActivityTracking hook
+ * and only stores the session ID in localStorage.
  */
 export function useSessionActivity() {
-  // Store session ID and session start time only
+  // Store minimal data - only session-related fields
   const sessionRef = useRef<{
     sessionId: string | null;
     sessionStartTime: number | null;
@@ -31,7 +31,7 @@ export function useSessionActivity() {
     sessionStartTime: null,
   });
 
-  // Get activity tracking data - this already handles localStorage
+  // Get activity tracking data from the activity hook
   const activity = useActivityTracking();
 
   // API mutations and queries
@@ -47,19 +47,16 @@ export function useSessionActivity() {
         typeof error.data === "object" &&
         error.data !== null
       ) {
-        // Safely cast to our expected error data type
         const errorData = error.data as TRPCErrorData;
         if (errorData.code === "UNAUTHORIZED") {
-          // Ignore unauthorized errors (expected for unauthenticated users)
           return;
         }
       }
-      // Log all other errors
       console.error("Session query error:", error);
     },
   });
 
-  // Initialize from localStorage on mount
+  // Initialize from localStorage on mount - only load session ID
   useEffect(() => {
     try {
       const storedSessionId = localStorage.getItem(SESSION_ID_STORAGE_KEY);
@@ -74,10 +71,10 @@ export function useSessionActivity() {
   // Handle page unload to save session data
   useEffect(() => {
     const handleBeforeUnload = () => {
-      const { sessionId } = sessionRef.current;
+      const sessionId = sessionRef.current.sessionId;
       if (sessionId) {
-        const totalActiveTime = activity.totalActiveTime;
-        const endpoint = `/api/track/session/${sessionId}?activeTime=${totalActiveTime}`;
+        const activeTime = activity.totalActiveTime;
+        const endpoint = `/api/track/session/${sessionId}?activeTime=${activeTime}`;
         navigator.sendBeacon(endpoint);
       }
     };
@@ -94,6 +91,11 @@ export function useSessionActivity() {
       if (sessionData.data?.id) {
         const sessionId = sessionData.data.id;
         sessionRef.current.sessionId = sessionId;
+
+        if (sessionData.data.startTime) {
+          const startTime = new Date(sessionData.data.startTime).getTime();
+          sessionRef.current.sessionStartTime = startTime;
+        }
 
         try {
           localStorage.setItem(SESSION_ID_STORAGE_KEY, sessionId);
@@ -128,6 +130,11 @@ export function useSessionActivity() {
       if (response.success && response.data?.id) {
         const sessionId = response.data.id;
         sessionRef.current.sessionId = sessionId;
+
+        if (response.data.startTime) {
+          const startTime = new Date(response.data.startTime).getTime();
+          sessionRef.current.sessionStartTime = startTime;
+        }
 
         try {
           localStorage.setItem(SESSION_ID_STORAGE_KEY, sessionId);
@@ -168,9 +175,11 @@ export function useSessionActivity() {
     }
 
     try {
+      const totalActiveTime = activity.totalActiveTime;
+
       const response = await updateSession.mutateAsync({
         sessionId: sessionId,
-        totalActiveTime: activity.totalActiveTime,
+        totalActiveTime: totalActiveTime,
       });
 
       if (response.success) {

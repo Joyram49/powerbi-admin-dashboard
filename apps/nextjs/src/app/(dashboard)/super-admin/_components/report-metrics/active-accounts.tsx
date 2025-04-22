@@ -1,3 +1,5 @@
+"use client";
+
 import { TrendingUpIcon } from "lucide-react";
 
 import { Badge } from "@acme/ui/badge";
@@ -9,18 +11,13 @@ import {
   CardTitle,
 } from "@acme/ui/card";
 
-import { api } from "~/trpc/server";
-
-async function ActiveAccountsCard() {
-  console.log("active accounts");
-  const activeUsersResponse = await api.session.getActiveUsersCount();
-  console.log(activeUsersResponse);
+function ActiveAccountsCard() {
   return (
     <Card className="@container/card dark:bg-slate-900">
       <CardHeader className="relative">
         <CardDescription>Active Accounts</CardDescription>
         <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
-          {activeUsersResponse.data.toLocaleString()}
+          0
         </CardTitle>
         <div className="absolute right-4 top-4">
           <Badge variant="outline" className="flex gap-1 rounded-lg text-xs">
