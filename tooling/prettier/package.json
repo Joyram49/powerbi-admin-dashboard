@@ -2,7 +2,7 @@
   "name": "@acme/prettier-config",
   "private": true,
   "version": "0.1.0",
-  "type": "module",
+  "type": "commonjs",
   "exports": {
     ".": "./index.js"
   },
@@ -20,6 +20,5 @@
   "devDependencies": {
     "@acme/tsconfig": "workspace:*",
     "typescript": "catalog:"
-  },
-  "prettier": "@acme/prettier-config"
+  }
 }

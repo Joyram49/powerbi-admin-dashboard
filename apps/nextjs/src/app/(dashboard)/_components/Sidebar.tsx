@@ -80,6 +80,8 @@ export default function AppSidebar() {
   const userRole = data?.user?.user_metadata.role as string;
   const { updateSession, getSessionId, fetchSession } = useSessionActivity();
 
+  const utils = api.useUtils();
+
   const logoutMutation = api.auth.signOut.useMutation({
     onSuccess: async () => {
       await utils.auth.getProfile.invalidate();

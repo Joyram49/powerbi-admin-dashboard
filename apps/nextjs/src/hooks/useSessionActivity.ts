@@ -40,20 +40,8 @@ export function useSessionActivity() {
   const getSession = api.session.getSessionByUserId.useQuery(undefined, {
     enabled: false,
     retry: false,
-    onError: (error) => {
-      // Silently handle errors for unauthenticated users
-      if (
-        error instanceof TRPCClientError &&
-        typeof error.data === "object" &&
-        error.data !== null
-      ) {
-        const errorData = error.data as TRPCErrorData;
-        if (errorData.code === "UNAUTHORIZED") {
-          return;
-        }
-      }
-      console.error("Session query error:", error);
-    },
+    staleTime: 0,
+    refetchOnWindowFocus: false,
   });
 
   // Initialize from localStorage on mount - only load session ID
@@ -83,6 +71,22 @@ export function useSessionActivity() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [activity.totalActiveTime]);
 
+  // Function to handle errors from the session query
+  const handleSessionErrors = (error: unknown) => {
+    // Silently handle errors for unauthenticated users
+    if (
+      error instanceof TRPCClientError &&
+      typeof error.data === "object" &&
+      error.data !== null
+    ) {
+      const errorData = error.data as TRPCErrorData;
+      if (errorData.code === "UNAUTHORIZED") {
+        return;
+      }
+    }
+    console.error("Session query error:", error);
+  };
+
   // Function to fetch current session from the server
   const fetchUserSession = async () => {
     try {
@@ -108,7 +112,7 @@ export function useSessionActivity() {
 
       return null;
     } catch (error) {
-      console.error("Error fetching user session:", error);
+      handleSessionErrors(error);
       return null;
     }
   };

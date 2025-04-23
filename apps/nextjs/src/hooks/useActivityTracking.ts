@@ -57,7 +57,12 @@ function checkUserLoggedIn(): boolean {
   const cookies = document.cookie.split(";");
 
   return cookies.some((cookie) => {
-    const [name, value] = cookie.trim().split("=");
+    const parts = cookie.trim().split("=");
+    const name = parts[0];
+    const value = parts.length > 1 ? parts[1] : "";
+
+    if (!name) return false;
+
     const isSessionCookie = name.startsWith("sb-");
     const hasValue = value && value.length > 0;
 
@@ -380,7 +385,8 @@ export function useActivityTracking() {
 
         isActiveRef.current = false;
         lastActivityRef.current = lastActivity;
-        lastEventRef.current = parsedData.lastEvent;
+        // Ensure lastEventRef is always a string or null
+        lastEventRef.current = parsedData.lastEvent ?? null;
       }
     } catch {
       resetActivityData();

@@ -16,12 +16,12 @@ export default async function Success({ searchParams }: SuccessPageProps) {
   if (!session_id)
     throw new Error("Please provide a valid session_id (`cs_test_...`)");
 
-  const {
-    status,
-    customer_details: { email: customerEmail },
-  } = await stripe.checkout.sessions.retrieve(session_id, {
+  const checkoutSession = await stripe.checkout.sessions.retrieve(session_id, {
     expand: ["line_items", "payment_intent"],
   });
+
+  const { status } = checkoutSession;
+  const customerEmail = checkoutSession.customer_details?.email ?? "your email";
 
   if (status === "open") {
     return redirect("/");

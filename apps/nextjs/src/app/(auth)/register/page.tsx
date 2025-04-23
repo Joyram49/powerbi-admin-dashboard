@@ -1,5 +1,6 @@
 // app/signup/page.tsx
 import type { Metadata } from "next";
+
 import { SignUpForm } from "../_components/SignUp";
 
 export const metadata: Metadata = {
