@@ -96,11 +96,6 @@ export default function ReportsDashboard() {
     });
   }, []);
 
-  const reportById = api.report.getReportById.useQuery({
-    reportId: "7f6d3fae-2494-4f4c-9e54-78d8042ed212",
-  });
-  console.log(reportById);
-
   return (
     <div className="container mx-auto w-full p-6">
       <h1 className="mb-6 text-2xl font-bold">{pageTitle}</h1>

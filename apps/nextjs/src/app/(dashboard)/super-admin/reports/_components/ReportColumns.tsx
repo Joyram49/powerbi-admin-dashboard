@@ -1,7 +1,7 @@
 "use client";
 
 import type { Column, ColumnDef, Row, Table } from "@tanstack/react-table";
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ArrowUpDown, ExternalLinkIcon } from "lucide-react";
 
 import { Badge } from "@acme/ui/badge";
@@ -12,7 +12,7 @@ import type { ReportType } from "./ReportForm";
 import { EntityActions } from "~/app/(dashboard)/_components/EntityActions";
 import ReportViewer from "~/app/(dashboard)/_components/ReportViewer";
 import { api } from "~/trpc/react";
-import ReportForm from "./ReportForm";
+import UpdateReportForm from "./update-report-form";
 
 interface TableMeta {
   sorting?: {
@@ -247,15 +247,21 @@ export function useReportColumns() {
                   // This is handled by EntityActions component
                 },
                 editForm: (
-                  <ReportForm
-                    initialData={report}
+                  // <ReportForm
+                  //   reportId={report.id}
+                  //   onClose={async () => {
+                  //     // Close the modal and refresh the data
+                  //     await utils.report.getAllReports.invalidate();
+                  //     await utils.report.getAllReportsForCompany.invalidate();
+                  //     await utils.report.getAllReportsAdmin.invalidate();
+                  //   }}
+                  //   userRole="superAdmin"
+                  // />
+                  <UpdateReportForm
+                    reportId={report.id}
                     onClose={async () => {
-                      // Close the modal and refresh the data
                       await utils.report.getAllReports.invalidate();
-                      await utils.report.getAllReportsForCompany.invalidate();
-                      await utils.report.getAllReportsAdmin.invalidate();
                     }}
-                    userRole="superAdmin"
                   />
                 ),
               }}

@@ -4,7 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, ilike, ne } from "drizzle-orm";
 import { z } from "zod";
 
-import { companies, createAdminClient, db, users } from "@acme/db";
+import { companies, createAdminClient, db, userReports, users } from "@acme/db";
 
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 
@@ -288,7 +288,6 @@ export const userRouter = createTRPCRouter({
 
   // this is used to get all users by company id for the superAdmin and admin
   getUsersByCompanyId: protectedProcedure
-
     .input(
       z
         .object({
@@ -587,6 +586,11 @@ export const userRouter = createTRPCRouter({
             .delete(companies)
             .where(eq(companies.companyAdminId, input.userId));
         }
+
+        // delete user from supabase database userReports table
+        await db
+          .delete(userReports)
+          .where(eq(userReports.userId, input.userId));
 
         return {
           success: true,

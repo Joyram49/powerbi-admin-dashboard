@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 import {
+  companies,
   createAdminClient,
   createClientServer,
   db,
@@ -144,7 +145,6 @@ export const authRouter = createTRPCRouter({
     )
     .mutation(async ({ input }) => {
       const supabase = createClientServer();
-
       try {
         // First, check if the user exists in our database
         const userExists = await db
@@ -698,18 +698,28 @@ export const authRouter = createTRPCRouter({
         const targetUserEmail: string = targetUser[0]?.email ?? "";
         const modifiedBy = targetUser[0]?.modifiedBy;
 
-        if (currentUserRole === "admin" && targetUserRole === "superAdmin") {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Admins cannot reset Super Admin passwords.",
-          });
-        }
+        if (currentUserRole === "admin") {
+          if (targetUserRole === "superAdmin") {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "Admins cannot reset Super Admin passwords.",
+            });
+          }
+          // get company data using companyId (targetUser[0]?.companyId)
+          const companyData = await db
+            .select()
+            .from(companies)
+            .where(eq(companies.id, targetUser[0]?.companyId));
 
-        if (currentUserRole === "admin" && currentUserId !== modifiedBy) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Admins cannot reset other user password",
-          });
+          if (
+            currentUserId !== modifiedBy &&
+            currentUserId !== companyData[0]?.companyAdminId
+          ) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "Admins cannot reset other user password",
+            });
+          }
         }
 
         // check if the new password was used before

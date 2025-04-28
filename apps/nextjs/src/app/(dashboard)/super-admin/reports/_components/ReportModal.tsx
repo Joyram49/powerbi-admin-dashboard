@@ -13,7 +13,7 @@ import {
   DialogTrigger,
 } from "@acme/ui/dialog";
 
-import ReportForm from "./ReportForm";
+import AddReportForm from "./add-report-form";
 
 interface ReportModalButtonProps {
   companyId?: string;
@@ -43,7 +43,7 @@ const ReportModalButton = ({ companyId }: ReportModalButtonProps) => {
           </motion.div>
         </DialogHeader>
         <div className="p-6">
-          <ReportForm
+          <AddReportForm
             onClose={() => setIsOpen(false)}
             setDialogOpen={setIsOpen}
             userRole="superAdmin"

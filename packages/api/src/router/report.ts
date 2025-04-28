@@ -505,20 +505,29 @@ export const reportRouter = createTRPCRouter({
           });
         }
 
-        // Just fetch the user IDs related to this report
-        const userIds = await db
-          .select({
-            userId: userReports.userId,
-          })
-          .from(userReports)
-          .where(eq(userReports.reportId, reportId));
+        // Fetch users related to this report with their names
+        const usersWithNames = await db.query.userReports.findMany({
+          where: eq(userReports.reportId, reportId),
+          with: {
+            user: {
+              columns: {
+                id: true,
+                userName: true,
+                email: true,
+              },
+            },
+          },
+        });
 
         return {
           success: true,
           message: "Report fetched successfully",
           report: {
             ...report,
-            usersList: userIds.map((item) => item.userId),
+            usersList: usersWithNames.map((item) => ({
+              id: item.user.id,
+              name: item.user.userName || item.user.email,
+            })),
           },
         };
       } catch (error) {
