@@ -61,7 +61,7 @@ interface ReportFormProps {
   onClose: (shouldRefresh?: boolean) => void;
   setDialogOpen?: (open: boolean) => void;
   reportId?: string;
-  userRole: "superAdmin" | "admin" | "user";
+  userRole?: "superAdmin" | "admin" | "user";
   companyId?: string;
 }
 
@@ -199,7 +199,7 @@ export default function ReportForm({
   const onSubmit = (data: z.infer<typeof formSchema>) => {
     setLoading(true);
     updateMutation.mutate({
-      reportId,
+      reportId: reportId ?? "",
       reportName: data.reportName,
       reportUrl: data.reportUrl,
       status: data.status,

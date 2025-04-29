@@ -4,6 +4,7 @@ import type { Column, ColumnDef, Row, Table } from "@tanstack/react-table";
 import React, { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { ArrowUpDown, UserPlus } from "lucide-react";
+import { columns } from "tailwindcss/defaultTheme";
 
 import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
@@ -12,7 +13,7 @@ import { Checkbox } from "@acme/ui/checkbox";
 import { UpdatePasswordForm } from "~/app/(auth)/_components/UpdatePasswordForm";
 import { EntityActions } from "~/app/(dashboard)/_components/EntityActions";
 import { api } from "~/trpc/react";
-import { UserForm } from "./UserForm";
+import UserModal from "./UserModal";
 
 interface TableMeta {
   sorting?: {
@@ -21,7 +22,11 @@ interface TableMeta {
   };
 }
 
-export function useUserColumns() {
+export function useUserColumns({
+  onEdit,
+}: {
+  onEdit?: (userId: string) => void;
+}) {
   // Move hook calls inside the custom hook
   const utils = api.useUtils();
   const deleteMutation = api.user.deleteUser.useMutation();
@@ -222,19 +227,8 @@ export function useUserColumns() {
                 ]}
                 editAction={{
                   onEdit: () => {
-                    // This is handled by EntityActions component
+                    onEdit?.(user.id);
                   },
-                  editForm: (
-                    <UserForm
-                      initialData={user}
-                      onClose={async () => {
-                        await utils.user.getAllUsers.invalidate();
-                        await utils.user.getAdminUsers.invalidate();
-                        await utils.user.getAllGeneralUser.invalidate();
-                        await utils.user.getUsersByCompanyId.invalidate();
-                      }}
-                    />
-                  ),
                 }}
                 deleteAction={{
                   onDelete: async () => {
@@ -277,7 +271,13 @@ export function useUserColumns() {
     ];
 
     return columns;
-  }, [deleteMutation, utils, selectedUserForPasswordReset, currentUserId]);
+  }, [
+    deleteMutation,
+    utils,
+    selectedUserForPasswordReset,
+    currentUserId,
+    onEdit,
+  ]);
 }
 
 export default useUserColumns;

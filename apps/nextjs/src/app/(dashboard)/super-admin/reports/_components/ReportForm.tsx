@@ -47,7 +47,6 @@ export interface ReportType {
 
 interface ReportFormProps {
   onClose: (shouldRefresh?: boolean) => void;
-  setDialogOpen?: (open: boolean) => void;
   initialData?: ReportType | null;
   userRole: "superAdmin" | "admin" | "user";
   companyId?: string;
@@ -70,7 +69,6 @@ const formSchema = z.object({
 
 export default function ReportForm({
   onClose,
-  setDialogOpen,
   initialData,
   userRole,
   companyId,
@@ -122,7 +120,9 @@ export default function ReportForm({
   const handleSuccess = async (message: string) => {
     await utils.report.getAllReports.invalidate();
     await utils.report.getAllReportsForCompany.invalidate();
-    await utils.report.getAllReportsAdmin.invalidate();
+    if (userRole === "admin") {
+      await utils.report.getAllReportsAdmin.invalidate();
+    }
     toast.success("Success", { description: message });
     setLoading(false);
     onClose(true);
@@ -214,7 +214,7 @@ export default function ReportForm({
         </p>
         <Button
           onClick={() => {
-            setDialogOpen?.(false);
+        
             onClose(false);
           }}
         >
@@ -375,7 +375,6 @@ export default function ReportForm({
               type="button"
               variant="outline"
               onClick={() => {
-                setDialogOpen?.(false);
                 onClose(false);
               }}
               className="bg-gray-100 text-gray-900 hover:bg-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"

@@ -1,7 +1,7 @@
 "use client";
 
 import type { Column, ColumnDef, Row, Table } from "@tanstack/react-table";
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowUpDown } from "lucide-react";
 
@@ -12,7 +12,7 @@ import { Checkbox } from "@acme/ui/checkbox";
 import type { Company } from "~/types/company";
 import { api } from "~/trpc/react";
 import { EntityActions } from "../../_components/EntityActions";
-import CompanyAdminForm from "./CompanyForm";
+import CompanyModal from "./CompanyModal";
 
 interface TableMeta {
   sorting?: {
@@ -24,6 +24,10 @@ export function useCompanyColumns() {
   // Hook calls inside the custom hook
   const utils = api.useUtils();
   const deleteMutation = api.company.deleteCompany.useMutation();
+
+  // State for edit modal
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [companyToEdit, setCompanyToEdit] = useState<Company | null>(null);
 
   return useMemo(() => {
     const columns: ColumnDef<Company>[] = [
@@ -247,39 +251,54 @@ export function useCompanyColumns() {
         cell: ({ row }) => {
           const company = row.original;
           return (
-            <EntityActions<Company>
-              entity={company}
-              entityName="Company"
-              entityDisplayField="companyName"
-              copyActions={[
-                { label: "Copy Company ID", field: "id" },
-                {
-                  label: "Copy Company Admin ID",
-                  field: (entity) => entity.admin.id,
-                },
-              ]}
-              editAction={{
-                // eslint-disable-next-line @typescript-eslint/no-empty-function
-                onEdit: () => {},
-                editForm: (
-                  // eslint-disable-next-line @typescript-eslint/no-empty-function
-                  <CompanyAdminForm initialData={company} onClose={() => {}} />
-                ),
-              }}
-              deleteAction={{
-                onDelete: async () => {
-                  await deleteMutation.mutateAsync({ companyId: company.id });
-                  await utils.company.getAllCompanies.invalidate();
-                },
-              }}
-            />
+            <div className="flex items-center">
+              <EntityActions<Company>
+                entity={company}
+                entityName="Company"
+                entityDisplayField="companyName"
+                copyActions={[
+                  { label: "Copy Company ID", field: "id" },
+                  {
+                    label: "Copy Company Admin ID",
+                    field: (entity) => entity.admin.id,
+                  },
+                ]}
+                editAction={{
+                  onEdit: () => {
+                    setCompanyToEdit(company);
+                    setIsEditModalOpen(true);
+                  },
+                }}
+                deleteAction={{
+                  onDelete: async () => {
+                    await deleteMutation.mutateAsync({ companyId: company.id });
+                    await utils.company.getAllCompanies.invalidate();
+                  },
+                }}
+              />
+
+              {/* Edit Modal - Rendered conditionally when edit is clicked */}
+              {isEditModalOpen && companyToEdit?.id === company.id && (
+                <CompanyModal
+                  type="edit"
+                  companyId={company.id}
+                  isOpen={isEditModalOpen}
+                  setIsOpen={setIsEditModalOpen}
+                  onClose={() => {
+                    setIsEditModalOpen(false);
+                    setCompanyToEdit(null);
+                  }}
+                  triggerButton={false}
+                />
+              )}
+            </div>
           );
         },
       },
     ];
 
     return columns;
-  }, [deleteMutation, utils]);
+  }, [deleteMutation, utils, isEditModalOpen, companyToEdit]);
 }
 
 export default useCompanyColumns;

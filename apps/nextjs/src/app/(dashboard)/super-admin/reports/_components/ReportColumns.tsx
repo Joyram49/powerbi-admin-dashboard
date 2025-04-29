@@ -12,7 +12,7 @@ import type { ReportType } from "./ReportForm";
 import { EntityActions } from "~/app/(dashboard)/_components/EntityActions";
 import ReportViewer from "~/app/(dashboard)/_components/ReportViewer";
 import { api } from "~/trpc/react";
-import UpdateReportForm from "./update-report-form";
+import ReportModal from "./ReportModal";
 
 interface TableMeta {
   sorting?: {
@@ -28,6 +28,10 @@ export function useReportColumns() {
   // State for report viewer
   const [selectedReport, setSelectedReport] = useState<ReportType | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  // State for edit modal
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [reportToEdit, setReportToEdit] = useState<ReportType | null>(null);
 
   const openReportDialog = (report: ReportType) => {
     setSelectedReport(report);
@@ -234,53 +238,53 @@ export function useReportColumns() {
         cell: ({ row }) => {
           const report = row.original;
           return (
-            <EntityActions<ReportType>
-              entity={report}
-              entityName="Report"
-              entityDisplayField="reportName"
-              copyActions={[
-                { label: "Copy Report ID", field: "id" },
-                { label: "Copy Report URL", field: "reportUrl" },
-              ]}
-              editAction={{
-                onEdit: () => {
-                  // This is handled by EntityActions component
-                },
-                editForm: (
-                  // <ReportForm
-                  //   reportId={report.id}
-                  //   onClose={async () => {
-                  //     // Close the modal and refresh the data
-                  //     await utils.report.getAllReports.invalidate();
-                  //     await utils.report.getAllReportsForCompany.invalidate();
-                  //     await utils.report.getAllReportsAdmin.invalidate();
-                  //   }}
-                  //   userRole="superAdmin"
-                  // />
-                  <UpdateReportForm
-                    reportId={report.id}
-                    onClose={async () => {
-                      await utils.report.getAllReports.invalidate();
-                    }}
-                  />
-                ),
-              }}
-              deleteAction={{
-                onDelete: async () => {
-                  await deleteMutation.mutateAsync({ reportId: report.id });
-                  await utils.report.getAllReports.invalidate();
-                  await utils.report.getAllReportsForCompany.invalidate();
-                  await utils.report.getAllReportsAdmin.invalidate();
-                },
-              }}
-            />
+            <div className="flex items-center">
+              <EntityActions<ReportType>
+                entity={report}
+                entityName="Report"
+                entityDisplayField="reportName"
+                copyActions={[
+                  { label: "Copy Report ID", field: "id" },
+                  { label: "Copy Report URL", field: "reportUrl" },
+                ]}
+                editAction={{
+                  onEdit: () => {
+                    setReportToEdit(report);
+                    setIsEditModalOpen(true);
+                  },
+                }}
+                deleteAction={{
+                  onDelete: async () => {
+                    await deleteMutation.mutateAsync({ reportId: report.id });
+                    await utils.report.getAllReports.invalidate();
+                    await utils.report.getAllReportsForCompany.invalidate();
+                    await utils.report.getAllReportsAdmin.invalidate();
+                  },
+                }}
+              />
+
+              {/* Edit Modal - Rendered conditionally when edit is clicked */}
+              {isEditModalOpen && reportToEdit?.id === report.id && (
+                <ReportModal
+                  companyId={report.company?.id}
+                  type="edit"
+                  reportId={report.id}
+                  isOpen={isEditModalOpen}
+                  setIsOpen={setIsEditModalOpen}
+                  onClose={() => {
+                    setIsEditModalOpen(false);
+                    setReportToEdit(null);
+                  }}
+                />
+              )}
+            </div>
           );
         },
       },
     ];
 
     return columns;
-  }, [deleteMutation, utils]);
+  }, [deleteMutation, utils, isEditModalOpen, reportToEdit]);
 
   return {
     columns,
@@ -288,6 +292,10 @@ export function useReportColumns() {
     isDialogOpen,
     selectedReport,
     closeReportDialog,
+    isEditModalOpen,
+    setIsEditModalOpen,
+    reportToEdit,
+    setReportToEdit,
   };
 }
 

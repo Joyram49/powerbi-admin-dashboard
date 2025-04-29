@@ -129,11 +129,7 @@ interface CompanyFormProps {
   initialData?: Company | null;
 }
 
-const CompanyAdminForm = ({
-  onClose,
-  setDialogOpen,
-  initialData,
-}: CompanyFormProps) => {
+const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
   const [showAdminForm, setShowAdminForm] = useState(false);
   const [companyFormSubmitted, setCompanyFormSubmitted] = useState(false);
   const [adminFormSubmitted, setAdminFormSubmitted] = useState(false);
@@ -159,14 +155,27 @@ const CompanyAdminForm = ({
   const companyForm = useForm({
     resolver: zodResolver(companyFormSchema),
     defaultValues: {
-      companyName: initialData?.companyName ?? "",
-      address: initialData?.address ?? "",
-      phone: initialData?.phone ?? "",
-      email: initialData?.email ?? "",
-      adminId: initialData?.admin.id ?? "",
+      companyName: "",
+      address: "",
+      phone: "",
+      email: "",
+      adminId: "",
     },
     mode: "onChange",
   });
+
+  // Reset form when initialData changes
+  useEffect(() => {
+    if (initialData) {
+      companyForm.reset({
+        companyName: initialData.companyName,
+        address: initialData.address ?? "",
+        phone: initialData.phone ?? "",
+        email: initialData.email ?? "",
+        adminId: initialData.admin.id,
+      });
+    }
+  }, [initialData, companyForm]);
 
   // Admin form
   const adminForm = useForm({
@@ -745,7 +754,6 @@ const CompanyAdminForm = ({
                         type="button"
                         variant="outline"
                         onClick={() => {
-                          setDialogOpen?.(false);
                           onClose(false);
                         }}
                         className="bg-gray-100 text-gray-900 hover:bg-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
@@ -789,4 +797,4 @@ const CompanyAdminForm = ({
   );
 };
 
-export default CompanyAdminForm;
+export default CompanyForm;

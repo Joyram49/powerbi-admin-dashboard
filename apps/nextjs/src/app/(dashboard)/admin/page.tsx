@@ -2,11 +2,14 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import { useCallback, useState } from "react";
+import { Plus } from "lucide-react";
+
+import { Button } from "@acme/ui/button";
 
 import { api } from "~/trpc/react";
 import { DataTable } from "../_components/DataTable";
 import { useUserColumns } from "../super-admin/users/_components/UserColumns";
-import UserModalButton from "../super-admin/users/_components/UserModal";
+import UserModal from "../super-admin/users/_components/UserModal";
 
 interface CompanyUser {
   id: string;
@@ -31,10 +34,12 @@ export default function AdminPage() {
     limit: 10,
   });
   const [searchInput, setSearchInput] = useState("");
-  // TODO: Add debounce to search input in api endpoint
-  // const debouncedSearch = useDebounce(searchInput, 500);
   const [sortBy, setSortBy] = useState<"userName" | "dateCreated">(
     "dateCreated",
+  );
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string | undefined>(
+    undefined,
   );
 
   // Get user profile to access company ID
@@ -57,7 +62,14 @@ export default function AdminPage() {
     },
   );
 
-  const columns = useUserColumns() as ColumnDef<CompanyUser, unknown>[];
+  const handleEdit = useCallback((userId: string) => {
+    setSelectedUserId(userId);
+    setIsModalOpen(true);
+  }, []);
+
+  const columns = useUserColumns({
+    onEdit: handleEdit,
+  }) as ColumnDef<CompanyUser, unknown>[];
 
   const handleSearchChange = useCallback((value: string) => {
     setSearchInput(value);
@@ -76,6 +88,14 @@ export default function AdminPage() {
       limit: newPageSize,
       page: 1,
     }));
+  }, []);
+
+  const handleModalClose = useCallback((shouldRefresh?: boolean) => {
+    setIsModalOpen(false);
+    setSelectedUserId(undefined);
+    if (shouldRefresh) {
+      // You might want to refresh the users list here
+    }
   }, []);
 
   const transformedUsers =
@@ -111,9 +131,28 @@ export default function AdminPage() {
         }}
         isLoading={isLoading}
         placeholder="Search by user email..."
-        actionButton={<UserModalButton />}
+        actionButton={
+          <Button
+            onClick={() => {
+              setSelectedUserId(undefined);
+              setIsModalOpen(true);
+            }}
+            className="bg-blue-500 text-white shadow-sm transition-all duration-200 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
+          >
+            <Plus className="mr-1 h-4 w-4" />
+            Add user
+          </Button>
+        }
         pageSize={pagination.limit}
         pageSizeOptions={[10, 20, 50, 100]}
+      />
+      <UserModal
+        userId={selectedUserId}
+        companyId={companyId}
+        isOpen={isModalOpen}
+        setIsOpen={setIsModalOpen}
+        onClose={handleModalClose}
+        type={selectedUserId ? "edit" : "add"}
       />
     </div>
   );

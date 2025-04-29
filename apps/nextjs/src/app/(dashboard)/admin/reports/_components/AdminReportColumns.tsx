@@ -1,28 +1,18 @@
 "use client";
 
-import type { Column, ColumnDef, Table } from "@tanstack/react-table";
-import React, { useMemo, useState } from "react";
+import type { Column, ColumnDef, Row, Table } from "@tanstack/react-table";
+import { useMemo, useState } from "react";
 import { ArrowUpDown, ExternalLinkIcon } from "lucide-react";
 
 import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
+import { Checkbox } from "@acme/ui/checkbox";
 
+import type { ReportType } from "~/app/(dashboard)/super-admin/reports/_components/update-report-form";
+import { EntityActions } from "~/app/(dashboard)/_components/EntityActions";
 import ReportViewer from "~/app/(dashboard)/_components/ReportViewer";
-
-interface ReportType {
-  id: string;
-  reportName: string;
-  reportUrl: string;
-  dateCreated: Date | null;
-  lastModifiedAt: Date | null;
-  status: "active" | "inactive" | null;
-  accessCount: number | null;
-  userCounts: number;
-  company: {
-    id: string;
-    companyName: string;
-  } | null;
-}
+import { api } from "~/trpc/react";
+import AdminReportModal from "./AdminReportModal";
 
 interface TableMeta {
   sorting?: {
@@ -31,9 +21,16 @@ interface TableMeta {
 }
 
 export function useReportColumns() {
+  // Hook calls inside the custom hook
+  const utils = api.useUtils();
+
   // State for report viewer
   const [selectedReport, setSelectedReport] = useState<ReportType | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  // State for edit modal
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [reportToEdit, setReportToEdit] = useState<ReportType | null>(null);
 
   const openReportDialog = (report: ReportType) => {
     setSelectedReport(report);
@@ -46,15 +43,29 @@ export function useReportColumns() {
     setTimeout(() => setSelectedReport(null), 300);
   };
 
-  const columns: ColumnDef<ReportType, unknown>[] = useMemo(() => {
-    const columns: ColumnDef<ReportType, unknown>[] = [
+  const columns = useMemo<ColumnDef<ReportType, unknown>[]>(() => {
+    return [
+      {
+        accessorKey: "id",
+        header: () => <div className="text-left font-medium">Report ID</div>,
+        cell: ({ row }) => {
+          const { id } = row.original;
+
+          return (
+            <div className="text-left">
+              <span className="hidden xl:inline">{id}</span>
+              <span className="xl:hidden">{id.slice(0, 10)}...</span>
+            </div>
+          );
+        },
+      },
       {
         accessorKey: "reportName",
         header: ({
           column,
           table,
         }: {
-          column: Column<ReportType, unknown>;
+          column: Column<ReportType>;
           table: Table<ReportType>;
         }) => {
           const { sorting } = table.options.meta as TableMeta;
@@ -108,10 +119,10 @@ export function useReportColumns() {
         ),
       },
       {
-        accessorKey: "userCounts",
+        accessorKey: "userCount",
         header: () => <div className="text-center font-medium"># Users</div>,
         cell: ({ row }) => (
-          <div className="text-center">{row.original.userCounts || 0}</div>
+          <div className="text-center">{row.original.userCounts ?? 0}</div>
         ),
       },
       {
@@ -127,7 +138,7 @@ export function useReportColumns() {
           column,
           table,
         }: {
-          column: Column<ReportType, unknown>;
+          column: Column<ReportType>;
           table: Table<ReportType>;
         }) => {
           const { sorting } = table.options.meta as TableMeta;
@@ -136,9 +147,11 @@ export function useReportColumns() {
               variant="ghost"
               className="text-center font-medium"
               onClick={() => {
+                // If sorting is available, use it
                 if (sorting?.onSortChange) {
                   sorting.onSortChange("dateCreated");
                 } else {
+                  // Fallback to the default column sorting
                   column.toggleSorting(column.getIsSorted() === "asc");
                 }
               }}
@@ -193,10 +206,46 @@ export function useReportColumns() {
           );
         },
       },
-    ];
+      {
+        id: "actions",
+        cell: ({ row }) => {
+          const report = row.original;
+          return (
+            <div className="flex items-center">
+              <EntityActions<ReportType>
+                entity={report}
+                entityName="Report"
+                entityDisplayField="reportName"
+                copyActions={[
+                  { label: "Copy Report ID", field: "id" },
+                  { label: "Copy Report URL", field: "reportUrl" },
+                ]}
+                editAction={{
+                  onEdit: () => {
+                    setReportToEdit(report);
+                    setIsEditModalOpen(true);
+                  },
+                }}
+              />
 
-    return columns;
-  }, []);
+              {/* Edit Modal - Rendered conditionally when edit is clicked */}
+              {isEditModalOpen && reportToEdit?.id === report.id && (
+                <AdminReportModal
+                  reportId={report.id}
+                  isOpen={isEditModalOpen}
+                  setIsOpen={setIsEditModalOpen}
+                  onClose={() => {
+                    setIsEditModalOpen(false);
+                    setReportToEdit(null);
+                  }}
+                />
+              )}
+            </div>
+          );
+        },
+      },
+    ];
+  }, [isEditModalOpen, reportToEdit]);
 
   return {
     columns,
@@ -204,6 +253,10 @@ export function useReportColumns() {
     isDialogOpen,
     selectedReport,
     closeReportDialog,
+    isEditModalOpen,
+    setIsEditModalOpen,
+    reportToEdit,
+    setReportToEdit,
   };
 }
 

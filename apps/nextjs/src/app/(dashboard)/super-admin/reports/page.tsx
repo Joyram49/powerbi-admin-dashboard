@@ -8,7 +8,7 @@ import { useDebounce } from "~/hooks/useDebounce";
 import { api } from "~/trpc/react";
 import { DataTable } from "../../_components/DataTable";
 import useReportColumns from "./_components/ReportColumns";
-import ReportModalButton from "./_components/ReportModal";
+import ReportModal from "./_components/ReportModal";
 
 export default function ReportsDashboard() {
   const searchParams = useSearchParams();
@@ -118,7 +118,7 @@ export default function ReportsDashboard() {
           onChange: handleSearchChange,
         }}
         placeholder="Search report name..."
-        actionButton={<ReportModalButton companyId={companyId ?? undefined} />}
+        actionButton={<ReportModal  companyId={companyId ?? undefined} />}
         isLoading={isLoading}
         pageSize={pagination.limit}
         pageSizeOptions={[10, 20, 50, 100]}

@@ -192,12 +192,7 @@ interface UserFormProps {
   companyId?: string;
 }
 
-export function UserForm({
-  onClose,
-  setDialogOpen,
-  initialData,
-  companyId,
-}: UserFormProps) {
+export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [formSubmitError, setFormSubmitError] = useState<string | null>(null);
@@ -233,7 +228,7 @@ export function UserForm({
       toast.error("Failed to add user", {
         description: error.message || "An error occurred",
       });
-      setIsSubmitting(false);
+      // setIsSubmitting(false);
     },
   });
 
@@ -277,20 +272,37 @@ export function UserForm({
 
   // Reset form when initial data changes
   useEffect(() => {
-    const role = initialData?.role ?? "user";
-    form.reset({
-      id: initialData?.id ?? "",
-      userName: initialData?.userName ?? "",
-      email: initialData?.email ?? "",
-      role: initialData?.role,
-      companyId: role === "user" ? (initialData?.companyId ?? "") : undefined,
-      password: "",
-      confirmPassword: "",
-      sendWelcomeEmail: true,
-      status: initialData?.status ?? "active",
-    });
+    if (initialData) {
+      const role = initialData.role ?? "user";
+      form.reset({
+        id: initialData.id ?? "",
+        userName: initialData.userName ?? "",
+        email: initialData.email ?? "",
+        role: initialData.role,
+        companyId:
+          role === "user"
+            ? (initialData.companyId ?? companyId ?? "")
+            : undefined,
+        password: "",
+        confirmPassword: "",
+        sendWelcomeEmail: true,
+        status: initialData.status ?? "active",
+      });
+    } else {
+      form.reset({
+        id: "",
+        userName: "",
+        email: "",
+        role: "user",
+        companyId: companyId ?? "",
+        password: "",
+        confirmPassword: "",
+        sendWelcomeEmail: true,
+        status: "active",
+      });
+    }
     setFormSubmitError(null);
-  }, [initialData, form, currentUserId]);
+  }, [initialData, form, companyId]);
 
   // Validate password meets all requirements
   const validatePassword = (password: string): boolean => {
@@ -717,7 +729,6 @@ export function UserForm({
               type="button"
               variant="outline"
               onClick={() => {
-                setDialogOpen?.(false);
                 onClose?.();
               }}
               className="border-gray-300 bg-gray-100 text-gray-900 hover:bg-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
