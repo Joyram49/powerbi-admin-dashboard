@@ -77,7 +77,9 @@ export default function useUserReportColumns() {
       },
       {
         accessorKey: "accessCount",
-        header: () => <div className="text-center font-medium"># Accesses</div>,
+        header: () => (
+          <div className="text-center font-medium"># Report Views</div>
+        ),
         cell: ({ row }) => (
           <div className="text-center">{row.original.accessCount ?? 0}</div>
         ),

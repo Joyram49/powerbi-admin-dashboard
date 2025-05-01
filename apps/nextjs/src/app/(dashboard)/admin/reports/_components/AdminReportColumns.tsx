@@ -1,14 +1,14 @@
 "use client";
 
-import type { Column, ColumnDef, Row, Table } from "@tanstack/react-table";
-import { useMemo, useState } from "react";
+import type { Column, ColumnDef, Table } from "@tanstack/react-table";
+import { useCallback, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowUpDown, ExternalLinkIcon } from "lucide-react";
 
 import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
-import { Checkbox } from "@acme/ui/checkbox";
 
-import type { ReportType } from "~/app/(dashboard)/super-admin/reports/_components/update-report-form";
+import type { ReportType } from "~/app/(dashboard)/super-admin/reports/_components/ReportForm";
 import { EntityActions } from "~/app/(dashboard)/_components/EntityActions";
 import ReportViewer from "~/app/(dashboard)/_components/ReportViewer";
 import { api } from "~/trpc/react";
@@ -23,6 +23,8 @@ interface TableMeta {
 export function useReportColumns() {
   // Hook calls inside the custom hook
   const utils = api.useUtils();
+  const incrementViewsMutation = api.report.incrementReportViews.useMutation();
+  const router = useRouter();
 
   // State for report viewer
   const [selectedReport, setSelectedReport] = useState<ReportType | null>(null);
@@ -32,10 +34,23 @@ export function useReportColumns() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [reportToEdit, setReportToEdit] = useState<ReportType | null>(null);
 
-  const openReportDialog = (report: ReportType) => {
-    setSelectedReport(report);
-    setIsDialogOpen(true);
-  };
+  const openReportDialog = useCallback(
+    async (report: ReportType) => {
+      try {
+        await incrementViewsMutation.mutateAsync({ reportId: report.id });
+        await utils.report.getAllReportsAdmin.invalidate();
+        await utils.report.getAllReportsForCompany.invalidate();
+
+        setSelectedReport(report);
+        setIsDialogOpen(true);
+      } catch (error) {
+        console.error("Failed to increment report views:", error);
+        setSelectedReport(report);
+        setIsDialogOpen(true);
+      }
+    },
+    [incrementViewsMutation, utils.report],
+  );
 
   const closeReportDialog = () => {
     setIsDialogOpen(false);
@@ -122,12 +137,31 @@ export function useReportColumns() {
         accessorKey: "userCount",
         header: () => <div className="text-center font-medium"># Users</div>,
         cell: ({ row }) => (
-          <div className="text-center">{row.original.userCounts ?? 0}</div>
+          <Button
+            variant="link"
+            className="border bg-gray-100 text-center hover:border-primary/90 dark:bg-gray-800 dark:hover:bg-gray-700"
+            onClick={async () => {
+              try {
+                // Invalidate the users query
+                await utils.user.getAllUsers.invalidate();
+                // Navigate to users page with report filter
+                router.push(
+                  `/admin?reportId=${row.original.id}&companyId=${row.original.company?.id}`,
+                );
+              } catch (error) {
+                console.error("Error navigating to users:", error);
+              }
+            }}
+          >
+            {row.original.userCounts ?? 0}
+          </Button>
         ),
       },
       {
         accessorKey: "accessCount",
-        header: () => <div className="text-center font-medium"># Accesses</div>,
+        header: () => (
+          <div className="text-center font-medium"># Report Views</div>
+        ),
         cell: ({ row }) => (
           <div className="text-center">{row.original.accessCount ?? 0}</div>
         ),
@@ -216,10 +250,7 @@ export function useReportColumns() {
                 entity={report}
                 entityName="Report"
                 entityDisplayField="reportName"
-                copyActions={[
-                  { label: "Copy Report ID", field: "id" },
-                  { label: "Copy Report URL", field: "reportUrl" },
-                ]}
+                copyActions={[{ label: "Copy Report ID", field: "id" }]}
                 editAction={{
                   onEdit: () => {
                     setReportToEdit(report);
@@ -245,7 +276,7 @@ export function useReportColumns() {
         },
       },
     ];
-  }, [isEditModalOpen, reportToEdit]);
+  }, [isEditModalOpen, reportToEdit, openReportDialog, router, utils.user]);
 
   return {
     columns,

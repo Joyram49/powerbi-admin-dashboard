@@ -2,7 +2,7 @@
 
 import type { Column, ColumnDef, Row, Table } from "@tanstack/react-table";
 import React, { useMemo, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowUpDown } from "lucide-react";
 
 import { Badge } from "@acme/ui/badge";
@@ -24,6 +24,7 @@ export function useCompanyColumns() {
   // Hook calls inside the custom hook
   const utils = api.useUtils();
   const deleteMutation = api.company.deleteCompany.useMutation();
+  const router = useRouter();
 
   // State for edit modal
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -64,8 +65,7 @@ export function useCompanyColumns() {
           const { id } = row.original;
           return (
             <div className="text-left">
-              <span className="hidden xl:inline">{id}</span>
-              <span className="xl:hidden">{id.slice(0, 10)}...</span>
+              <span>{id.slice(0, 10)}...</span>
             </div>
           );
         },
@@ -115,20 +115,7 @@ export function useCompanyColumns() {
           );
         },
       },
-      {
-        accessorKey: "companyAddress",
-        header: () => <div className="text-center font-medium">Address</div>,
-        cell: ({ row }) => (
-          <div className="text-center">{row.original.address}</div>
-        ),
-      },
-      {
-        accessorKey: "phone",
-        header: () => <div className="text-center font-medium">Phone</div>,
-        cell: ({ row }) => (
-          <div className="text-center">{row.original.phone}</div>
-        ),
-      },
+      
       {
         accessorKey: "email",
         header: () => <div className="text-center font-medium">Email</div>,
@@ -142,34 +129,44 @@ export function useCompanyColumns() {
           <div className="text-center font-medium"># employees</div>
         ),
         cell: ({ row }) => (
-          <Link
-            href={`/super-admin/users?companyId=${row.original.id}`}
-            className="flex justify-center"
+          <Button
+            variant="link"
+            className="border bg-gray-100 text-center hover:border-primary/90 dark:bg-gray-800 dark:hover:bg-gray-700"
+            onClick={async () => {
+              try {
+                // Invalidate the users query for this company
+                await utils.user.getUsersByCompanyId.invalidate();
+                router.push(`/super-admin/users?companyId=${row.original.id}`);
+              } catch (error) {
+                console.error("Error navigating to users:", error);
+              }
+            }}
           >
-            <Button
-              variant="link"
-              className="bg-gray-100 text-center dark:bg-gray-800"
-            >
-              {row.original.employeeCount}
-            </Button>
-          </Link>
+            {row.original.employeeCount}
+          </Button>
         ),
       },
       {
         accessorKey: "reportCount",
         header: () => <div className="text-center font-medium"># Reports</div>,
         cell: ({ row }) => (
-          <Link
-            href={`/super-admin/reports?companyId=${row.original.id}`}
-            className="flex justify-center"
+          <Button
+            variant="link"
+            className="border bg-gray-100 text-center hover:border-primary/90 dark:bg-gray-800 dark:hover:bg-gray-700"
+            onClick={async () => {
+              try {
+                // Invalidate the reports query for this company
+                await utils.report.getAllReportsForCompany.invalidate();
+                router.push(
+                  `/super-admin/reports?companyId=${row.original.id}`,
+                );
+              } catch (error) {
+                console.error("Error navigating to reports:", error);
+              }
+            }}
           >
-            <Button
-              variant="link"
-              className="bg-gray-100 text-center dark:bg-gray-800"
-            >
-              {row.original.reportCount}
-            </Button>
-          </Link>
+            {row.original.reportCount}
+          </Button>
         ),
       },
       {
@@ -298,7 +295,7 @@ export function useCompanyColumns() {
     ];
 
     return columns;
-  }, [deleteMutation, utils, isEditModalOpen, companyToEdit]);
+  }, [deleteMutation, utils, isEditModalOpen, companyToEdit, router]);
 }
 
 export default useCompanyColumns;

@@ -705,12 +705,17 @@ export const authRouter = createTRPCRouter({
               message: "Admins cannot reset Super Admin passwords.",
             });
           }
+          if (!targetUser[0]?.companyId) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Company not found",
+            });
+          }
           // get company data using companyId (targetUser[0]?.companyId)
           const companyData = await db
             .select()
             .from(companies)
-            .where(eq(companies.id, targetUser[0]?.companyId));
-
+            .where(eq(companies.id, targetUser[0].companyId));
           if (
             currentUserId !== modifiedBy &&
             currentUserId !== companyData[0]?.companyAdminId

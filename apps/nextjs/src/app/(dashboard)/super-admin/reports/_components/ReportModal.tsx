@@ -50,7 +50,7 @@ const ReportModal = ({
     { reportId: reportId ?? "" },
     { enabled: !!reportId && type === "edit" },
   );
-
+  console.log(reportData);
   const handleClose = (shouldRefresh = false) => {
     setIsOpen(false);
     if (onClose) {

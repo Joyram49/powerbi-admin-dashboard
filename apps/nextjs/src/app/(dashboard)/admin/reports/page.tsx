@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 
-import type { ReportType } from "~/app/(dashboard)/super-admin/reports/_components/update-report-form";
+import type { ReportType } from "../../super-admin/reports/_components/ReportForm";
 import { useDebounce } from "~/hooks/useDebounce";
 import { api } from "~/trpc/react";
 import { DataTable } from "../../_components/DataTable";

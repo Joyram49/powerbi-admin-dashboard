@@ -3,10 +3,18 @@
 import { useEffect, useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
+import { Check, ChevronsUpDown, Loader2, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { Button } from "@acme/ui/button";
+import {
+  Command,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@acme/ui/command";
 import {
   Form,
   FormControl,
@@ -16,6 +24,7 @@ import {
   FormMessage,
 } from "@acme/ui/form";
 import { Input } from "@acme/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@acme/ui/popover";
 import {
   Select,
   SelectContent,
@@ -42,7 +51,12 @@ export interface ReportType {
     companyName: string;
   } | null;
   userCounts?: number;
-  userIds?: string[];
+  usersList?: { id: string; name: string }[];
+}
+
+interface UserOption {
+  value: string;
+  label: string;
 }
 
 interface ReportFormProps {
@@ -74,10 +88,8 @@ export default function ReportForm({
   companyId,
 }: ReportFormProps) {
   const [loading, setLoading] = useState(false);
-
-  const [allUserOptions, setAllUserOptions] = useState<
-    { value: string; label: string }[]
-  >([]);
+  const [userOptions, setUserOptions] = useState<UserOption[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const initialFormSetRef = useRef(false);
   const utils = api.useUtils();
 
@@ -89,12 +101,18 @@ export default function ReportForm({
       reportUrl: initialData?.reportUrl ?? "",
       companyId: initialData?.company?.id ?? companyId ?? "",
       status: initialData?.status ?? "active",
-      userIds: initialData?.userIds ?? [],
+      userIds: initialData?.usersList?.map((user) => user.id) ?? [],
     },
   });
 
   // Watch for company ID changes to fetch users
   const companyIdForm = form.watch("companyId");
+
+  // Fetch users for selected company
+  const { data: usersData, isLoading } = api.user.getUsersByCompanyId.useQuery(
+    { companyId: companyIdForm, limit: 100, page: 1 },
+    { enabled: !!companyIdForm },
+  );
 
   // Fetch companies data
   const { data: companiesData, isLoading: isLoadingCompanies } =
@@ -102,19 +120,24 @@ export default function ReportForm({
       enabled: userRole === "superAdmin",
     });
 
-  // Fetch users for selected company
-  const { data: usersData, isLoading: isLoadingUsers } =
-    api.user.getUsersByCompanyId.useQuery(
-      { companyId: companyIdForm, limit: 100, page: 1 },
-      { enabled: !!companyIdForm },
-    );
-
   // Fetch report details when editing - only if we have an ID and haven't set the form yet
   const { data: reportData, isLoading: isLoadingReport } =
     api.report.getReportById.useQuery(
       { reportId: initialData?.id ?? "" },
       { enabled: !!initialData?.id && !initialFormSetRef.current },
     );
+
+  // Process users data for the MultiSelect component
+  useEffect(() => {
+    if (usersData?.users) {
+      const options = usersData.users.map((user) => ({
+        value: user.id,
+        label: `${user.userName} | ${user.email}`,
+      }));
+      setUserOptions(options);
+      setIsLoadingUsers(false);
+    }
+  }, [usersData]);
 
   // Handle success response
   const handleSuccess = async (message: string) => {
@@ -154,36 +177,12 @@ export default function ReportForm({
         reportUrl: reportDetails.reportUrl,
         companyId: reportDetails.company?.id ?? "",
         status: reportDetails.status ?? "active",
-        userIds: reportDetails.userIds ?? [],
+        userIds: reportDetails.usersList?.map((user) => user.id) ?? [],
       });
       initialFormSetRef.current = true;
     }
   }, [reportData, form]);
 
-  // Process users data for the MultiSelect component - only update when usersData changes
-  useEffect(() => {
-    if (usersData?.users) {
-      // Format all users
-      const formattedUsers = usersData.users.map((user) => ({
-        value: user.id,
-        label: `${user.userName} | ${user.email}`,
-      }));
-
-      setAllUserOptions(formattedUsers);
-    }
-  }, [usersData]);
-  useEffect(() => {
-    if (
-      reportData?.report.userCounts &&
-      allUserOptions.length > 0 &&
-      !form.getValues("userIds").length
-    ) {
-      form.setValue(
-        "userIds",
-        allUserOptions.map((user) => user.value),
-      );
-    }
-  }, [reportData, allUserOptions, form]);
   // Form submission handler
   const onSubmit = (data: z.infer<typeof formSchema>) => {
     setLoading(true);
@@ -214,7 +213,6 @@ export default function ReportForm({
         </p>
         <Button
           onClick={() => {
-        
             onClose(false);
           }}
         >
@@ -287,10 +285,6 @@ export default function ReportForm({
                 <Select
                   onValueChange={(value) => {
                     field.onChange(value);
-                    // Reset selected users when company changes
-                    if (value !== field.value) {
-                      form.setValue("userIds", []);
-                    }
                   }}
                   value={field.value}
                   disabled={!!initialData}
@@ -357,12 +351,11 @@ export default function ReportForm({
                 <FormLabel>User Access</FormLabel>
                 <FormControl>
                   <MultiSelect
-                    options={allUserOptions}
+                    options={userOptions}
                     selected={field.value}
                     onChange={field.onChange}
-                    placeholder="Select users who can access this report"
-                    loading={isLoadingUsers && !!companyIdForm}
-                    className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                    placeholder="Select users"
+                    loading={isLoadingUsers}
                   />
                 </FormControl>
                 <FormMessage />

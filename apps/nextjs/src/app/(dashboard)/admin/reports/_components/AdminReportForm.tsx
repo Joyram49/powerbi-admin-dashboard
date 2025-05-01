@@ -3,11 +3,18 @@
 import { useEffect, useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
-import { Loader2, Save } from "lucide-react";
+import { Check, ChevronsUpDown, Loader2, Save, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
 import { Button } from "@acme/ui/button";
+import {
+  Command,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@acme/ui/command";
 import {
   Form,
   FormControl,
@@ -16,6 +23,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@acme/ui/form";
+import { Popover, PopoverContent, PopoverTrigger } from "@acme/ui/popover";
 import { toast } from "@acme/ui/toast";
 
 import { MultiSelect } from "~/app/(dashboard)/_components/MultiSelect";
@@ -34,6 +42,11 @@ interface User {
   company: {
     companyName: string;
   } | null;
+}
+
+interface UserOption {
+  value: string;
+  label: string;
 }
 
 // Define form schema
@@ -59,9 +72,7 @@ export default function AdminReportForm({
 }: AdminReportFormProps) {
   const utils = api.useUtils();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [userOptions, setUserOptions] = useState<
-    { value: string; label: string }[]
-  >([]);
+  const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const initialFormSetRef = useRef(false);
 
@@ -69,15 +80,9 @@ export default function AdminReportForm({
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      userIds: initialData.userIds || [],
+      userIds: initialData.userIds,
     },
   });
-
-  // Fetch report details to get user counts
-  const { data: reportData } = api.report.getReportById.useQuery(
-    { reportId: initialData.id },
-    { enabled: !!initialData.id && !initialFormSetRef.current },
-  );
 
   // Fetch users for the company
   const { data: usersData, isLoading } = api.user.getUsersByCompanyId.useQuery({
@@ -97,14 +102,6 @@ export default function AdminReportForm({
       setIsLoadingUsers(false);
     }
   }, [usersData]);
-
-  // Update form values when initialData changes
-  useEffect(() => {
-    if (initialData.userIds && initialData.userIds.length > 0) {
-      form.setValue("userIds", initialData.userIds);
-      initialFormSetRef.current = true;
-    }
-  }, [initialData.userIds, form]);
 
   const updateReportMutation = api.report.updateReport.useMutation({
     onSuccess: async () => {

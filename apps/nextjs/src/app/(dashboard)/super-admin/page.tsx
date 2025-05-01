@@ -44,7 +44,7 @@ export default function SuperDashboard() {
   }, []);
 
   return (
-    <div className="container mx-auto w-full p-6">
+    <div className="container mx-auto w-full max-w-[98%] p-6">
       <DataTable<Company, unknown, "companyName" | "dateJoined">
         columns={columns}
         data={companies}

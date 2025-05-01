@@ -24,6 +24,7 @@ export function useReportColumns() {
   // Hook calls inside the custom hook
   const utils = api.useUtils();
   const deleteMutation = api.report.deleteReport.useMutation();
+  const incrementViewsMutation = api.report.incrementReportViews.useMutation();
 
   // State for report viewer
   const [selectedReport, setSelectedReport] = useState<ReportType | null>(null);
@@ -33,9 +34,24 @@ export function useReportColumns() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [reportToEdit, setReportToEdit] = useState<ReportType | null>(null);
 
-  const openReportDialog = (report: ReportType) => {
-    setSelectedReport(report);
-    setIsDialogOpen(true);
+  const openReportDialog = async (report: ReportType) => {
+    try {
+      // Increment report views
+      await incrementViewsMutation.mutateAsync({ reportId: report.id });
+      // Invalidate the reports queries to refresh the data
+      await utils.report.getAllReports.invalidate();
+      await utils.report.getAllReportsForCompany.invalidate();
+
+      await utils.report.getAllReportsAdmin.invalidate();
+
+      setSelectedReport(report);
+      setIsDialogOpen(true);
+    } catch (error) {
+      console.error("Failed to increment report views:", error);
+      // Still open the dialog even if incrementing views fails
+      setSelectedReport(report);
+      setIsDialogOpen(true);
+    }
   };
 
   const closeReportDialog = () => {
@@ -154,7 +170,9 @@ export function useReportColumns() {
       },
       {
         accessorKey: "accessCount",
-        header: () => <div className="text-center font-medium"># Accesses</div>,
+        header: () => (
+          <div className="text-center font-medium"># Report Views</div>
+        ),
         cell: ({ row }) => (
           <div className="text-center">{row.original.accessCount ?? 0}</div>
         ),
@@ -284,7 +302,7 @@ export function useReportColumns() {
     ];
 
     return columns;
-  }, [deleteMutation, utils, isEditModalOpen, reportToEdit]);
+  }, [deleteMutation, utils, isEditModalOpen, reportToEdit, openReportDialog]);
 
   return {
     columns,

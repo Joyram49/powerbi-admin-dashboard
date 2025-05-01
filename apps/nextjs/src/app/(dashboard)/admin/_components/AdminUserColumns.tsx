@@ -12,7 +12,6 @@ import { Checkbox } from "@acme/ui/checkbox";
 import { UpdatePasswordForm } from "~/app/(auth)/_components/UpdatePasswordForm";
 import { EntityActions } from "~/app/(dashboard)/_components/EntityActions";
 import { api } from "~/trpc/react";
-import UserModal from "./UserModal";
 
 interface TableMeta {
   sorting?: {
@@ -22,7 +21,6 @@ interface TableMeta {
 }
 
 export function useUserColumns() {
-  // Move hook calls inside the custom hook
   const utils = api.useUtils();
   const deleteMutation = api.user.deleteUser.useMutation();
   const [selectedUserForPasswordReset, setSelectedUserForPasswordReset] =
@@ -30,8 +28,6 @@ export function useUserColumns() {
       id: string;
       isOpen: boolean;
     } | null>(null);
-  const [selectedUserId, setSelectedUserId] = useState<string | undefined>();
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const { data: profileData } = api.auth.getProfile.useQuery();
   const currentUserId = profileData?.user?.id;
@@ -224,8 +220,10 @@ export function useUserColumns() {
                 ]}
                 editAction={{
                   onEdit: () => {
-                    setSelectedUserId(user.id);
-                    setIsEditModalOpen(true);
+                    const event = new CustomEvent("user-edit", {
+                      detail: { userId: user.id },
+                    });
+                    window.dispatchEvent(event);
                   },
                 }}
                 deleteAction={{
@@ -235,7 +233,6 @@ export function useUserColumns() {
                       role: user.role,
                       modifiedBy: currentUserId ?? "",
                     });
-                    await utils.user.getAllUsers.invalidate();
                     await utils.user.getAdminUsers.invalidate();
                     await utils.user.getAllGeneralUser.invalidate();
                     await utils.user.getUsersByCompanyId.invalidate();
@@ -255,25 +252,9 @@ export function useUserColumns() {
                   userId={user.id}
                   onSuccess={async () => {
                     setSelectedUserForPasswordReset(null);
-                    await utils.user.getAllUsers.invalidate();
                     await utils.user.getAdminUsers.invalidate();
                     await utils.user.getAllGeneralUser.invalidate();
                     await utils.user.getUsersByCompanyId.invalidate();
-                  }}
-                />
-              )}
-
-              {/* Edit Modal */}
-              {selectedUserId === user.id && (
-                <UserModal
-                  userId={selectedUserId}
-                  isOpen={isEditModalOpen}
-                  setIsOpen={setIsEditModalOpen}
-                  type="edit"
-                  triggerButton={false}
-                  onClose={() => {
-                    setIsEditModalOpen(false);
-                    setSelectedUserId(undefined);
                   }}
                 />
               )}
@@ -284,14 +265,7 @@ export function useUserColumns() {
     ];
 
     return columns;
-  }, [
-    deleteMutation,
-    utils,
-    selectedUserForPasswordReset,
-    currentUserId,
-    selectedUserId,
-    isEditModalOpen,
-  ]);
+  }, [deleteMutation, utils, selectedUserForPasswordReset, currentUserId]);
 }
 
 export default useUserColumns;

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Loader2, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 
 import { Button } from "@acme/ui/button";
 import {

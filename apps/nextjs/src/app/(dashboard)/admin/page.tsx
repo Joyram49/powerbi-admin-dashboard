@@ -1,15 +1,12 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { useCallback, useState } from "react";
-import { Plus } from "lucide-react";
-
-import { Button } from "@acme/ui/button";
+import { useCallback, useEffect, useState } from "react";
 
 import { api } from "~/trpc/react";
 import { DataTable } from "../_components/DataTable";
-import { useUserColumns } from "../super-admin/users/_components/UserColumns";
 import UserModal from "../super-admin/users/_components/UserModal";
+import { useUserColumns } from "./_components/AdminUserColumns";
 
 interface CompanyUser {
   id: string;
@@ -37,10 +34,19 @@ export default function AdminPage() {
   const [sortBy, setSortBy] = useState<"userName" | "dateCreated">(
     "dateCreated",
   );
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState<string | undefined>(
-    undefined,
-  );
+  const [selectedUserId, setSelectedUserId] = useState<string>();
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  useEffect(() => {
+    const handleUserEdit = (event: CustomEvent<{ userId: string }>) => {
+      setSelectedUserId(event.detail.userId);
+      setIsEditModalOpen(true);
+    };
+
+    window.addEventListener("user-edit", handleUserEdit as EventListener);
+    return () =>
+      window.removeEventListener("user-edit", handleUserEdit as EventListener);
+  }, []);
 
   // Get user profile to access company ID
   const { data: profileData } = api.auth.getProfile.useQuery();
@@ -62,14 +68,7 @@ export default function AdminPage() {
     },
   );
 
-  const handleEdit = useCallback((userId: string) => {
-    setSelectedUserId(userId);
-    setIsModalOpen(true);
-  }, []);
-
-  const columns = useUserColumns({
-    onEdit: handleEdit,
-  }) as ColumnDef<CompanyUser, unknown>[];
+  const columns = useUserColumns() as ColumnDef<CompanyUser, unknown>[];
 
   const handleSearchChange = useCallback((value: string) => {
     setSearchInput(value);
@@ -90,14 +89,6 @@ export default function AdminPage() {
     }));
   }, []);
 
-  const handleModalClose = useCallback((shouldRefresh?: boolean) => {
-    setIsModalOpen(false);
-    setSelectedUserId(undefined);
-    if (shouldRefresh) {
-      // You might want to refresh the users list here
-    }
-  }, []);
-
   const transformedUsers =
     usersData?.users.map((user) => ({
       ...user,
@@ -106,7 +97,7 @@ export default function AdminPage() {
     })) ?? [];
 
   return (
-    <div className="container mx-auto w-full p-6">
+    <div className="container mx-auto w-full max-w-[98%] p-6">
       <DataTable<CompanyUser, unknown, "userName" | "dateCreated">
         columns={columns}
         data={transformedUsers}
@@ -131,29 +122,25 @@ export default function AdminPage() {
         }}
         isLoading={isLoading}
         placeholder="Search by user email..."
-        actionButton={
-          <Button
-            onClick={() => {
-              setSelectedUserId(undefined);
-              setIsModalOpen(true);
-            }}
-            className="bg-blue-500 text-white shadow-sm transition-all duration-200 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
-          >
-            <Plus className="mr-1 h-4 w-4" />
-            Add user
-          </Button>
-        }
+        actionButton={<UserModal companyId={companyId ?? undefined} />}
         pageSize={pagination.limit}
         pageSizeOptions={[10, 20, 50, 100]}
       />
-      <UserModal
-        userId={selectedUserId}
-        companyId={companyId}
-        isOpen={isModalOpen}
-        setIsOpen={setIsModalOpen}
-        onClose={handleModalClose}
-        type={selectedUserId ? "edit" : "add"}
-      />
+
+      {/* Single Edit Modal Instance */}
+      {selectedUserId && (
+        <UserModal
+          userId={selectedUserId}
+          isOpen={isEditModalOpen}
+          setIsOpen={setIsEditModalOpen}
+          type="edit"
+          triggerButton={false}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setSelectedUserId(undefined);
+          }}
+        />
+      )}
     </div>
   );
 }

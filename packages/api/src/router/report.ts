@@ -638,4 +638,42 @@ export const reportRouter = createTRPCRouter({
         });
       }
     }),
+
+  // Increment report views when a user clicks on the report URL
+  incrementReportViews: protectedProcedure
+    .input(z.object({ reportId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const { reportId } = input;
+      try {
+        const [updatedReport] = await db
+          .update(reports)
+          .set({
+            accessCount: sql`${reports.accessCount} + 1`,
+            lastModifiedAt: new Date(),
+          })
+          .where(eq(reports.id, reportId))
+          .returning();
+
+        if (!updatedReport) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Report not found",
+          });
+        }
+
+        return {
+          success: true,
+          message: "Report views incremented successfully",
+          report: updatedReport,
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: String(error),
+        });
+      }
+    }),
 });
