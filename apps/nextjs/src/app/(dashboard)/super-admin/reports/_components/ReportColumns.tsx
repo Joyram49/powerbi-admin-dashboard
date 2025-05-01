@@ -1,7 +1,7 @@
 "use client";
 
 import type { Column, ColumnDef, Row, Table } from "@tanstack/react-table";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ArrowUpDown, ExternalLinkIcon } from "lucide-react";
 
 import { Badge } from "@acme/ui/badge";
@@ -24,7 +24,6 @@ export function useReportColumns() {
   // Hook calls inside the custom hook
   const utils = api.useUtils();
   const deleteMutation = api.report.deleteReport.useMutation();
-  const incrementViewsMutation = api.report.incrementReportViews.useMutation();
 
   // State for report viewer
   const [selectedReport, setSelectedReport] = useState<ReportType | null>(null);
@@ -34,31 +33,16 @@ export function useReportColumns() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [reportToEdit, setReportToEdit] = useState<ReportType | null>(null);
 
-  const openReportDialog = async (report: ReportType) => {
-    try {
-      // Increment report views
-      await incrementViewsMutation.mutateAsync({ reportId: report.id });
-      // Invalidate the reports queries to refresh the data
-      await utils.report.getAllReports.invalidate();
-      await utils.report.getAllReportsForCompany.invalidate();
+  const openReportDialog = useCallback(async (report: ReportType) => {
+    setSelectedReport(report);
+    setIsDialogOpen(true);
+  }, []);
 
-      await utils.report.getAllReportsAdmin.invalidate();
-
-      setSelectedReport(report);
-      setIsDialogOpen(true);
-    } catch (error) {
-      console.error("Failed to increment report views:", error);
-      // Still open the dialog even if incrementing views fails
-      setSelectedReport(report);
-      setIsDialogOpen(true);
-    }
-  };
-
-  const closeReportDialog = () => {
+  const closeReportDialog = useCallback(() => {
     setIsDialogOpen(false);
     // Small delay to allow animation to complete
     setTimeout(() => setSelectedReport(null), 300);
-  };
+  }, []);
 
   const columns = useMemo(() => {
     const columns: ColumnDef<ReportType>[] = [
