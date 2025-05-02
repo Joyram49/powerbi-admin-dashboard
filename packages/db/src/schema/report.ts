@@ -25,7 +25,7 @@ export const reports = pgTable("report", {
     onDelete: "cascade",
   }),
   reportUrl: text("report_url").notNull().unique(),
-  accessCount: integer("access_count").default(0),
+  accessCount: integer("access_count").notNull().default(0),
 });
 
 export const createReportSchema = createInsertSchema(reports).omit({

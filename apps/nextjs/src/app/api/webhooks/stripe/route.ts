@@ -1,6 +1,8 @@
 import { headers } from "next/headers";
+import { eq } from "drizzle-orm";
 
 import { stripe } from "@acme/api";
+import { billings, db, paymentMethods, subscriptions } from "@acme/db";
 
 import { env } from "~/env";
 
@@ -9,6 +11,7 @@ export async function POST(req: Request) {
   const signature = headers().get("Stripe-Signature");
 
   if (!signature) {
+    console.error("No Stripe signature found in request headers");
     return new Response("No signature provided", { status: 400 });
   }
 
@@ -19,26 +22,227 @@ export async function POST(req: Request) {
       env.STRIPE_WEBHOOK_SECRET,
     );
 
+    console.log(`Received Stripe webhook event: ${event.type}`);
+
     // Handle the event
     switch (event.type) {
-      case "checkout.session.completed":
-        console.log("checkout.session.completed");
-        // Handle successful payment
+      case "checkout.session.completed": {
+        const session = event.data.object;
+
+        // Create subscription record
+        if (session.subscription && session.metadata?.companyId) {
+          const subscription = await stripe.subscriptions.retrieve(
+            session.subscription as string,
+          );
+
+          // Update subscription metadata with company ID
+          await stripe.subscriptions.update(subscription.id, {
+            metadata: {
+              companyId: session.metadata.companyId,
+              tier: session.metadata.tier,
+            },
+          });
+
+          // Generate and store portal URL
+          const portalUrl = await getStripePortalUrl(
+            session.customer as string,
+          );
+
+          await db.insert(subscriptions).values({
+            stripeSubscriptionId: subscription.id,
+            companyId: session.metadata.companyId,
+            stripeCustomerId: session.customer as string,
+            plan: session.metadata.tier,
+            amount: subscription.items.data[0]?.price.unit_amount / 100,
+            billingInterval:
+              subscription.items.data[0]?.price.recurring?.interval === "month"
+                ? "monthly"
+                : "yearly",
+            status: subscription.status,
+            userLimit: getPlanUserLimit(session.metadata.tier),
+            currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+            stripePortalUrl: portalUrl,
+          });
+        } else {
+          console.error(
+            "Missing subscription or companyId in session metadata",
+          );
+        }
         break;
-      case "customer.subscription.updated":
-        console.log("customer.subscription.updated");
-        // Handle subscription changes
+      }
+
+      case "invoice.paid": {
+        const invoice = event.data.object;
+
+        // Get product information from either the line items or the subscription
+        let productName = "Unknown Plan";
+        if (invoice.lines.data[0]?.plan?.product) {
+          const productId = invoice.lines.data[0].plan.product;
+          const product = await stripe.products.retrieve(productId as string);
+          productName = product.name;
+        } else if (invoice.subscription) {
+          const subscription = await stripe.subscriptions.retrieve(
+            invoice.subscription as string,
+          );
+          productName = subscription.metadata.tier ?? "Unknown Plan";
+        }
+
+        if (invoice.subscription && invoice.customer) {
+          const subscription = await stripe.subscriptions.retrieve(
+            invoice.subscription as string,
+          );
+
+          // Get company ID from subscription metadata
+          const companyId = subscription.metadata.companyId;
+          if (!companyId) {
+            console.error("No company ID found in subscription metadata");
+            break;
+          }
+
+          // Create billing record
+          await db.insert(billings).values({
+            stripeInvoiceId: invoice.id,
+            companyId,
+            stripeCustomerId: invoice.customer as string,
+            billingDate: new Date(invoice.created * 1000),
+            status: "paid",
+            amount: invoice.amount_paid / 100, // Convert from cents to dollars
+            plan: productName,
+            pdfLink: invoice.invoice_pdf,
+            paymentStatus: "paid",
+          });
+        }
         break;
-      // Add more event handlers as needed
-      default:
-        console.log(`Unhandled event type ${event.type}`);
+      }
+
+      case "customer.subscription.deleted": {
+        const subscription = event.data.object;
+        if (subscription.customer) {
+          await db
+            .update(subscriptions)
+            .set({
+              status: "cancelled",
+              currentPeriodEnd: new Date(
+                subscription.current_period_end * 1000,
+              ),
+              updatedAt: new Date(),
+              stripePortalUrl: null,
+            })
+            .where(eq(subscriptions.stripeSubscriptionId, subscription.id));
+        }
+        break;
+      }
+
+      case "customer.subscription.paused": {
+        const subscription = event.data.object;
+        console.log("paused subscription", subscription);
+        break;
+      }
+
+      case "customer.subscription.resumed": {
+        const subscription = event.data.object;
+        console.log("resumed subscription", subscription);
+        break;
+      }
+
+      case "customer.subscription.updated": {
+        const subscription = event.data.object;
+        const productId = subscription.items.data[0]?.plan.product;
+        const product = await stripe.products.retrieve(productId as string);
+
+        console.log("subscription", subscription);
+
+        if (subscription.customer) {
+          const portalUrl = await getStripePortalUrl(
+            subscription.customer as string,
+          );
+
+          await db
+            .update(subscriptions)
+            .set({
+              status: subscription.status,
+              currentPeriodEnd: new Date(
+                subscription.current_period_end * 1000,
+              ),
+              amount: subscription.items.data[0]?.price.unit_amount / 100,
+              plan: product.name,
+              userLimit: getPlanUserLimit(product.name),
+              updatedAt: new Date(),
+              stripePortalUrl: portalUrl,
+            })
+            .where(eq(subscriptions.stripeSubscriptionId, subscription.id));
+        }
+        break;
+      }
+
+      case "payment_method.attached": {
+        const paymentMethod = event.data.object;
+
+        if (paymentMethod.customer) {
+          // Get the customer's subscriptions to find the company ID
+          const subscriptions = await stripe.subscriptions.list({
+            customer: paymentMethod.customer as string,
+            limit: 1,
+          });
+
+          if (subscriptions.data.length > 0) {
+            const subscription = subscriptions.data[0];
+            const companyId = subscription.metadata.companyId;
+
+            if (!companyId) {
+              console.error("No company ID found in subscription metadata");
+              break;
+            }
+
+            await db.insert(paymentMethods).values({
+              stripePaymentMethodId: paymentMethod.id,
+              companyId,
+              stripeCustomerId: paymentMethod.customer as string,
+              paymentMethodType: paymentMethod.type,
+              last4: paymentMethod.card?.last4,
+              expMonth: paymentMethod.card?.exp_month,
+              expYear: paymentMethod.card?.exp_year,
+              isDefault: true,
+            });
+          } else {
+            console.error("No subscription found for customer");
+          }
+        }
+        break;
+      }
+
+      default: {
+        console.log(`Unhandled event type: ${event.type}`);
+      }
     }
 
     return new Response(null, { status: 200 });
   } catch (err) {
+    console.error("Webhook Error:", err);
     return new Response(
       `Webhook Error: ${err instanceof Error ? err.message : "Unknown Error"}`,
       { status: 400 },
     );
   }
+}
+
+function getPlanUserLimit(tier: string): number {
+  switch (tier) {
+    case "Data Foundation":
+      return 2;
+    case "Insight Accelerator":
+      return 6;
+    case "Strategic Navigator":
+      return 10;
+    default:
+      return 2;
+  }
+}
+
+async function getStripePortalUrl(customerId: string): Promise<string> {
+  const session = await stripe.billingPortal.sessions.create({
+    customer: customerId,
+    return_url: `${env.NEXT_PUBLIC_APP_URL}/billing`,
+  });
+  return session.url;
 }

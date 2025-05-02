@@ -391,6 +391,118 @@ export const userRouter = createTRPCRouter({
     }
   }),
 
+  // this endpoint is for the admin to get all the users from multiple companies that they are owning
+  getUsersByAdminId: protectedProcedure
+    .input(
+      z
+        .object({
+          searched: z.string().toLowerCase().optional().default(""),
+          limit: z.number().default(10),
+          page: z.number().default(1),
+          sortBy: z
+            .enum(["userName", "dateCreated"])
+            .optional()
+            .default("dateCreated"),
+          status: z.enum(["active", "inactive"]).optional(),
+        })
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      const { id: adminId, role: adminRole } = ctx.session.user;
+      const {
+        limit = 10,
+        page = 1,
+        searched = "",
+        sortBy = "dateCreated",
+        status,
+      } = input ?? {};
+
+      if (adminRole !== "admin") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not authorized to get users by admin id",
+        });
+      }
+
+      try {
+        // Dynamic WHERE conditions
+        const whereConditions: SQL[] = [];
+
+        if (searched) {
+          whereConditions.push(ilike(users.email, `%${searched}%`));
+        }
+
+        if (status) {
+          whereConditions.push(eq(users.status, status));
+        }
+
+        const orderByCondition =
+          sortBy === "userName"
+            ? [asc(users.userName)]
+            : [desc(users.dateCreated)];
+
+        // get all the companies that the admin is owning
+        const companyList = await db.query.companies.findMany({
+          where: eq(companies.companyAdminId, adminId),
+        });
+
+        // Get total count across all companies
+        const totalUsers = await Promise.all(
+          companyList.map(async (company) => {
+            return db.$count(
+              users,
+              whereConditions.length > 0
+                ? and(eq(users.companyId, company.id), ...whereConditions)
+                : eq(users.companyId, company.id),
+            );
+          }),
+        ).then((counts) => counts.reduce((sum, count) => sum + count, 0));
+
+        const userList = await Promise.all(
+          companyList.map(async (company) => {
+            return db.query.users.findMany({
+              columns: {
+                isSuperAdmin: false,
+                passwordHistory: false,
+                companyId: false,
+              },
+              with: {
+                company: {
+                  columns: {
+                    companyName: true,
+                  },
+                },
+              },
+              where:
+                whereConditions.length > 0
+                  ? and(eq(users.companyId, company.id), ...whereConditions)
+                  : eq(users.companyId, company.id),
+              limit,
+              offset: (page - 1) * limit,
+              orderBy: orderByCondition,
+            });
+          }),
+        );
+
+        return {
+          success: true,
+          message: "Users fetched successfully",
+          total: totalUsers,
+          limit,
+          page,
+          data: userList.flat(),
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error ? error.message : "failed to fetch users",
+        });
+      }
+    }),
   // this is used to get a all types of user by id for all users
   getUserById: protectedProcedure
     .input(z.object({ userId: z.string().uuid() }))

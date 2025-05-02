@@ -1,4 +1,11 @@
-import { pgEnum, pgTable, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
+import {
+  integer,
+  pgEnum,
+  pgTable,
+  timestamp,
+  uuid,
+  varchar,
+} from "drizzle-orm/pg-core";
 
 export const companyStatus = pgEnum("company_status", [
   "active",
@@ -7,7 +14,6 @@ export const companyStatus = pgEnum("company_status", [
   "suspended",
 ]);
 
-// Do NOT import `users` directly! Avoid circular dependencies.
 export const companies = pgTable("company", {
   id: uuid("id").notNull().primaryKey().defaultRandom(),
   companyName: varchar("company_name", { length: 255 }).notNull(),
@@ -19,6 +25,7 @@ export const companies = pgTable("company", {
   status: companyStatus("status").default("active"),
   lastActivity: timestamp("last_activity", { withTimezone: true }),
   modifiedBy: varchar("modified_by", { length: 255 }),
+  numOfEmployees: integer("num_of_employees").notNull().default(0),
 });
 
 // Move type export **below** all schema definitions
