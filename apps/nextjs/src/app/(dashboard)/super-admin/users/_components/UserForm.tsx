@@ -220,6 +220,7 @@ export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
       await utils.user.getAdminUsers.invalidate();
       await utils.user.getAllGeneralUser.invalidate();
       await utils.user.getUsersByCompanyId.invalidate();
+      await utils.user.getUsersByAdminId.invalidate();
       if (onClose) onClose();
     },
     onError: (error) => {
@@ -241,6 +242,9 @@ export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
       await utils.user.getAdminUsers.invalidate();
       await utils.user.getAllGeneralUser.invalidate();
       await utils.user.getUsersByCompanyId.invalidate();
+      if (initialData?.role === "admin") {
+        await utils.user.getUsersByAdminId.invalidate();
+      }
       if (onClose) onClose();
     },
     onError: (error) => {
@@ -273,11 +277,11 @@ export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
   // Reset form when initial data changes
   useEffect(() => {
     if (initialData) {
-      const role = initialData.role ?? "user";
+      const role = initialData.role;
       form.reset({
-        id: initialData.id ?? "",
-        userName: initialData.userName ?? "",
-        email: initialData.email ?? "",
+        id: initialData.id,
+        userName: initialData.userName,
+        email: initialData.email,
         role: initialData.role,
         companyId:
           role === "user"

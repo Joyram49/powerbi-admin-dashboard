@@ -12,6 +12,7 @@ import { Checkbox } from "@acme/ui/checkbox";
 import { UpdatePasswordForm } from "~/app/(auth)/_components/UpdatePasswordForm";
 import { EntityActions } from "~/app/(dashboard)/_components/EntityActions";
 import { api } from "~/trpc/react";
+import UserModal from "../../super-admin/users/_components/UserModal";
 
 interface TableMeta {
   sorting?: {
@@ -28,6 +29,8 @@ export function useUserColumns() {
       id: string;
       isOpen: boolean;
     } | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | undefined>();
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const { data: profileData } = api.auth.getProfile.useQuery();
   const currentUserId = profileData?.user?.id;
@@ -220,10 +223,8 @@ export function useUserColumns() {
                 ]}
                 editAction={{
                   onEdit: () => {
-                    const event = new CustomEvent("user-edit", {
-                      detail: { userId: user.id },
-                    });
-                    window.dispatchEvent(event);
+                    setSelectedUserId(user.id);
+                    setIsEditModalOpen(true);
                   },
                 }}
                 deleteAction={{
@@ -258,6 +259,20 @@ export function useUserColumns() {
                   }}
                 />
               )}
+              {/* Edit Modal */}
+              {selectedUserId === user.id && (
+                <UserModal
+                  userId={selectedUserId}
+                  isOpen={isEditModalOpen}
+                  setIsOpen={setIsEditModalOpen}
+                  type="edit"
+                  triggerButton={false}
+                  onClose={() => {
+                    setIsEditModalOpen(false);
+                    setSelectedUserId(undefined);
+                  }}
+                />
+              )}
             </>
           );
         },
@@ -265,7 +280,14 @@ export function useUserColumns() {
     ];
 
     return columns;
-  }, [deleteMutation, utils, selectedUserForPasswordReset, currentUserId]);
+  }, [
+    deleteMutation,
+    utils,
+    selectedUserForPasswordReset,
+    currentUserId,
+    isEditModalOpen,
+    selectedUserId,
+  ]);
 }
 
 export default useUserColumns;
