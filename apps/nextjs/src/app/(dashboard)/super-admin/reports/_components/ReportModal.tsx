@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { FileBarChart, Loader2 } from "lucide-react";
+import { FileBarChart } from "lucide-react";
 
 import { Button } from "@acme/ui/button";
 import {
@@ -50,7 +50,7 @@ const ReportModal = ({
     { reportId: reportId ?? "" },
     { enabled: !!reportId && type === "edit" },
   );
-  console.log(reportData);
+
   const handleClose = (shouldRefresh = false) => {
     setIsOpen(false);
     if (onClose) {
@@ -60,11 +60,11 @@ const ReportModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      {triggerButton && (
+      {triggerButton && type !== "edit" && (
         <DialogTrigger asChild>
           <Button className="bg-blue-500 text-white shadow-sm transition-all duration-200 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700">
             <FileBarChart className="mr-1 h-4 w-4" />
-            {type === "edit" ? "Edit report" : "Add report"}
+            Add report
           </Button>
         </DialogTrigger>
       )}

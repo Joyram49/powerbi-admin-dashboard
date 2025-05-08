@@ -81,7 +81,7 @@ export function useReportColumns() {
           return (
             <div className="text-left">
               <span className="hidden xl:inline">{id}</span>
-              <span className="xl:hidden">{id.slice(0, 10)}...</span>
+              <span className="xl:hidden">{id?.slice(0, 10)}...</span>
             </div>
           );
         },

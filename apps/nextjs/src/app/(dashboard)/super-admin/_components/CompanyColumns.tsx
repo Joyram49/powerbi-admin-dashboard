@@ -115,7 +115,7 @@ export function useCompanyColumns() {
           );
         },
       },
-      
+
       {
         accessorKey: "email",
         header: () => <div className="text-center font-medium">Email</div>,
@@ -132,14 +132,8 @@ export function useCompanyColumns() {
           <Button
             variant="link"
             className="border bg-gray-100 text-center hover:border-primary/90 dark:bg-gray-800 dark:hover:bg-gray-700"
-            onClick={async () => {
-              try {
-                // Invalidate the users query for this company
-                await utils.user.getUsersByCompanyId.invalidate();
-                router.push(`/super-admin/users?companyId=${row.original.id}`);
-              } catch (error) {
-                console.error("Error navigating to users:", error);
-              }
+            onClick={() => {
+              router.push(`/super-admin/users?companyId=${row.original.id}`);
             }}
           >
             {row.original.employeeCount}
@@ -153,16 +147,8 @@ export function useCompanyColumns() {
           <Button
             variant="link"
             className="border bg-gray-100 text-center hover:border-primary/90 dark:bg-gray-800 dark:hover:bg-gray-700"
-            onClick={async () => {
-              try {
-                // Invalidate the reports query for this company
-                await utils.report.getAllReportsForCompany.invalidate();
-                router.push(
-                  `/super-admin/reports?companyId=${row.original.id}`,
-                );
-              } catch (error) {
-                console.error("Error navigating to reports:", error);
-              }
+            onClick={() => {
+              router.push(`/super-admin/reports?companyId=${row.original.id}`);
             }}
           >
             {row.original.reportCount}

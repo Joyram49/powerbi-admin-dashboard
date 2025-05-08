@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import { Check, ChevronsUpDown, Loader2, X } from "lucide-react";
@@ -24,7 +25,6 @@ import {
   FormMessage,
 } from "@acme/ui/form";
 import { Input } from "@acme/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@acme/ui/popover";
 import {
   Select,
   SelectContent,
@@ -92,7 +92,7 @@ export default function ReportForm({
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const initialFormSetRef = useRef(false);
   const utils = api.useUtils();
-
+  const router = useRouter();
   // Setup form with defaults
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -109,7 +109,7 @@ export default function ReportForm({
   const companyIdForm = form.watch("companyId");
 
   // Fetch users for selected company
-  const { data: usersData, isLoading } = api.user.getUsersByCompanyId.useQuery(
+  const { data: usersData } = api.user.getUsersByCompanyId.useQuery(
     { companyId: companyIdForm, limit: 100, page: 1 },
     { enabled: !!companyIdForm },
   );
@@ -143,9 +143,9 @@ export default function ReportForm({
   const handleSuccess = async (message: string) => {
     await utils.report.getAllReports.invalidate();
     await utils.report.getAllReportsForCompany.invalidate();
-    if (userRole === "admin") {
-      await utils.report.getAllReportsAdmin.invalidate();
-    }
+    await utils.report.getAllReportsAdmin.invalidate();
+    await utils.report.getReportById.invalidate();
+    router.refresh();
     toast.success("Success", { description: message });
     setLoading(false);
     onClose(true);

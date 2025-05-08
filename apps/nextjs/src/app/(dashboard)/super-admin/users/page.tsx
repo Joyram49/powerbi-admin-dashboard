@@ -61,6 +61,7 @@ export default function UsersPage() {
         companyId: companyId ?? "",
         page: pagination.page,
         limit: pagination.limit,
+        searched: debouncedSearch,
       },
       {
         enabled: !!companyId,

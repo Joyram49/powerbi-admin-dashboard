@@ -4,14 +4,9 @@ import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, ilike, ne } from "drizzle-orm";
 import { z } from "zod";
 
-
-
 import { companies, createAdminClient, db, userReports, users } from "@acme/db";
 
-
-
 import { createTRPCRouter, protectedProcedure } from "../trpc";
-
 
 export const userRouter = createTRPCRouter({
   // this is used to get all type of users for the super admin
@@ -299,11 +294,12 @@ export const userRouter = createTRPCRouter({
           companyId: z.string().uuid(),
           limit: z.number().optional().default(10),
           page: z.number().optional().default(1),
+          searched: z.string().toLowerCase().optional().default(""),
         })
         .optional(),
     )
     .query(async ({ ctx, input }) => {
-      const { companyId, limit = 10, page = 1 } = input ?? {};
+      const { companyId, limit = 10, page = 1, searched = "" } = input ?? {};
 
       if (!companyId) {
         throw new TRPCError({
@@ -319,17 +315,19 @@ export const userRouter = createTRPCRouter({
         });
       }
 
-      if (!companyId) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Company ID is required",
-        });
-      }
-
       try {
+        // Build where conditions
+        const whereConditions = [eq(users.companyId, companyId)];
+
+        if (searched) {
+          whereConditions.push(ilike(users.email, `%${searched}%`));
+        }
+
         const totalUsers = await db.$count(
           users,
-          eq(users.companyId, companyId),
+          whereConditions.length > 1
+            ? and(...whereConditions)
+            : whereConditions[0],
         );
 
         const allUsers = await db.query.users.findMany({
@@ -344,7 +342,10 @@ export const userRouter = createTRPCRouter({
               },
             },
           },
-          where: eq(users.companyId, companyId),
+          where:
+            whereConditions.length > 1
+              ? and(...whereConditions)
+              : whereConditions[0],
           limit: limit,
           offset: (page - 1) * limit,
           orderBy: [desc(users.dateCreated)],
@@ -397,7 +398,7 @@ export const userRouter = createTRPCRouter({
   }),
 
   // this is used to get all users by admin id for the admin
-getUsersByAdminId: protectedProcedure
+  getUsersByAdminId: protectedProcedure
     .input(
       z
         .object({
