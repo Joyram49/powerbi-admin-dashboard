@@ -17,12 +17,14 @@ export const stripeRouter = createTRPCRouter({
           "enterprise",
         ]),
         customerEmail: z.string().email(),
+        companyId: z.string().uuid(),
         customAmount: z.number().optional(),
         customSetupFee: z.number().optional(),
       }),
     )
     .mutation(async ({ input }) => {
-      const { tier, customerEmail, customAmount, customSetupFee } = input;
+      const { tier, customerEmail, customAmount, customSetupFee, companyId } =
+        input;
       const product = tierProducts[tier];
 
       if (!product.name) throw new Error("Invalid product tier");
@@ -66,7 +68,14 @@ export const stripeRouter = createTRPCRouter({
         cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/cancel`,
         customer_email: customerEmail,
         metadata: {
-          tier,
+          tier: product.name,
+          companyId,
+        },
+        subscription_data: {
+          metadata: {
+            tier: product.name,
+            companyId,
+          },
         },
       });
 

@@ -628,6 +628,90 @@ export const reportRouter = createTRPCRouter({
       }
     }),
 
+  // this is the route for the admin to update the user of a report
+  updateUserOfReportByAdmin: protectedProcedure
+    .input(
+      z.object({
+        reportId: z.string().uuid(),
+        userIds: z.array(z.string().uuid()),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.session.user.role !== "admin") {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You are not authorized to update the user of a report",
+        });
+      }
+
+      const { reportId, userIds } = input;
+
+      try {
+        await db.delete(userReports).where(eq(userReports.reportId, reportId));
+
+        await db.insert(userReports).values(
+          userIds.map((userId) => ({
+            userId,
+            reportId,
+          })),
+        );
+
+        return { success: true, message: "User updated successfully" };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: String(error),
+        });
+      }
+    }),
+
+  // this is the route for the admin and user to increament report view by report id
+  increamentReportView: protectedProcedure
+    .input(z.object({ reportId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.session.user.role === "superAdmin") {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You are not authorized to increament report view",
+        });
+      }
+
+      const { reportId } = input;
+      try {
+        const currentReport = await db.query.reports.findFirst({
+          where: eq(reports.id, reportId),
+          columns: { accessCount: true },
+        });
+
+        if (!currentReport) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Report not found",
+          });
+        }
+
+        await db
+          .update(reports)
+          .set({ accessCount: currentReport.accessCount + 1 })
+          .where(eq(reports.id, reportId));
+        return {
+          success: true,
+          message: "Report view incremented successfully",
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: String(error),
+        });
+      }
+    }),
+
   // this is the route for the super admin to delete a report
   deleteReport: protectedProcedure
     .input(z.object({ reportId: z.string().uuid() }))

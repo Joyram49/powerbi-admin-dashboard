@@ -53,6 +53,7 @@ export default function BillingPage() {
     createCheckout.mutate({
       tier,
       customerEmail: email,
+      companyId: "9dc1a64d-7d94-4892-a57f-f8217c0141e2",
       ...(tier === "enterprise" ? { customAmount, customSetupFee } : {}),
     });
   };

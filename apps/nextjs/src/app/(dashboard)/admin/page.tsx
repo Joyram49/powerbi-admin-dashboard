@@ -48,6 +48,13 @@ export default function AdminPage() {
       window.removeEventListener("user-edit", handleUserEdit as EventListener);
   }, []);
 
+  const { data: companyList, isSuccess } =
+    api.user.getUsersByAdminId.useQuery();
+
+  if (isSuccess) {
+    console.log(">>> company list", companyList);
+  }
+
   // Get user profile to access company ID
   const { data: profileData } = api.auth.getProfile.useQuery();
   const userId = profileData?.user?.id;

@@ -20,6 +20,9 @@ export const billingIntervalEnum = pgEnum("billing_interval", [
 
 export const subscriptions = pgTable("subscription", {
   id: uuid("id").notNull().primaryKey().defaultRandom(),
+  stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 })
+    .notNull()
+    .unique(),
   companyId: uuid("company_id")
     .notNull()
     .references(() => companies.id, {

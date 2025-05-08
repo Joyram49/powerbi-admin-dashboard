@@ -697,6 +697,7 @@ export const authRouter = createTRPCRouter({
         const passwordHistory = targetUser[0]?.passwordHistory ?? [];
         const targetUserEmail: string = targetUser[0]?.email ?? "";
         const modifiedBy = targetUser[0]?.modifiedBy;
+        const companyId = targetUser[0]?.companyId;
 
         if (currentUserRole === "admin") {
           if (targetUserRole === "superAdmin") {
@@ -705,17 +706,19 @@ export const authRouter = createTRPCRouter({
               message: "Admins cannot reset Super Admin passwords.",
             });
           }
-          if (!targetUser[0]?.companyId) {
+          // Check if we have a valid companyId
+          if (!companyId) {
             throw new TRPCError({
-              code: "NOT_FOUND",
-              message: "Company not found",
+              code: "BAD_REQUEST",
+              message: "Company ID is required for this operation",
             });
           }
-          // get company data using companyId (targetUser[0]?.companyId)
+          // get company data using companyId
           const companyData = await db
             .select()
             .from(companies)
-            .where(eq(companies.id, targetUser[0].companyId));
+            .where(eq(companies.id, companyId));
+
           if (
             currentUserId !== modifiedBy &&
             currentUserId !== companyData[0]?.companyAdminId

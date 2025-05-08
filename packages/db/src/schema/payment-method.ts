@@ -12,6 +12,9 @@ import { companies } from "./company";
 
 export const paymentMethods = pgTable("payment_methods", {
   id: uuid("id").notNull().primaryKey().defaultRandom(),
+  stripePaymentMethodId: varchar("stripe_payment_method_id", { length: 255 })
+    .notNull()
+    .unique(),
   companyId: uuid("company_id")
     .notNull()
     .references(() => companies.id, {

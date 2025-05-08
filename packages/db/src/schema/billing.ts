@@ -11,6 +11,9 @@ import { companies } from "./company";
 
 export const billings = pgTable("billing", {
   id: uuid("id").notNull().primaryKey().defaultRandom(),
+  stripeInvoiceId: varchar("stripe_invoice_id", { length: 255 })
+    .notNull()
+    .unique(),
   companyId: uuid("company_id")
     .notNull()
     .references(() => companies.id, {
