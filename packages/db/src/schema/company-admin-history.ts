@@ -16,20 +16,24 @@ export const companyAdminHistory = pgTable("company_admin_history", {
     .references(() => companies.id),
 
   // Previous admin info with nullable references
-  previousAdminId: uuid("previous_admin_id").references(() => users.id, {
-    onDelete: "set null",
-  }),
+  previousAdminId: uuid("previous_admin_id")
+    .notNull()
+    .references(() => users.id, {
+      onDelete: "set null",
+    }),
   previousAdminName: varchar("previous_admin_name", { length: 255 }),
   previousAdminEmail: varchar("previous_admin_email", { length: 255 }),
 
   // New admin info with nullable references
-  newAdminId: uuid("new_admin_id").references(() => users.id, {
-    onDelete: "set null",
-  }),
+  newAdminId: uuid("new_admin_id")
+    .notNull()
+    .references(() => users.id, {
+      onDelete: "set null",
+    }),
   newAdminName: varchar("new_admin_name", { length: 255 }),
   newAdminEmail: varchar("new_admin_email", { length: 255 }),
 
-  changeType: changeTypeEnum("change_type").notNull(),
+  changeType: changeTypeEnum("change_type").notNull().default("admin_change"),
   changeReason: varchar("change_reason", { length: 500 }),
   changedBy: uuid("changed_by")
     .notNull()

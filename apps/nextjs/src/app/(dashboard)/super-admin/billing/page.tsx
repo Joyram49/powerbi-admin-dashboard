@@ -1,7 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { AlertCircle, Loader2 } from "lucide-react";
 
+import type { Subscription } from "@acme/db";
+import { Alert, AlertDescription, AlertTitle } from "@acme/ui/alert";
 import { Button } from "@acme/ui/button";
 import {
   Card,
@@ -14,13 +18,73 @@ import {
 
 import { api } from "~/trpc/react";
 
+interface SubscriptionState {
+  data: Subscription | null;
+  isLoading: boolean;
+  error: string | null;
+}
+
 export default function BillingPage() {
   const [loading, setLoading] = useState<string | null>(null);
   const [email, setEmail] = useState("");
+  const [subscriptionState, setSubscriptionState] = useState<SubscriptionState>(
+    {
+      data: null,
+      isLoading: true,
+      error: null,
+    },
+  );
 
   // Enterprise tier custom amounts (only for testing)
   const [customAmount, setCustomAmount] = useState(1000 * 100); // $1000 in cents
   const [customSetupFee, setCustomSetupFee] = useState(5000 * 100); // $5000 in cents
+
+  const router = useRouter();
+
+  // Get current subscription
+  const {
+    data: subscriptionResponse,
+    isSuccess,
+    isError,
+    error: queryError,
+  } = api.subscription.getCurrentUserCompanySubscription.useQuery(
+    {
+      companyId: "4e6cd650-80e3-4677-9cb8-24452230d854",
+    },
+    {
+      retry: false,
+      onError: (error) => {
+        setSubscriptionState({
+          data: null,
+          isLoading: false,
+          error: (error as string) || "An error occurred",
+        });
+      },
+    },
+  );
+
+  useEffect(() => {
+    if (isSuccess && subscriptionResponse.data) {
+      setSubscriptionState({
+        data: subscriptionResponse.data,
+        isLoading: false,
+        error: null,
+      });
+    } else if (isError && queryError.message) {
+      setSubscriptionState({
+        data: null,
+        isLoading: false,
+        error:
+          queryError.message || "An error occurred while fetching subscription",
+      });
+    } else {
+      setSubscriptionState({
+        data: null,
+        isLoading: !isSuccess && !isError,
+        error: null,
+      });
+    }
+  }, [subscriptionResponse, queryError, isSuccess, isError]);
 
   // Create checkout session mutation
   const createCheckout = api.stripe.createCheckoutSession.useMutation({
@@ -52,9 +116,95 @@ export default function BillingPage() {
     createCheckout.mutate({
       tier,
       customerEmail: email,
-      companyId: "9dc1a64d-7d94-4892-a57f-f8217c0141e2",
+      companyId: "4e6cd650-80e3-4677-9cb8-24452230d854",
       ...(tier === "enterprise" ? { customAmount, customSetupFee } : {}),
     });
+  };
+
+  const handleManageSubscription = (_formData: FormData) => {
+    if (!subscriptionState.data?.stripeCustomerId) {
+      alert("No active subscription found. Please subscribe to a plan first.");
+      return;
+    }
+
+    router.push("/super-admin/billing/manage");
+  };
+
+  const renderSubscriptionContent = () => {
+    if (subscriptionState.isLoading) {
+      return (
+        <div className="mb-6 flex items-center justify-center space-x-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <p>Loading subscription details...</p>
+        </div>
+      );
+    }
+
+    if (subscriptionState.error) {
+      return (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{subscriptionState.error}</AlertDescription>
+        </Alert>
+      );
+    }
+
+    if (!subscriptionState.data?.id) {
+      return (
+        <Alert className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>No Active Subscription</AlertTitle>
+          <AlertDescription>
+            You don't have an active subscription. Please choose a plan below to
+            get started.
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
+    return (
+      <>
+        <div className="mb-6">
+          <h2 className="mb-4 text-xl font-semibold">Current Subscription</h2>
+          <div className="rounded-lg border border-gray-200 p-4">
+            <p>
+              <strong>Plan:</strong> {subscriptionState.data.plan}
+            </p>
+            <p>
+              <strong>Status:</strong> {subscriptionState.data.status}
+            </p>
+            <p>
+              <strong>Amount:</strong> ${subscriptionState.data.amount}/month
+            </p>
+            <p>
+              <strong>Next Billing Date:</strong>{" "}
+              {new Date(
+                subscriptionState.data.currentPeriodEnd,
+              ).toLocaleDateString()}
+            </p>
+          </div>
+        </div>
+
+        <form action={handleManageSubscription} className="mb-6">
+          <Button
+            type="submit"
+            disabled={
+              loading === "manage" || !subscriptionState.data.stripeCustomerId
+            }
+          >
+            {loading === "manage" ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Loading...
+              </>
+            ) : (
+              "Manage Subscription"
+            )}
+          </Button>
+        </form>
+      </>
+    );
   };
 
   const tiers = [
@@ -86,6 +236,8 @@ export default function BillingPage() {
 
   return (
     <div className="container mx-auto py-10">
+      {renderSubscriptionContent()}
+
       <h1 className="mb-10 text-center text-3xl font-bold">Choose Your Plan</h1>
 
       <div className="mb-6">
@@ -113,18 +265,17 @@ export default function BillingPage() {
             <CardFooter>
               <Button
                 className="w-full"
-                onClick={() =>
-                  handleSubscribe(
-                    tier.id as
-                      | "data_foundation"
-                      | "insight_accelerator"
-                      | "strategic_navigator"
-                      | "enterprise",
-                  )
-                }
+                onClick={() => handleSubscribe(tier.id)}
                 disabled={loading !== null}
               >
-                {loading === tier.id ? "Loading..." : "Subscribe"}
+                {loading === tier.id ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  "Subscribe"
+                )}
               </Button>
             </CardFooter>
           </Card>

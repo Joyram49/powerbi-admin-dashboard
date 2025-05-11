@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { compareSync, hash } from "bcryptjs";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import {
@@ -9,6 +9,7 @@ import {
   createClientServer,
   db,
   loginAttempts,
+  subscriptions,
   users,
 } from "@acme/db";
 
@@ -74,6 +75,110 @@ export const authRouter = createTRPCRouter({
       const supabase = createAdminClient();
 
       try {
+        // check the company plan if the company has exceeded the limit of users
+        if (input.role === "user" && input.companyId) {
+          // get the company data
+          const company = await db
+            .select()
+            .from(companies)
+            .where(
+              and(
+                eq(companies.id, input.companyId),
+                eq(companies.status, "active"),
+              ),
+            );
+
+          if (!company[0]) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Company not found",
+            });
+          }
+
+          // get the company subscription data
+          const companySubscription = await db
+            .select()
+            .from(subscriptions)
+            .where(
+              and(
+                eq(subscriptions.companyId, input.companyId),
+                eq(subscriptions.status, "active"),
+              ),
+            );
+
+          if (!companySubscription[0]) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Company has no active subscription",
+            });
+          }
+
+          const currentEmployeeCount = company[0]?.numOfEmployees ?? 0;
+          const userLimit = companySubscription[0]?.userLimit ?? 0;
+
+          // Check if company has reached user limit
+          if (currentEmployeeCount >= userLimit) {
+            // Check if company has purchased additional user
+            if (!company[0]?.hasAdditionalUserPurchase) {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message:
+                  "Company has reached the user limit. Please purchase additional user access for $25 per user.",
+              });
+            }
+          }
+
+          // Use admin API to create user without affecting current session
+          const {
+            data: { user },
+            error,
+          } = await supabase.auth.admin.createUser({
+            email: input.email,
+            password: input.password,
+            email_confirm: true,
+            user_metadata: {
+              role: input.role,
+              userName: input.userName ?? input.email,
+            },
+          });
+
+          if (error) {
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: error.message || "Failed to create user in auth system",
+            });
+          }
+
+          const hashedPassword = await hash(input.password, 10);
+
+          // Insert the user into your custom users table.
+          await db.insert(users).values({
+            id: user?.id,
+            userName: input.userName ?? input.email,
+            email: input.email,
+            companyId: input.companyId ?? null,
+            role: input.role,
+            isSuperAdmin: false,
+            dateCreated: new Date(),
+            modifiedBy: ctx.session.user.id,
+            passwordHistory: [hashedPassword],
+          });
+
+          // Update company's employee count and reset additional user purchase flag
+          await db
+            .update(companies)
+            .set({
+              numOfEmployees: currentEmployeeCount + 1,
+              hasAdditionalUserPurchase: false,
+            })
+            .where(eq(companies.id, input.companyId));
+
+          return {
+            success: true,
+            user: user,
+          };
+        }
+
         // Use admin API to create user without affecting current session
         const {
           data: { user },
@@ -109,17 +214,6 @@ export const authRouter = createTRPCRouter({
           modifiedBy: ctx.session.user.id,
           passwordHistory: [hashedPassword],
         });
-
-        // insert the report ids with created user id into user_to_reports table
-        // if (input.reportIds && input.reportIds.length > 0) {
-        //   const reportLinks = input.reportIds.map((reportId) => ({
-        //     userId: user.id,
-        //     reportId,
-        //   }));
-
-        //   await db.insert(userReports).values(reportLinks);
-        // }
-
         return {
           success: true,
           user: user,
@@ -871,6 +965,83 @@ export const authRouter = createTRPCRouter({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: String(error),
+        });
+      }
+    }),
+
+  // Add this new endpoint before the last closing brace of authRouter
+  purchaseAdditionalUser: protectedProcedure
+    .input(
+      z.object({
+        companyId: z.string().uuid(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        // Check if user has permission
+        if (ctx.session.user.role === "user") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You are not authorized to purchase additional users",
+          });
+        }
+
+        // Get company data
+        const company = await db
+          .select()
+          .from(companies)
+          .where(
+            and(
+              eq(companies.id, input.companyId),
+              eq(companies.status, "active"),
+            ),
+          );
+
+        if (!company[0]) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Company not found",
+          });
+        }
+
+        // Check if user is company admin or super admin
+        if (
+          ctx.session.user.role === "admin" &&
+          ctx.session.user.id !== company[0].companyAdminId
+        ) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Only company admin can purchase additional users",
+          });
+        }
+
+        // TODO: Implement your payment processing logic here
+        // For example, using Stripe to process the $25 payment
+        // const paymentResult = await processPayment(25);
+
+        // Update company's additional user purchase flag
+        await db
+          .update(companies)
+          .set({
+            hasAdditionalUserPurchase: true,
+          })
+          .where(eq(companies.id, input.companyId));
+
+        return {
+          success: true,
+          message:
+            "Additional user purchase successful. You can now add one more user.",
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to purchase additional user",
         });
       }
     }),

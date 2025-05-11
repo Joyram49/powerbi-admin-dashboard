@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, ilike, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { companies, db } from "@acme/db";
+import { companies, companyAdminHistory, companyAdmins, db } from "@acme/db";
 
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 
@@ -12,7 +12,7 @@ const createCompanySchema = z.object({
   address: z.string().optional(),
   phone: z.string().optional(),
   email: z.string().email({ message: "Invalid email address" }),
-  companyAdminId: z.string().uuid(),
+  adminIds: z.array(z.string().uuid()),
 });
 
 export const companyRouter = createTRPCRouter({
@@ -28,7 +28,7 @@ export const companyRouter = createTRPCRouter({
       }
 
       try {
-        // Create new company with the provided admin ID
+        // Create new company
         const newCompany = await db
           .insert(companies)
           .values({
@@ -36,10 +36,20 @@ export const companyRouter = createTRPCRouter({
             address: input.address ?? null,
             phone: input.phone ?? null,
             email: input.email,
-            companyAdminId: input.companyAdminId,
             modifiedBy: ctx.session.user.email,
           })
           .returning();
+
+        // Add company admin relationships
+        await Promise.allSettled(
+          input.adminIds.map((adminId) =>
+            db.insert(companyAdmins).values({
+              companyId: newCompany[0].id,
+              userId: adminId,
+              modifiedBy: ctx.session.user.email,
+            }),
+          ),
+        );
 
         return {
           success: true,
@@ -459,6 +469,99 @@ export const companyRouter = createTRPCRouter({
         return {
           success: true,
           message: "Company deleted successfully",
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: String(error),
+        });
+      }
+    }),
+
+  // add company to the company admin history
+  addCompanyToCompanyAdminHistory: protectedProcedure
+    .input(
+      z.object({
+        companyId: z.string().uuid(),
+        changeType: z
+          .enum(["admin_change", "company_sale", "ownership_transfer"])
+          .default("admin_change"),
+        changeReason: z.string().optional(),
+        previousAdminId: z.string().uuid(),
+        previousAdminName: z.string().optional(),
+        previousAdminEmail: z.string().email().optional(),
+        newAdminId: z.string().uuid(),
+        newAdminName: z.string().optional(),
+        newAdminEmail: z.string().email().optional(),
+        previousCompanyName: z.string().optional(),
+        newCompanyName: z.string().optional(),
+        previousCompanyStatus: z
+          .enum(["active", "inactive", "pending", "suspended"])
+          .optional(),
+        newCompanyStatus: z
+          .enum(["active", "inactive", "pending", "suspended"])
+          .optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const {
+        companyId,
+        changeType,
+        changeReason,
+        previousAdminId,
+        previousAdminName,
+        previousAdminEmail,
+        newAdminId,
+        newAdminName,
+        newAdminEmail,
+        previousCompanyName,
+        newCompanyName,
+        previousCompanyStatus,
+        newCompanyStatus,
+      } = input;
+
+      if (ctx.session.user.role !== "superAdmin") {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message:
+            "You are not authorized to add company to the company admin history",
+        });
+      }
+
+      try {
+        // Create an object with only the required fields
+        const baseValues = {
+          companyId,
+          changeType,
+          previousAdminId,
+          newAdminId,
+          changedBy: ctx.session.user.id,
+        };
+
+        // Add optional fields only if they are provided
+        const optionalValues = {
+          ...(changeReason && { changeReason }),
+          ...(previousAdminName && { previousAdminName }),
+          ...(previousAdminEmail && { previousAdminEmail }),
+          ...(newAdminName && { newAdminName }),
+          ...(newAdminEmail && { newAdminEmail }),
+          ...(previousCompanyName && { previousCompanyName }),
+          ...(newCompanyName && { newCompanyName }),
+          ...(previousCompanyStatus && { previousCompanyStatus }),
+          ...(newCompanyStatus && { newCompanyStatus }),
+        };
+
+        await db.insert(companyAdminHistory).values({
+          ...baseValues,
+          ...optionalValues,
+        });
+
+        return {
+          success: true,
+          message: "Company added to the company admin history successfully",
         };
       } catch (error) {
         if (error instanceof TRPCError) {

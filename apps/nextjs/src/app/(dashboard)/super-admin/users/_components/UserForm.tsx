@@ -213,7 +213,7 @@ export function UserForm({
       ? api.company.getCompaniesByAdminId.useQuery({
           companyAdminId: currentUserId ?? "",
         })
-      : api.company.getAllCompanies.useQuery();
+      : api.company.getAllCompanies.useQuery({ limit: 20 });
 
   // Create and update mutations
   const createUserMutation = api.auth.createUser.useMutation({
@@ -329,6 +329,7 @@ export function UserForm({
         companyId: values.companyId,
         userName: values.userName,
         password: values.password,
+        prevCompanyId: initialData?.companyId,
       };
 
       console.log("Updating user:", updateData);

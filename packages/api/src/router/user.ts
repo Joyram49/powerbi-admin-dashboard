@@ -540,17 +540,76 @@ export const userRouter = createTRPCRouter({
       }
     }),
 
+  // this route is used to get all the users by report id
+  getUsersByReportId: protectedProcedure
+    .input(z.object({ reportId: z.string().uuid() }))
+    .query(async ({ input }) => {
+      const { reportId } = input;
+
+      try {
+        const users = await db.query.userReports.findMany({
+          where: eq(userReports.reportId, reportId),
+          columns: {
+            userId: false,
+          },
+          with: {
+            user: {
+              columns: {
+                passwordHistory: false,
+                modifiedBy: false,
+                isSuperAdmin: false,
+                role: false,
+              },
+            },
+          },
+        });
+
+        const flattenedUsers = users.map(({ user, ...rest }) => ({
+          ...rest,
+          ...user,
+        }));
+
+        return {
+          success: true,
+          message: "Users fetched successfully",
+          data: flattenedUsers,
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+        });
+      }
+    }),
+
   // this is used to update a user by id for all users except user role
   updateUser: protectedProcedure
     .input(
-      z.object({
-        userId: z.string().uuid(),
-        modifiedBy: z.string().uuid(),
-        role: z.enum(["user", "admin", "superAdmin"]),
-        status: z.enum(["active", "inactive"]).optional(),
-        companyId: z.string().uuid().optional(),
-        userName: z.string().optional().or(z.literal("")),
-      }),
+      z
+        .object({
+          userId: z.string().uuid(),
+          modifiedBy: z.string().uuid(),
+          role: z.enum(["user", "admin", "superAdmin"]),
+          status: z.enum(["active", "inactive"]).optional(),
+          companyId: z.string().uuid().optional(),
+          prevCompanyId: z.string().uuid().optional(),
+          userName: z.string().optional().or(z.literal("")),
+        })
+        .refine(
+          (data) => {
+            if (data.companyId) {
+              return !!data.prevCompanyId;
+            }
+            return true;
+          },
+          {
+            message:
+              "When updating company, both new and previous company IDs must be provided",
+            path: ["prevCompanyId"],
+          },
+        ),
     )
     .mutation(async ({ ctx, input }) => {
       const { id: updaterId, role: updaterRole } = ctx.session.user;
@@ -593,6 +652,13 @@ export const userRouter = createTRPCRouter({
           authUpdateData.user_metadata = { userName: input.userName };
         }
         authUpdateData.user_metadata = { role: input.role };
+
+        // if the company id isn't same as the present company id, then delete all the user's related reports
+        if (input.prevCompanyId !== input.companyId) {
+          await db
+            .delete(userReports)
+            .where(eq(userReports.userId, input.userId));
+        }
 
         // Update Supabase Auth
         if (Object.keys(authUpdateData).length > 0) {

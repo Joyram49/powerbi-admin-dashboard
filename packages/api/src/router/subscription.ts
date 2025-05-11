@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { db, subscriptions } from "@acme/db";
@@ -207,6 +207,44 @@ export const subscriptionRouter = createTRPCRouter({
               ? error.message
               : "Failed to fetch subscriptions by plan",
           cause: error,
+        });
+      }
+    }),
+
+  getCurrentUserCompanySubscription: protectedProcedure
+    .input(z.object({ companyId: z.string().uuid() }))
+    .query(async ({ input }) => {
+      const { companyId } = input;
+
+      try {
+        const subscription = await db.query.subscriptions.findFirst({
+          where: and(
+            eq(subscriptions.companyId, companyId),
+            eq(subscriptions.status, "active"),
+          ),
+        });
+
+        if (!subscription) {
+          return {
+            success: true,
+            message: "No subscription found for this company",
+            data: null,
+          };
+        }
+
+        return {
+          success: true,
+          message: "Subscription fetched successfully",
+          data: subscription,
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to fetch company subscription",
         });
       }
     }),

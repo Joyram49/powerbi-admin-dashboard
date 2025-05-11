@@ -81,4 +81,21 @@ export const stripeRouter = createTRPCRouter({
 
       return { url: session.url };
     }),
+
+  createPortalSession: protectedProcedure
+    .input(
+      z.object({
+        customerId: z.string(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const { customerId } = input;
+
+      const session = await stripe.billingPortal.sessions.create({
+        customer: customerId,
+        return_url: `${process.env.NEXT_PUBLIC_APP_URL}/billing`,
+      });
+
+      return { url: session.url };
+    }),
 });
