@@ -1,6 +1,6 @@
 import type { SQL } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, ilike, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { companies, companyAdminHistory, companyAdmins, db } from "@acme/db";
@@ -40,11 +40,19 @@ export const companyRouter = createTRPCRouter({
           })
           .returning();
 
+        const createdCompany = newCompany[0];
+        if (!createdCompany?.id) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to create company",
+          });
+        }
+
         // Add company admin relationships
         await Promise.allSettled(
           input.adminIds.map((adminId) =>
             db.insert(companyAdmins).values({
-              companyId: newCompany[0].id,
+              companyId: createdCompany.id,
               userId: adminId,
               modifiedBy: ctx.session.user.email,
             }),
@@ -53,7 +61,7 @@ export const companyRouter = createTRPCRouter({
 
         return {
           success: true,
-          company: newCompany[0],
+          company: createdCompany,
         };
       } catch (error) {
         if (error instanceof TRPCError) {
@@ -123,19 +131,14 @@ export const companyRouter = createTRPCRouter({
             : [desc(companies.dateJoined)];
 
         const allCompanies = await db.query.companies.findMany({
-          columns: {
-            companyAdminId: false,
-          },
           where:
             whereConditions.length > 1
               ? and(...whereConditions)
               : whereConditions[0],
           with: {
-            admin: {
+            admins: {
               columns: {
-                id: true,
-                email: true,
-                userName: true,
+                userId: true,
               },
             },
           },
@@ -217,19 +220,14 @@ export const companyRouter = createTRPCRouter({
 
         // Fetch paginated data
         const activeCompanies = await db.query.companies.findMany({
-          columns: {
-            companyAdminId: false,
-          },
           where: and(
             eq(companies.status, "active"),
             ilike(companies.companyName, `%${searched}%`),
           ),
           with: {
-            admin: {
+            admins: {
               columns: {
-                id: true,
-                email: true,
-                userName: true,
+                userId: true,
               },
             },
           },
@@ -310,9 +308,7 @@ export const companyRouter = createTRPCRouter({
 
       try {
         // Build where conditions dynamically
-        const whereConditions: SQL[] = [
-          eq(companies.companyAdminId, companyAdminId),
-        ];
+        const whereConditions: SQL[] = [];
         if (status) {
           whereConditions.push(eq(companies.status, status));
         }
@@ -323,7 +319,31 @@ export const companyRouter = createTRPCRouter({
             ? [asc(companies.companyName)]
             : [desc(companies.dateJoined)];
 
-        // Fetch total count (only relevant for the first page)
+        // First get all company IDs where the user is an admin
+        const adminCompanies = await db.query.companyAdmins.findMany({
+          where: eq(companyAdmins.userId, companyAdminId),
+          columns: {
+            companyId: true,
+          },
+        });
+
+        const companyIds = adminCompanies.map((ac) => ac.companyId);
+
+        if (companyIds.length === 0) {
+          return {
+            success: true,
+            message: "No companies found for this admin",
+            total: 0,
+            limit,
+            page,
+            data: [],
+          };
+        }
+
+        // Add company ID filter to where conditions
+        whereConditions.push(inArray(companies.id, companyIds));
+
+        // Fetch total count
         const totalCompanies = await db.$count(
           companies,
           and(...whereConditions),
@@ -332,15 +352,20 @@ export const companyRouter = createTRPCRouter({
         // Fetch paginated and sorted data
         const companiesByAdminId = await db.query.companies.findMany({
           where: and(...whereConditions),
+          with: {
+            admins: {
+              columns: {
+                userId: true,
+              },
+            },
+          },
           extras: {
-            employeeCount:
-              sql<number>`(SELECT COUNT(*)::int FROM "user" WHERE "user"."company_id" = companies.id)`.as(
-                "employee_count",
-              ),
-            reportCount:
-              sql<number>`(SELECT COUNT(*)::int FROM "report" WHERE "report"."company_id" = companies.id)`.as(
-                "report_count",
-              ),
+            employeeCount: sql<number>`(
+              SELECT COUNT(*)::int FROM "user" WHERE "user"."company_id" = companies.id
+            )`.as("employee_count"),
+            reportCount: sql<number>`(
+              SELECT COUNT(*)::int FROM "report" WHERE "report"."company_id" = companies.id
+            )`.as("report_count"),
           },
           limit,
           offset: (page - 1) * limit,
@@ -381,6 +406,13 @@ export const companyRouter = createTRPCRouter({
       try {
         const company = await db.query.companies.findFirst({
           where: eq(companies.id, companyId),
+          with: {
+            admins: {
+              columns: {
+                userId: true,
+              },
+            },
+          },
         });
 
         return {
@@ -408,10 +440,11 @@ export const companyRouter = createTRPCRouter({
         address: z.string().optional(),
         phone: z.string().optional(),
         email: z.string().email().optional(),
+        adminIds: z.array(z.string().uuid()).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const { companyId, ...rest } = input;
+      const { companyId, adminIds, ...rest } = input;
 
       if (ctx.session.user.role !== "superAdmin") {
         throw new TRPCError({
@@ -421,6 +454,26 @@ export const companyRouter = createTRPCRouter({
       }
 
       try {
+        // Get current company and admin data
+        const currentCompany = await db.query.companies.findFirst({
+          where: eq(companies.id, companyId),
+          with: {
+            admins: {
+              columns: {
+                userId: true,
+              },
+            },
+          },
+        });
+
+        if (!currentCompany) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Company not found",
+          });
+        }
+
+        // Update company details
         const updateData = Object.fromEntries(
           Object.entries({
             ...rest,
@@ -434,6 +487,44 @@ export const companyRouter = createTRPCRouter({
           .set(updateData)
           .where(eq(companies.id, companyId))
           .returning();
+
+        // Handle admin relationships if adminIds are provided
+        if (adminIds) {
+          const currentAdminIds = currentCompany.admins.map(
+            (admin) => admin.userId,
+          );
+          const adminsToAdd = adminIds.filter(
+            (id) => !currentAdminIds.includes(id),
+          );
+          const adminsToRemove = currentAdminIds.filter(
+            (id) => !adminIds.includes(id),
+          );
+
+          // Remove old admin relationships
+          if (adminsToRemove.length > 0) {
+            await db
+              .delete(companyAdmins)
+              .where(
+                and(
+                  eq(companyAdmins.companyId, companyId),
+                  inArray(companyAdmins.userId, adminsToRemove),
+                ),
+              );
+          }
+
+          // Add new admin relationships
+          if (adminsToAdd.length > 0) {
+            await Promise.all(
+              adminsToAdd.map((userId) =>
+                db.insert(companyAdmins).values({
+                  companyId,
+                  userId,
+                  modifiedBy: ctx.session.user.email,
+                }),
+              ),
+            );
+          }
+        }
 
         return {
           success: true,

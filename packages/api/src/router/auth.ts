@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import {
   companies,
+  companyAdmins,
   createAdminClient,
   createClientServer,
   db,
@@ -810,16 +811,24 @@ export const authRouter = createTRPCRouter({
           // get company data using companyId
           const companyData = await db
             .select()
-            .from(companies)
-            .where(eq(companies.id, companyId));
+            .from(companyAdmins)
+            .where(eq(companyAdmins.companyId, companyId));
 
-          if (
-            currentUserId !== modifiedBy &&
-            currentUserId !== companyData[0]?.companyAdminId
-          ) {
+          if (!companyData[0]) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Admin is not associated with this company",
+            });
+          }
+
+          const isAuthorized =
+            currentUserId === modifiedBy &&
+            companyData.some((company) => company.userId === currentUserId);
+
+          if (!isAuthorized) {
             throw new TRPCError({
               code: "FORBIDDEN",
-              message: "Admins cannot reset other user password",
+              message: "You are not authorized to reset this user password",
             });
           }
         }
@@ -986,18 +995,22 @@ export const authRouter = createTRPCRouter({
           });
         }
 
-        // Get company data
-        const company = await db
-          .select()
-          .from(companies)
-          .where(
-            and(
-              eq(companies.id, input.companyId),
-              eq(companies.status, "active"),
-            ),
-          );
+        // Get company data with admin relationships
+        const company = await db.query.companies.findFirst({
+          where: and(
+            eq(companies.id, input.companyId),
+            eq(companies.status, "active"),
+          ),
+          with: {
+            admins: {
+              columns: {
+                userId: true,
+              },
+            },
+          },
+        });
 
-        if (!company[0]) {
+        if (!company) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Company not found",
@@ -1007,7 +1020,7 @@ export const authRouter = createTRPCRouter({
         // Check if user is company admin or super admin
         if (
           ctx.session.user.role === "admin" &&
-          ctx.session.user.id !== company[0].companyAdminId
+          !company.admins.some((admin) => admin.userId === ctx.session.user.id)
         ) {
           throw new TRPCError({
             code: "FORBIDDEN",
@@ -1024,6 +1037,8 @@ export const authRouter = createTRPCRouter({
           .update(companies)
           .set({
             hasAdditionalUserPurchase: true,
+            modifiedBy: ctx.session.user.email,
+            lastActivity: new Date(),
           })
           .where(eq(companies.id, input.companyId));
 

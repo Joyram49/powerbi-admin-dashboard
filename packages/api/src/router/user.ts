@@ -1,10 +1,16 @@
 import type { AdminUserAttributes } from "@supabase/supabase-js";
 import type { SQL } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, ilike, ne } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, ne } from "drizzle-orm";
 import { z } from "zod";
 
-import { companies, createAdminClient, db, userReports, users } from "@acme/db";
+import {
+  companyAdmins,
+  createAdminClient,
+  db,
+  userReports,
+  users,
+} from "@acme/db";
 
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 
@@ -396,9 +402,9 @@ export const userRouter = createTRPCRouter({
     .input(
       z
         .object({
-          searched: z.string().toLowerCase().optional().default(""),
-          limit: z.number().default(10),
-          page: z.number().default(1),
+          searched: z.string().optional().default(""),
+          limit: z.number().optional().default(10),
+          page: z.number().optional().default(1),
           sortBy: z
             .enum(["userName", "dateCreated"])
             .optional()
@@ -408,7 +414,14 @@ export const userRouter = createTRPCRouter({
         .optional(),
     )
     .query(async ({ ctx, input }) => {
-      const { id: adminId, role: adminRole } = ctx.session.user;
+      if (ctx.session.user.role !== "admin") {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You are not authorized to get users",
+        });
+      }
+
+      const { id: adminId } = ctx.session.user;
       const {
         limit = 10,
         page = 1,
@@ -417,15 +430,7 @@ export const userRouter = createTRPCRouter({
         status,
       } = input ?? {};
 
-      if (adminRole !== "admin") {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You are not authorized to get users by admin id",
-        });
-      }
-
       try {
-        // Dynamic WHERE conditions
         const whereConditions: SQL[] = [];
 
         if (searched) {
@@ -441,48 +446,57 @@ export const userRouter = createTRPCRouter({
             ? [asc(users.userName)]
             : [desc(users.dateCreated)];
 
-        // get all the companies that the admin is owning
-        const companyList = await db.query.companies.findMany({
-          where: eq(companies.companyAdminId, adminId),
+        // Get all companies where the admin is associated
+        const adminCompanies = await db.query.companyAdmins.findMany({
+          where: eq(companyAdmins.userId, adminId),
+          columns: {
+            companyId: true,
+          },
         });
 
-        // Get total count across all companies
-        const totalUsers = await Promise.all(
-          companyList.map(async (company) => {
-            return db.$count(
-              users,
-              whereConditions.length > 0
-                ? and(eq(users.companyId, company.id), ...whereConditions)
-                : eq(users.companyId, company.id),
-            );
-          }),
-        ).then((counts) => counts.reduce((sum, count) => sum + count, 0));
+        const companyIds = adminCompanies.map((company) => company.companyId);
 
-        const userList = await Promise.all(
-          companyList.map(async (company) => {
-            return db.query.users.findMany({
-              columns: {
-                isSuperAdmin: false,
-                passwordHistory: false,
-                companyId: false,
-              },
-              with: {
-                company: {
-                  columns: {
-                    companyName: true,
-                  },
-                },
-              },
-              where:
-                whereConditions.length > 0
-                  ? and(eq(users.companyId, company.id), ...whereConditions)
-                  : eq(users.companyId, company.id),
-              limit,
-              offset: (page - 1) * limit,
-              orderBy: orderByCondition,
-            });
-          }),
+        if (companyIds.length === 0) {
+          return {
+            success: true,
+            message: "No companies found",
+            total: 0,
+            limit,
+            page,
+            data: [],
+          };
+        }
+
+        // Get total count across all companies
+        const totalUsers = await db.$count(
+          users,
+          whereConditions.length > 0
+            ? and(inArray(users.companyId, companyIds), ...whereConditions)
+            : inArray(users.companyId, companyIds),
         );
+
+        // Get users from all companies
+        const userList = await db.query.users.findMany({
+          columns: {
+            isSuperAdmin: false,
+            passwordHistory: false,
+            companyId: false,
+          },
+          with: {
+            company: {
+              columns: {
+                companyName: true,
+              },
+            },
+          },
+          where:
+            whereConditions.length > 0
+              ? and(inArray(users.companyId, companyIds), ...whereConditions)
+              : inArray(users.companyId, companyIds),
+          limit,
+          offset: (page - 1) * limit,
+          orderBy: orderByCondition,
+        });
 
         return {
           success: true,
@@ -490,7 +504,7 @@ export const userRouter = createTRPCRouter({
           total: totalUsers,
           limit,
           page,
-          data: userList.flat(),
+          data: userList,
         };
       } catch (error) {
         if (error instanceof TRPCError) {
@@ -758,11 +772,11 @@ export const userRouter = createTRPCRouter({
         // delete users from supbase database user table
         await db.delete(users).where(eq(users.id, input.userId));
 
-        // delete company from supbase database company table
+        // delete company admin relationships if the user is an admin
         if (input.role === "admin") {
           await db
-            .delete(companies)
-            .where(eq(companies.companyAdminId, input.userId));
+            .delete(companyAdmins)
+            .where(eq(companyAdmins.userId, input.userId));
         }
 
         // delete user from supabase database userReports table

@@ -286,13 +286,19 @@ const CompanyAdminForm = ({
           return;
         }
 
+        const adminIds: string[] = [];
+
+        if (values.adminId) {
+          adminIds.push(values.adminId);
+        }
+
         // Create company with selected admin
         createCompanyMutation.mutate({
           companyName: values.companyName,
           address: values.address,
           phone: values.phone,
           email: values.email,
-          companyAdminId: values.adminId,
+          adminIds,
         });
       }
     } catch (error) {

@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { and, asc, count, desc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { companies, db, reports, userReports } from "@acme/db";
+import { companies, companyAdmins, db, reports, userReports } from "@acme/db";
 
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 
@@ -167,7 +167,7 @@ export const reportRouter = createTRPCRouter({
     .input(
       z
         .object({
-          searched: z.string().toLowerCase().optional().default(""),
+          searched: z.string().optional().default(""),
           limit: z.number().optional().default(10),
           page: z.number().optional().default(1),
           sortBy: z
@@ -195,14 +195,14 @@ export const reportRouter = createTRPCRouter({
 
       try {
         // Fetch all company IDs where the logged-in user is an admin
-        const adminCompanies = await db.query.companies.findMany({
-          where: eq(companies.companyAdminId, companyAdminId),
+        const adminCompanies = await db.query.companyAdmins.findMany({
+          where: eq(companyAdmins.userId, companyAdminId),
           columns: {
-            id: true,
+            companyId: true,
           },
         });
 
-        const companyIds = adminCompanies.map((company) => company.id);
+        const companyIds = adminCompanies.map((company) => company.companyId);
 
         if (companyIds.length === 0) {
           return {

@@ -1,7 +1,7 @@
 "use client";
 
 import type { Column, ColumnDef, Row, Table } from "@tanstack/react-table";
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { ArrowUpDown } from "lucide-react";
 
@@ -103,12 +103,8 @@ export function useCompanyColumns() {
         accessorKey: "companyAdmin",
         header: () => <div className="text-center font-medium">Admin</div>,
         cell: ({ row }) => {
-          const admin = row.original.admin;
-          return (
-            <div className="text-center">
-              {admin.userName || "Admin not found"}
-            </div>
-          );
+          const admins = row.original.admins;
+          return <div className="text-center">{admins.length || 0}</div>;
         },
       },
       {
