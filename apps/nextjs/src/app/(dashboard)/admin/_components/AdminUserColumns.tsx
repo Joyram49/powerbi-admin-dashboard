@@ -1,7 +1,7 @@
 "use client";
 
 import type { Column, ColumnDef, Row, Table } from "@tanstack/react-table";
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { ArrowUpDown, UserPlus } from "lucide-react";
 
@@ -12,7 +12,7 @@ import { Checkbox } from "@acme/ui/checkbox";
 import { UpdatePasswordForm } from "~/app/(auth)/_components/UpdatePasswordForm";
 import { EntityActions } from "~/app/(dashboard)/_components/EntityActions";
 import { api } from "~/trpc/react";
-import UserModal from "./UserModal";
+import UserModal from "../../super-admin/users/_components/UserModal";
 
 interface TableMeta {
   sorting?: {
@@ -22,7 +22,6 @@ interface TableMeta {
 }
 
 export function useUserColumns() {
-  // Move hook calls inside the custom hook
   const utils = api.useUtils();
   const deleteMutation = api.user.deleteUser.useMutation();
   const [selectedUserForPasswordReset, setSelectedUserForPasswordReset] =
@@ -235,7 +234,6 @@ export function useUserColumns() {
                       role: user.role,
                       modifiedBy: currentUserId ?? "",
                     });
-                    await utils.user.getAllUsers.invalidate();
                     await utils.user.getAdminUsers.invalidate();
                     await utils.user.getAllGeneralUser.invalidate();
                     await utils.user.getUsersByCompanyId.invalidate();
@@ -255,14 +253,12 @@ export function useUserColumns() {
                   userId={user.id}
                   onSuccess={async () => {
                     setSelectedUserForPasswordReset(null);
-                    await utils.user.getAllUsers.invalidate();
                     await utils.user.getAdminUsers.invalidate();
                     await utils.user.getAllGeneralUser.invalidate();
                     await utils.user.getUsersByCompanyId.invalidate();
                   }}
                 />
               )}
-
               {/* Edit Modal */}
               {selectedUserId === user.id && (
                 <UserModal
@@ -289,8 +285,8 @@ export function useUserColumns() {
     utils,
     selectedUserForPasswordReset,
     currentUserId,
-    selectedUserId,
     isEditModalOpen,
+    selectedUserId,
   ]);
 }
 

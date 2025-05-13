@@ -173,7 +173,7 @@ export function DataTable<TData, TValue, TSortField extends string>({
           </DropdownMenu>
         </div>
       </div>
-      <div className="overflow-auto rounded-md border-[1px] border-slate-900/10 drop-shadow-sm dark:border-white/10">
+      <div className="w-full overflow-auto rounded-md border-[1px] border-slate-900/10 drop-shadow-sm dark:border-white/10">
         <Table>
           <TableHeader className="bg-white dark:bg-slate-800">
             {table.getHeaderGroups().map((headerGroup) => (
@@ -230,7 +230,6 @@ export function DataTable<TData, TValue, TSortField extends string>({
                 >
                   <div className="flex flex-col items-center justify-center gap-2">
                     <div className="flex items-center gap-2">
-                      <Loader2 className="size-4 animate-spin" />
                       <span>No data found</span>
                     </div>
                     {search.value && (

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { FileBarChart } from "lucide-react";
+import { Users } from "lucide-react";
 
 import { Button } from "@acme/ui/button";
 import {
@@ -15,27 +15,23 @@ import {
 import { Skeleton } from "@acme/ui/skeleton";
 
 import { api } from "~/trpc/react";
-import ReportForm from "./ReportForm";
+import AdminReportForm from "./AdminReportForm";
 
-interface ReportModalProps {
-  companyId?: string;
-  type?: "add" | "edit";
-  reportId?: string;
+interface AdminReportModalProps {
+  reportId: string;
   isOpen?: boolean;
   setIsOpen?: (isOpen: boolean) => void;
   onClose?: (shouldRefresh?: boolean) => void;
   triggerButton?: boolean;
 }
 
-const ReportModal = ({
-  companyId,
-  type = "add",
+const AdminReportModal = ({
   reportId,
   isOpen: externalIsOpen,
   setIsOpen: externalSetIsOpen,
   onClose,
   triggerButton = true,
-}: ReportModalProps) => {
+}: AdminReportModalProps) => {
   // Internal state for uncontrolled usage
   const [internalIsOpen, setInternalIsOpen] = useState(false);
 
@@ -45,10 +41,10 @@ const ReportModal = ({
   const isOpen = isControlled ? externalIsOpen : internalIsOpen;
   const setIsOpen = isControlled ? externalSetIsOpen : setInternalIsOpen;
 
-  // Fetch report data if in edit mode
+  // Fetch report data
   const { data: reportData, isLoading } = api.report.getReportById.useQuery(
-    { reportId: reportId ?? "" },
-    { enabled: !!reportId && type === "edit" },
+    { reportId },
+    { enabled: !!reportId },
   );
 
   const handleClose = (shouldRefresh = false) => {
@@ -60,11 +56,11 @@ const ReportModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      {triggerButton && type !== "edit" && (
+      {triggerButton && (
         <DialogTrigger asChild>
           <Button className="bg-blue-500 text-white shadow-sm transition-all duration-200 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700">
-            <FileBarChart className="mr-1 h-4 w-4" />
-            Add report
+            <Users className="mr-1 h-4 w-4" />
+            Manage Access
           </Button>
         </DialogTrigger>
       )}
@@ -77,25 +73,13 @@ const ReportModal = ({
               transition={{ duration: 0.5 }}
             >
               <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">
-                {type === "edit" ? "Edit Report" : "Add Report"}
+                Manage Report Access
               </DialogTitle>
             </motion.div>
           </DialogHeader>
           <div className="p-6">
-            {isLoading && type === "edit" ? (
+            {isLoading ? (
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-1/4" />
-                  <Skeleton className="h-10 w-full" />
-                </div>
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-1/4" />
-                  <Skeleton className="h-10 w-full" />
-                </div>
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-1/4" />
-                  <Skeleton className="h-10 w-full" />
-                </div>
                 <div className="space-y-2">
                   <Skeleton className="h-4 w-1/4" />
                   <Skeleton className="h-10 w-full" />
@@ -106,11 +90,15 @@ const ReportModal = ({
                 </div>
               </div>
             ) : (
-              <ReportForm
+              <AdminReportForm
                 onClose={handleClose}
-                userRole="superAdmin"
-                companyId={companyId}
-                initialData={reportData?.report ?? null}
+                initialData={{
+                  id: reportData?.report.id ?? "",
+                  reportName: reportData?.report.reportName ?? "",
+                  userIds:
+                    reportData?.report.usersList.map((user) => user.id) ?? [],
+                  companyId: reportData?.report.company?.id ?? "",
+                }}
               />
             )}
           </div>
@@ -120,4 +108,4 @@ const ReportModal = ({
   );
 };
 
-export default ReportModal;
+export default AdminReportModal;

@@ -1,12 +1,12 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { api } from "~/trpc/react";
 import { DataTable } from "../_components/DataTable";
-import { useUserColumns } from "../super-admin/users/_components/UserColumns";
-import UserModalButton from "../super-admin/users/_components/UserModal";
+import UserModal from "../super-admin/users/_components/UserModal";
+import { useUserColumns } from "./_components/AdminUserColumns";
 
 interface CompanyUser {
   id: string;
@@ -16,7 +16,7 @@ interface CompanyUser {
   status: "active" | "inactive" | null;
   dateCreated: Date;
   lastLogin: Date | null;
-  companyId: string | null;
+  companyId?: string | null;
   modifiedBy: string | null;
   isSuperAdmin: boolean;
   passwordHistory: string[] | null;
@@ -31,11 +31,22 @@ export default function AdminPage() {
     limit: 10,
   });
   const [searchInput, setSearchInput] = useState("");
-  // TODO: Add debounce to search input in api endpoint
-  // const debouncedSearch = useDebounce(searchInput, 500);
   const [sortBy, setSortBy] = useState<"userName" | "dateCreated">(
     "dateCreated",
   );
+  const [selectedUserId, setSelectedUserId] = useState<string>();
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  useEffect(() => {
+    const handleUserEdit = (event: CustomEvent<{ userId: string }>) => {
+      setSelectedUserId(event.detail.userId);
+      setIsEditModalOpen(true);
+    };
+
+    window.addEventListener("user-edit", handleUserEdit as EventListener);
+    return () =>
+      window.removeEventListener("user-edit", handleUserEdit as EventListener);
+  }, []);
 
   const { data: companyList, isSuccess } =
     api.user.getUsersByAdminId.useQuery();
@@ -47,20 +58,18 @@ export default function AdminPage() {
   // Get user profile to access company ID
   const { data: profileData } = api.auth.getProfile.useQuery();
   const userId = profileData?.user?.id;
-  const { data: companies } = api.company.getCompaniesByAdminId.useQuery({
-    companyAdminId: userId ?? "",
-  });
-  const companyId = companies?.data[0]?.id;
 
   // Fetch users for the company
-  const { data: usersData, isLoading } = api.user.getUsersByCompanyId.useQuery(
+  const { data: usersData, isLoading } = api.user.getUsersByAdminId.useQuery(
     {
-      companyId: companyId ?? "",
+      status: undefined,
+      searched: searchInput,
       limit: pagination.limit,
       page: pagination.page,
+      sortBy,
     },
     {
-      enabled: !!companyId,
+      enabled: !!userId,
     },
   );
 
@@ -85,15 +94,14 @@ export default function AdminPage() {
     }));
   }, []);
 
-  const transformedUsers =
-    usersData?.users.map((user) => ({
-      ...user,
-      isSuperAdmin: user.role === "superAdmin",
-      passwordHistory: [],
-    })) ?? [];
+  const transformedUsers = (usersData?.data ?? []).map((user) => ({
+    ...user,
+    isSuperAdmin: user.role === "superAdmin",
+    passwordHistory: [],
+  }));
 
   return (
-    <div className="container mx-auto w-full p-6">
+    <div className="container mx-auto w-full max-w-[98%] p-6">
       <DataTable<CompanyUser, unknown, "userName" | "dateCreated">
         columns={columns}
         data={transformedUsers}
@@ -118,10 +126,25 @@ export default function AdminPage() {
         }}
         isLoading={isLoading}
         placeholder="Search by user email..."
-        actionButton={<UserModalButton />}
+        actionButton={<UserModal />}
         pageSize={pagination.limit}
         pageSizeOptions={[10, 20, 50, 100]}
       />
+
+      {/* Single Edit Modal Instance */}
+      {selectedUserId && (
+        <UserModal
+          userId={selectedUserId}
+          isOpen={isEditModalOpen}
+          setIsOpen={setIsEditModalOpen}
+          type="edit"
+          triggerButton={false}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setSelectedUserId(undefined);
+          }}
+        />
+      )}
     </div>
   );
 }

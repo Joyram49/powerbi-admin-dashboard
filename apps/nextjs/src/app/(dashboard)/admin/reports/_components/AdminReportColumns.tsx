@@ -1,28 +1,18 @@
 "use client";
 
 import type { Column, ColumnDef, Table } from "@tanstack/react-table";
-import React, { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowUpDown, ExternalLinkIcon } from "lucide-react";
 
 import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
 
+import type { ReportType } from "~/app/(dashboard)/super-admin/reports/_components/ReportForm";
+import { EntityActions } from "~/app/(dashboard)/_components/EntityActions";
 import ReportViewer from "~/app/(dashboard)/_components/ReportViewer";
-
-interface ReportType {
-  id: string;
-  reportName: string;
-  reportUrl: string;
-  dateCreated: Date | null;
-  lastModifiedAt: Date | null;
-  status: "active" | "inactive" | null;
-  accessCount: number | null;
-  userCounts: number;
-  company: {
-    id: string;
-    companyName: string;
-  } | null;
-}
+import { api } from "~/trpc/react";
+import AdminReportModal from "./AdminReportModal";
 
 interface TableMeta {
   sorting?: {
@@ -31,14 +21,36 @@ interface TableMeta {
 }
 
 export function useReportColumns() {
+  // Hook calls inside the custom hook
+  const utils = api.useUtils();
+  const incrementViewsMutation = api.report.incrementReportViews.useMutation();
+  const router = useRouter();
+
   // State for report viewer
   const [selectedReport, setSelectedReport] = useState<ReportType | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const openReportDialog = (report: ReportType) => {
-    setSelectedReport(report);
-    setIsDialogOpen(true);
-  };
+  // State for edit modal
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [reportToEdit, setReportToEdit] = useState<ReportType | null>(null);
+
+  const openReportDialog = useCallback(
+    async (report: ReportType) => {
+      try {
+        await incrementViewsMutation.mutateAsync({ reportId: report.id });
+        await utils.report.getAllReportsAdmin.invalidate();
+        await utils.report.getAllReportsForCompany.invalidate();
+
+        setSelectedReport(report);
+        setIsDialogOpen(true);
+      } catch (error) {
+        console.error("Failed to increment report views:", error);
+        setSelectedReport(report);
+        setIsDialogOpen(true);
+      }
+    },
+    [incrementViewsMutation, utils.report],
+  );
 
   const closeReportDialog = () => {
     setIsDialogOpen(false);
@@ -46,15 +58,29 @@ export function useReportColumns() {
     setTimeout(() => setSelectedReport(null), 300);
   };
 
-  const columns: ColumnDef<ReportType, unknown>[] = useMemo(() => {
-    const columns: ColumnDef<ReportType, unknown>[] = [
+  const columns = useMemo<ColumnDef<ReportType, unknown>[]>(() => {
+    return [
+      {
+        accessorKey: "id",
+        header: () => <div className="text-left font-medium">Report ID</div>,
+        cell: ({ row }) => {
+          const { id } = row.original;
+
+          return (
+            <div className="text-left">
+              <span className="hidden xl:inline">{id}</span>
+              <span className="xl:hidden">{id.slice(0, 10)}...</span>
+            </div>
+          );
+        },
+      },
       {
         accessorKey: "reportName",
         header: ({
           column,
           table,
         }: {
-          column: Column<ReportType, unknown>;
+          column: Column<ReportType>;
           table: Table<ReportType>;
         }) => {
           const { sorting } = table.options.meta as TableMeta;
@@ -108,15 +134,34 @@ export function useReportColumns() {
         ),
       },
       {
-        accessorKey: "userCounts",
+        accessorKey: "userCount",
         header: () => <div className="text-center font-medium"># Users</div>,
         cell: ({ row }) => (
-          <div className="text-center">{row.original.userCounts || 0}</div>
+          <Button
+            variant="link"
+            className="border bg-gray-100 text-center hover:border-primary/90 dark:bg-gray-800 dark:hover:bg-gray-700"
+            onClick={async () => {
+              try {
+                // Invalidate the users query
+                await utils.user.getAllUsers.invalidate();
+                // Navigate to users page with report filter
+                router.push(
+                  `/admin?reportId=${row.original.id}&companyId=${row.original.company?.id}`,
+                );
+              } catch (error) {
+                console.error("Error navigating to users:", error);
+              }
+            }}
+          >
+            {row.original.userCounts ?? 0}
+          </Button>
         ),
       },
       {
         accessorKey: "accessCount",
-        header: () => <div className="text-center font-medium"># Accesses</div>,
+        header: () => (
+          <div className="text-center font-medium"># Report Views</div>
+        ),
         cell: ({ row }) => (
           <div className="text-center">{row.original.accessCount ?? 0}</div>
         ),
@@ -127,7 +172,7 @@ export function useReportColumns() {
           column,
           table,
         }: {
-          column: Column<ReportType, unknown>;
+          column: Column<ReportType>;
           table: Table<ReportType>;
         }) => {
           const { sorting } = table.options.meta as TableMeta;
@@ -136,9 +181,11 @@ export function useReportColumns() {
               variant="ghost"
               className="text-center font-medium"
               onClick={() => {
+                // If sorting is available, use it
                 if (sorting?.onSortChange) {
                   sorting.onSortChange("dateCreated");
                 } else {
+                  // Fallback to the default column sorting
                   column.toggleSorting(column.getIsSorted() === "asc");
                 }
               }}
@@ -193,10 +240,43 @@ export function useReportColumns() {
           );
         },
       },
-    ];
+      {
+        id: "actions",
+        cell: ({ row }) => {
+          const report = row.original;
+          return (
+            <div className="flex items-center">
+              <EntityActions<ReportType>
+                entity={report}
+                entityName="Report"
+                entityDisplayField="reportName"
+                copyActions={[{ label: "Copy Report ID", field: "id" }]}
+                editAction={{
+                  onEdit: () => {
+                    setReportToEdit(report);
+                    setIsEditModalOpen(true);
+                  },
+                }}
+              />
 
-    return columns;
-  }, []);
+              {/* Edit Modal - Rendered conditionally when edit is clicked */}
+              {isEditModalOpen && reportToEdit?.id === report.id && (
+                <AdminReportModal
+                  reportId={report.id}
+                  isOpen={isEditModalOpen}
+                  setIsOpen={setIsEditModalOpen}
+                  onClose={() => {
+                    setIsEditModalOpen(false);
+                    setReportToEdit(null);
+                  }}
+                />
+              )}
+            </div>
+          );
+        },
+      },
+    ];
+  }, [isEditModalOpen, reportToEdit, openReportDialog, router, utils.user]);
 
   return {
     columns,
@@ -204,6 +284,10 @@ export function useReportColumns() {
     isDialogOpen,
     selectedReport,
     closeReportDialog,
+    isEditModalOpen,
+    setIsEditModalOpen,
+    reportToEdit,
+    setReportToEdit,
   };
 }
 

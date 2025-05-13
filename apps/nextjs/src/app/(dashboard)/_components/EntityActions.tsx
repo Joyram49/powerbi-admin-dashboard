@@ -38,8 +38,7 @@ interface EntityActionsProps<T> {
   customActions?: EntityAction[];
   editAction?: {
     onEdit: () => void;
-    editForm: React.ReactNode;
-    title?: string;
+    // Removed editForm and made onEdit a general callback
   };
   deleteAction?: {
     onDelete: () => Promise<void>;
@@ -58,7 +57,6 @@ export function EntityActions<T>({
   editAction,
   deleteAction,
 }: EntityActionsProps<T>) {
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isDeletePending, setIsDeletePending] = useState(false);
@@ -82,9 +80,11 @@ export function EntityActions<T>({
 
   const handleEditClick = () => {
     setIsDropdownOpen(false);
-    setTimeout(() => {
-      setIsEditModalOpen(true);
-    }, 100);
+    if (editAction?.onEdit) {
+      setTimeout(() => {
+        editAction.onEdit();
+      }, 100);
+    }
   };
 
   const handleDeleteClick = () => {
@@ -194,25 +194,6 @@ export function EntityActions<T>({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-
-      {/* Edit Modal */}
-      {editAction && isEditModalOpen && (
-        <Dialog
-          open={isEditModalOpen}
-          onOpenChange={(open) => {
-            if (!open) setIsEditModalOpen(false);
-          }}
-        >
-          <DialogContent className="dark:border-gray-700 dark:bg-gray-900">
-            <DialogHeader>
-              <DialogTitle className="dark:text-white">
-                {editAction.title ?? `Edit ${entityName}`}
-              </DialogTitle>
-            </DialogHeader>
-            {editAction.editForm}
-          </DialogContent>
-        </Dialog>
-      )}
 
       {/* Delete Confirmation Dialog */}
       {deleteAction && isDeleteDialogOpen && (

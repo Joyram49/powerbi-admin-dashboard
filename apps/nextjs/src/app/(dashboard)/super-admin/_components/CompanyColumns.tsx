@@ -1,8 +1,8 @@
 "use client";
 
 import type { Column, ColumnDef, Row, Table } from "@tanstack/react-table";
-import { useMemo } from "react";
-import Link from "next/link";
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowUpDown } from "lucide-react";
 
 import { Badge } from "@acme/ui/badge";
@@ -12,7 +12,7 @@ import { Checkbox } from "@acme/ui/checkbox";
 import type { Company } from "~/types/company";
 import { api } from "~/trpc/react";
 import { EntityActions } from "../../_components/EntityActions";
-import CompanyAdminForm from "./CompanyForm";
+import CompanyModal from "./CompanyModal";
 
 interface TableMeta {
   sorting?: {
@@ -24,6 +24,11 @@ export function useCompanyColumns() {
   // Hook calls inside the custom hook
   const utils = api.useUtils();
   const deleteMutation = api.company.deleteCompany.useMutation();
+  const router = useRouter();
+
+  // State for edit modal
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [companyToEdit, setCompanyToEdit] = useState<Company | null>(null);
 
   return useMemo(() => {
     const columns: ColumnDef<Company>[] = [
@@ -60,8 +65,7 @@ export function useCompanyColumns() {
           const { id } = row.original;
           return (
             <div className="text-left">
-              <span className="hidden xl:inline">{id}</span>
-              <span className="xl:hidden">{id.slice(0, 10)}...</span>
+              <span>{id.slice(0, 10)}...</span>
             </div>
           );
         },
@@ -108,20 +112,6 @@ export function useCompanyColumns() {
         },
       },
       {
-        accessorKey: "companyAddress",
-        header: () => <div className="text-center font-medium">Address</div>,
-        cell: ({ row }) => (
-          <div className="text-center">{row.original.address}</div>
-        ),
-      },
-      {
-        accessorKey: "phone",
-        header: () => <div className="text-center font-medium">Phone</div>,
-        cell: ({ row }) => (
-          <div className="text-center">{row.original.phone}</div>
-        ),
-      },
-      {
         accessorKey: "email",
         header: () => <div className="text-center font-medium">Email</div>,
         cell: ({ row }) => (
@@ -134,34 +124,30 @@ export function useCompanyColumns() {
           <div className="text-center font-medium"># employees</div>
         ),
         cell: ({ row }) => (
-          <Link
-            href={`/super-admin/users?companyId=${row.original.id}`}
-            className="flex justify-center"
+          <Button
+            variant="link"
+            className="border bg-gray-100 text-center hover:border-primary/90 dark:bg-gray-800 dark:hover:bg-gray-700"
+            onClick={() => {
+              router.push(`/super-admin/users?companyId=${row.original.id}`);
+            }}
           >
-            <Button
-              variant="link"
-              className="bg-gray-100 text-center dark:bg-gray-800"
-            >
-              {row.original.employeeCount}
-            </Button>
-          </Link>
+            {row.original.employeeCount}
+          </Button>
         ),
       },
       {
         accessorKey: "reportCount",
         header: () => <div className="text-center font-medium"># Reports</div>,
         cell: ({ row }) => (
-          <Link
-            href={`/super-admin/reports?companyId=${row.original.id}`}
-            className="flex justify-center"
+          <Button
+            variant="link"
+            className="border bg-gray-100 text-center hover:border-primary/90 dark:bg-gray-800 dark:hover:bg-gray-700"
+            onClick={() => {
+              router.push(`/super-admin/reports?companyId=${row.original.id}`);
+            }}
           >
-            <Button
-              variant="link"
-              className="bg-gray-100 text-center dark:bg-gray-800"
-            >
-              {row.original.reportCount}
-            </Button>
-          </Link>
+            {row.original.reportCount}
+          </Button>
         ),
       },
       {
@@ -243,39 +229,54 @@ export function useCompanyColumns() {
         cell: ({ row }) => {
           const company = row.original;
           return (
-            <EntityActions<Company>
-              entity={company}
-              entityName="Company"
-              entityDisplayField="companyName"
-              copyActions={[
-                { label: "Copy Company ID", field: "id" },
-                {
-                  label: "Copy Company Admin ID",
-                  field: (entity) => entity.admin.id,
-                },
-              ]}
-              editAction={{
-                // eslint-disable-next-line @typescript-eslint/no-empty-function
-                onEdit: () => {},
-                editForm: (
-                  // eslint-disable-next-line @typescript-eslint/no-empty-function
-                  <CompanyAdminForm initialData={company} onClose={() => {}} />
-                ),
-              }}
-              deleteAction={{
-                onDelete: async () => {
-                  await deleteMutation.mutateAsync({ companyId: company.id });
-                  await utils.company.getAllCompanies.invalidate();
-                },
-              }}
-            />
+            <div className="flex items-center">
+              <EntityActions<Company>
+                entity={company}
+                entityName="Company"
+                entityDisplayField="companyName"
+                copyActions={[
+                  { label: "Copy Company ID", field: "id" },
+                  {
+                    label: "Copy Company Admin ID",
+                    field: (entity) => entity.admin.id,
+                  },
+                ]}
+                editAction={{
+                  onEdit: () => {
+                    setCompanyToEdit(company);
+                    setIsEditModalOpen(true);
+                  },
+                }}
+                deleteAction={{
+                  onDelete: async () => {
+                    await deleteMutation.mutateAsync({ companyId: company.id });
+                    await utils.company.getAllCompanies.invalidate();
+                  },
+                }}
+              />
+
+              {/* Edit Modal - Rendered conditionally when edit is clicked */}
+              {isEditModalOpen && companyToEdit?.id === company.id && (
+                <CompanyModal
+                  type="edit"
+                  companyId={company.id}
+                  isOpen={isEditModalOpen}
+                  setIsOpen={setIsEditModalOpen}
+                  onClose={() => {
+                    setIsEditModalOpen(false);
+                    setCompanyToEdit(null);
+                  }}
+                  triggerButton={false}
+                />
+              )}
+            </div>
           );
         },
       },
     ];
 
     return columns;
-  }, [deleteMutation, utils]);
+  }, [deleteMutation, utils, isEditModalOpen, companyToEdit, router]);
 }
 
 export default useCompanyColumns;

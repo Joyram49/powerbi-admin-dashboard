@@ -2,25 +2,11 @@
 
 import { useCallback, useState } from "react";
 
+import type { ReportType } from "../../super-admin/reports/_components/ReportForm";
 import { useDebounce } from "~/hooks/useDebounce";
 import { api } from "~/trpc/react";
 import { DataTable } from "../../_components/DataTable";
-import { useReportColumns } from "./_components/ReportColumns";
-
-interface ReportType {
-  id: string;
-  reportName: string;
-  reportUrl: string;
-  dateCreated: Date | null;
-  lastModifiedAt: Date | null;
-  status: "active" | "inactive" | null;
-  accessCount: number | null;
-  userCounts: number;
-  company: {
-    id: string;
-    companyName: string;
-  } | null;
-}
+import useReportColumns from "./_components/AdminReportColumns";
 
 export default function AdminReportsPage() {
   const [pagination, setPagination] = useState({
@@ -28,20 +14,12 @@ export default function AdminReportsPage() {
     limit: 10,
   });
   const [searchInput, setSearchInput] = useState("");
-  const debouncedSearch = useDebounce(searchInput, 500);
+  const debouncedSearch = useDebounce(searchInput, 500); // 500ms delay
   const [sortBy, setSortBy] = useState<"reportName" | "dateCreated">(
     "dateCreated",
   );
 
-  // Fetch reports for the admin
-  const { data: reportsData, isLoading } =
-    api.report.getAllReportsAdmin.useQuery({
-      searched: debouncedSearch,
-      limit: pagination.limit,
-      page: pagination.page,
-      sortBy,
-    });
-
+  // Get columns and report viewer from the hook
   const {
     columns,
     ReportViewer,
@@ -50,61 +28,71 @@ export default function AdminReportsPage() {
     closeReportDialog,
   } = useReportColumns();
 
+  // Fetch reports for the admin
+  const { data: reportsData, isLoading } =
+    api.report.getAllReportsAdmin.useQuery({
+      searched: debouncedSearch,
+      page: pagination.page,
+      limit: pagination.limit,
+      sortBy,
+    });
+
+  const reports =
+    reportsData?.reports.map((report) => ({
+      ...report,
+      userIds: [],
+      userCounts: report.userCounts || 0,
+    })) ?? [];
+
+  const total = reportsData?.total ?? 0;
+  const pageLimit = reportsData?.limit ?? pagination.limit;
+
   const handleSearchChange = useCallback((value: string) => {
     setSearchInput(value);
-    setPagination((prev) => ({ ...prev, page: 1 }));
+    setPagination((prev) => ({ ...prev, page: 1 })); // Reset to first page on search
   }, []);
 
-  const handleSortChange = useCallback(
-    (newSortBy: "reportName" | "dateCreated") => {
-      setSortBy(newSortBy);
-    },
-    [],
-  );
-
+  // Handle page size change
   const handlePageSizeChange = useCallback((newPageSize: number) => {
-    setPagination(() => ({
+    setPagination({
       limit: newPageSize,
-      page: 1,
-    }));
+      page: 1, // Reset to first page when changing page size
+    });
   }, []);
 
   return (
     <div className="container mx-auto w-full p-6">
+      <h1 className="mb-6 text-2xl font-bold">Admin Reports</h1>
       <DataTable<ReportType, unknown, "reportName" | "dateCreated">
         columns={columns}
-        data={reportsData?.reports ?? []}
+        data={reports}
         pagination={{
-          pageCount:
-            reportsData?.total && reportsData.limit
-              ? Math.ceil(reportsData.total / reportsData.limit)
-              : 0,
+          pageCount: total && pageLimit ? Math.ceil(total / pageLimit) : 0,
           page: pagination.page,
-          onPageChange: (page: number) =>
-            setPagination((prev) => ({ ...prev, page })),
+          onPageChange: (page) => setPagination((prev) => ({ ...prev, page })),
           onPageSizeChange: handlePageSizeChange,
         }}
         sorting={{
           sortBy,
-          onSortChange: handleSortChange,
+          onSortChange: (newSortBy) => setSortBy(newSortBy),
           sortOptions: ["reportName", "dateCreated"],
         }}
         search={{
           value: searchInput,
           onChange: handleSearchChange,
         }}
+        placeholder="Search report name..."
         isLoading={isLoading}
-        placeholder="Search reports..."
         pageSize={pagination.limit}
         pageSizeOptions={[10, 20, 50, 100]}
       />
-      {isDialogOpen && selectedReport && (
-        <ReportViewer
-          isOpen={isDialogOpen}
-          onClose={closeReportDialog}
-          report={selectedReport}
-        />
-      )}
+
+      {/* Add the Report Viewer component */}
+      <ReportViewer
+        isOpen={isDialogOpen}
+        onClose={closeReportDialog}
+        report={selectedReport}
+      />
     </div>
   );
 }

@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
+import { Button } from "@acme/ui/button";
+
 import { useDebounce } from "~/hooks/useDebounce";
 import { api } from "~/trpc/react";
 import { DataTable } from "../../_components/DataTable";
-import { useUserColumns } from "./_components/UserColumns";
-import UserModalButton from "./_components/UserModal"; // Import your user modal button
+import useUserColumns from "./_components/UserColumns";
+import UserModal from "./_components/UserModal"; // Import your user modal button
 
 export default function UsersPage() {
   const searchParams = useSearchParams();
@@ -59,6 +61,7 @@ export default function UsersPage() {
         companyId: companyId ?? "",
         page: pagination.page,
         limit: pagination.limit,
+        searched: debouncedSearch,
       },
       {
         enabled: !!companyId,
@@ -176,13 +179,13 @@ export default function UsersPage() {
   }, []);
 
   return (
-    <div className="container mx-auto w-full p-6">
+    <div className="container mx-auto w-full max-w-[98%] p-6">
       <h1 className="mb-6 text-2xl font-bold">{pageTitle}</h1>
 
       {/* User type selector - hide if filtering by company */}
       {!companyId && (
         <div className="mb-4 flex gap-2">
-          <button
+          <Button
             onClick={() => setUserType("all")}
             className={`rounded px-4 py-2 ${
               userType === "all"
@@ -191,8 +194,8 @@ export default function UsersPage() {
             }`}
           >
             All Users
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={() => setUserType("admin")}
             className={`rounded px-4 py-2 ${
               userType === "admin"
@@ -201,8 +204,8 @@ export default function UsersPage() {
             }`}
           >
             Admin Users
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={() => setUserType("general")}
             className={`rounded px-4 py-2 ${
               userType === "general"
@@ -211,7 +214,7 @@ export default function UsersPage() {
             }`}
           >
             General Users
-          </button>
+          </Button>
         </div>
       )}
 
@@ -236,7 +239,7 @@ export default function UsersPage() {
         }}
         isLoading={isLoading}
         placeholder="Search by user email..."
-        actionButton={<UserModalButton companyId={companyId ?? undefined} />}
+        actionButton={<UserModal companyId={companyId ?? undefined} />}
         pageSize={pagination.limit}
         pageSizeOptions={[10, 20, 50, 100]}
       />

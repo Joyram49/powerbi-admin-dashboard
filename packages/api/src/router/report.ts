@@ -370,60 +370,76 @@ export const reportRouter = createTRPCRouter({
     .input(
       z.object({
         companyId: z.string().uuid(),
-        searched: z.string().toLowerCase().optional().default(""),
         limit: z.number().optional().default(10),
         page: z.number().optional().default(1),
+        searched: z.string().toLowerCase().optional().default(""),
       }),
     )
     .query(async ({ ctx, input }) => {
       if (ctx.session.user.role === "user") {
         throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "You are not authorized to get all reports for a company",
+          code: "FORBIDDEN",
+          message: "You are not authorized to view company reports",
         });
       }
 
-      const { companyId, searched, limit, page } = input;
+      const { companyId, limit = 10, page = 1, searched = "" } = input;
 
       try {
+        // Build where conditions
+        const whereConditions = [eq(reports.companyId, companyId)];
+
+        if (searched) {
+          whereConditions.push(ilike(reports.reportName, `%${searched}%`));
+        }
+
         const totalReports = await db.$count(
           reports,
-          and(
-            eq(reports.companyId, companyId),
-            ilike(reports.reportName, `%${searched}%`),
-          ),
+          whereConditions.length > 1
+            ? and(...whereConditions)
+            : whereConditions[0],
         );
-        const allReports = await db.query.reports.findMany({
-          where: and(
-            eq(reports.companyId, companyId),
-            ilike(reports.reportName, `%${searched}%`),
-          ),
-          with: {
+
+        const reportsWithUserCounts = await db
+          .select({
+            reportId: reports.id,
+            reportName: reports.reportName,
+            dateCreated: reports.dateCreated,
+            modifiedBy: reports.modifiedBy,
+            lastModifiedAt: reports.lastModifiedAt,
+            status: reports.status,
+            reportUrl: reports.reportUrl,
+            accessCount: reports.accessCount,
+            userCount: db.$count(
+              userReports,
+              eq(userReports.reportId, reports.id),
+            ),
             company: {
-              columns: {
-                id: true,
-                companyName: true,
-              },
+              id: companies.id,
+              companyName: companies.companyName,
             },
-          },
-          extras: {
-            userCounts:
-              sql<number>`(SELECT COUNT(*)::int FROM "user_to_reports" WHERE "user_to_reports"."report_id" = reports.id)`.as(
-                "user_counts",
-              ),
-          },
-          orderBy: desc(reports.dateCreated),
-          limit,
-          offset: (page - 1) * limit,
-        });
+          })
+          .from(reports)
+          .innerJoin(companies, eq(reports.companyId, companies.id))
+          .leftJoin(userReports, eq(userReports.reportId, reports.id))
+          .where(
+            whereConditions.length > 1
+              ? and(...whereConditions)
+              : whereConditions[0],
+          )
+          .groupBy(reports.id, companies.id)
+          .orderBy(desc(reports.dateCreated))
+          .limit(limit)
+          .offset((page - 1) * limit)
+          .execute();
 
         return {
           success: true,
-          message: "all reports fetched successfully",
+          message: "Company reports fetched successfully",
+          total: totalReports,
           limit,
           page,
-          total: totalReports,
-          reports: allReports,
+          reports: reportsWithUserCounts,
         };
       } catch (error) {
         if (error instanceof TRPCError) {
@@ -712,6 +728,44 @@ export const reportRouter = createTRPCRouter({
       try {
         await db.delete(reports).where(eq(reports.id, reportId));
         return { success: true, message: "Report deleted successfully" };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: String(error),
+        });
+      }
+    }),
+
+  // Increment report views when a user clicks on the report URL
+  incrementReportViews: protectedProcedure
+    .input(z.object({ reportId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const { reportId } = input;
+      try {
+        const [updatedReport] = await db
+          .update(reports)
+          .set({
+            accessCount: sql`${reports.accessCount} + 1`,
+            lastModifiedAt: new Date(),
+          })
+          .where(eq(reports.id, reportId))
+          .returning();
+
+        if (!updatedReport) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Report not found",
+          });
+        }
+
+        return {
+          success: true,
+          message: "Report views incremented successfully",
+          report: updatedReport,
+        };
       } catch (error) {
         if (error instanceof TRPCError) {
           throw error;

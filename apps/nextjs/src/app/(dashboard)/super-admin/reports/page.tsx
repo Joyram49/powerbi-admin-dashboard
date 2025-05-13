@@ -8,7 +8,7 @@ import { useDebounce } from "~/hooks/useDebounce";
 import { api } from "~/trpc/react";
 import { DataTable } from "../../_components/DataTable";
 import useReportColumns from "./_components/ReportColumns";
-import ReportModalButton from "./_components/ReportModal";
+import ReportModal from "./_components/ReportModal";
 
 export default function ReportsDashboard() {
   const searchParams = useSearchParams();
@@ -97,7 +97,7 @@ export default function ReportsDashboard() {
   }, []);
 
   return (
-    <div className="container mx-auto w-full p-6">
+    <div className="container mx-auto w-full max-w-[98%] p-6">
       <h1 className="mb-6 text-2xl font-bold">{pageTitle}</h1>
       <DataTable<ReportType, unknown, "reportName" | "dateCreated">
         columns={columns}
@@ -118,7 +118,7 @@ export default function ReportsDashboard() {
           onChange: handleSearchChange,
         }}
         placeholder="Search report name..."
-        actionButton={<ReportModalButton companyId={companyId ?? undefined} />}
+        actionButton={<ReportModal companyId={companyId ?? undefined} />}
         isLoading={isLoading}
         pageSize={pagination.limit}
         pageSizeOptions={[10, 20, 50, 100]}
