@@ -30,16 +30,6 @@ export default function SuperDashboard() {
   // Extract actual company data array from the response
   const companies = companyData?.data ?? [];
 
-  const { data: activeCompanies } = api.company.getCompaniesByAdminId.useQuery({
-    companyAdminId: "56865c5d-b69c-4abf-bf5a-d6abd9c30a99",
-    searched: debouncedSearch,
-    sortBy: sortBy,
-    page: pagination.page,
-    limit: pagination.limit,
-  });
-
-  console.log(activeCompanies);
-
   const handleSearchChange = useCallback((value: string) => {
     setSearchInput(value);
     setPagination((prev) => ({ ...prev, page: 1 })); // Reset to first page on search

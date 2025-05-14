@@ -1,24 +1,22 @@
 import type { SQL } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, ilike, inArray, sql } from "drizzle-orm";
-import { z } from "zod";
 
-import { companies, companyAdminHistory, companyAdmins, db } from "@acme/db";
+import {
+  companies,
+  companyAdminHistory,
+  companyAdminHistorySchema,
+  companyAdmins,
+  companyRouterSchema,
+  db,
+} from "@acme/db";
 
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 
-const createCompanySchema = z.object({
-  companyName: z.string().min(3),
-  address: z.string().optional(),
-  phone: z.string().optional(),
-  email: z.string().email({ message: "Invalid email address" }),
-  adminIds: z.array(z.string().uuid()),
-});
-
 export const companyRouter = createTRPCRouter({
-  // crete company only for super admin
+  // Create company only for super admin
   create: protectedProcedure
-    .input(createCompanySchema)
+    .input(companyRouterSchema.create)
     .mutation(async ({ ctx, input }) => {
       if (ctx.session.user.role !== "superAdmin") {
         throw new TRPCError({
@@ -75,26 +73,10 @@ export const companyRouter = createTRPCRouter({
       }
     }),
 
-  // get all the searched companies for super admin
+  // Get all companies
   getAllCompanies: protectedProcedure
-    .input(
-      z
-        .object({
-          searched: z.string().toLowerCase().optional().default(""),
-          limit: z.number().default(10),
-          page: z.number().default(1),
-          sortBy: z
-            .enum(["companyName", "dateJoined"])
-            .optional()
-            .default("dateJoined"),
-          status: z
-            .enum(["active", "inactive", "pending", "suspended"])
-            .optional(),
-        })
-        .optional(),
-    )
+    .input(companyRouterSchema.getAll)
     .query(async ({ ctx, input }) => {
-      // Ensure user is authenticated
       if (ctx.session.user.role !== "superAdmin") {
         throw new TRPCError({
           code: "UNAUTHORIZED",
@@ -140,6 +122,15 @@ export const companyRouter = createTRPCRouter({
               columns: {
                 userId: true,
               },
+              with: {
+                user: {
+                  columns: {
+                    id: true,
+                    userName: true,
+                    email: true,
+                  },
+                },
+              },
             },
           },
           extras: {
@@ -156,13 +147,23 @@ export const companyRouter = createTRPCRouter({
           orderBy: orderByCondition,
         });
 
+        // Transform the admin data structure
+        const transformedCompanies = allCompanies.map((company) => ({
+          ...company,
+          admins: company.admins.map((admin) => ({
+            id: admin.user.id,
+            userName: admin.user.userName,
+            email: admin.user.email,
+          })),
+        }));
+
         return {
           success: true,
           message: "Active companies fetched successfully",
           total: totalCompanies,
           limit,
           page,
-          data: allCompanies,
+          data: transformedCompanies,
         };
       } catch (error) {
         return {
@@ -172,21 +173,9 @@ export const companyRouter = createTRPCRouter({
       }
     }),
 
-  // get all active companies
+  // Get all active companies
   getAllActiveCompanies: protectedProcedure
-    .input(
-      z
-        .object({
-          searched: z.string().toLowerCase().optional().default(""),
-          limit: z.number().default(10),
-          page: z.number().default(1),
-          sortBy: z
-            .enum(["companyName", "dateJoined"])
-            .optional()
-            .default("dateJoined"),
-        })
-        .optional(),
-    )
+    .input(companyRouterSchema.getAllActive)
     .query(async ({ ctx, input }) => {
       if (ctx.session.user.role !== "superAdmin") {
         throw new TRPCError({
@@ -229,6 +218,15 @@ export const companyRouter = createTRPCRouter({
               columns: {
                 userId: true,
               },
+              with: {
+                user: {
+                  columns: {
+                    id: true,
+                    userName: true,
+                    email: true,
+                  },
+                },
+              },
             },
           },
           extras: {
@@ -246,13 +244,23 @@ export const companyRouter = createTRPCRouter({
           orderBy: orderByCondition,
         });
 
+        // Transform the admin data structure
+        const transformedActiveCompanies = activeCompanies.map((company) => ({
+          ...company,
+          admins: company.admins.map((admin) => ({
+            id: admin.user.id,
+            userName: admin.user.userName,
+            email: admin.user.email,
+          })),
+        }));
+
         return {
           success: true,
           message: "Active companies fetched successfully",
           total: totalCompanies,
           limit,
           page,
-          data: activeCompanies,
+          data: transformedActiveCompanies,
         };
       } catch (error) {
         if (error instanceof TRPCError) {
@@ -265,24 +273,9 @@ export const companyRouter = createTRPCRouter({
       }
     }),
 
-  // get companies by company admin id
+  // Get companies by admin ID
   getCompaniesByAdminId: protectedProcedure
-    .input(
-      z
-        .object({
-          companyAdminId: z.string().uuid(),
-          limit: z.number().optional().default(10),
-          page: z.number().optional().default(1),
-          sortBy: z
-            .enum(["companyName", "dateJoined"])
-            .optional()
-            .default("dateJoined"),
-          status: z
-            .enum(["active", "inactive", "pending", "suspended"])
-            .optional(),
-        })
-        .optional(),
-    )
+    .input(companyRouterSchema.getByAdminId)
     .query(async ({ ctx, input }) => {
       const {
         companyAdminId,
@@ -357,6 +350,15 @@ export const companyRouter = createTRPCRouter({
               columns: {
                 userId: true,
               },
+              with: {
+                user: {
+                  columns: {
+                    id: true,
+                    userName: true,
+                    email: true,
+                  },
+                },
+              },
             },
           },
           extras: {
@@ -372,13 +374,25 @@ export const companyRouter = createTRPCRouter({
           orderBy: orderByCondition,
         });
 
+        // Transform the admin data structure
+        const transformedCompaniesByAdminId = companiesByAdminId.map(
+          (company) => ({
+            ...company,
+            admins: company.admins.map((admin) => ({
+              id: admin.user.id,
+              userName: admin.user.userName,
+              email: admin.user.email,
+            })),
+          }),
+        );
+
         return {
           success: true,
           message: "Companies fetched successfully",
           total: totalCompanies,
           limit,
           page,
-          data: companiesByAdminId,
+          data: transformedCompaniesByAdminId,
         };
       } catch (error) {
         if (error instanceof TRPCError) {
@@ -391,9 +405,9 @@ export const companyRouter = createTRPCRouter({
       }
     }),
 
-  // get company by companyId
+  // Get company by ID
   getCompanyByCompanyId: protectedProcedure
-    .input(z.object({ companyId: z.string().uuid() }))
+    .input(companyRouterSchema.getById)
     .query(async ({ ctx, input }) => {
       const { companyId } = input;
 
@@ -411,14 +425,35 @@ export const companyRouter = createTRPCRouter({
               columns: {
                 userId: true,
               },
+              with: {
+                user: {
+                  columns: {
+                    id: true,
+                    userName: true,
+                    email: true,
+                  },
+                },
+              },
             },
           },
         });
 
+        // Transform the admin data structure
+        const transformedCompany = company
+          ? {
+              ...company,
+              admins: company.admins.map((admin) => ({
+                id: admin.user.id,
+                userName: admin.user.userName,
+                email: admin.user.email,
+              })),
+            }
+          : null;
+
         return {
           success: true,
           message: "Company fetched successfully",
-          data: company,
+          data: transformedCompany,
         };
       } catch (error) {
         if (error instanceof TRPCError) {
@@ -431,18 +466,9 @@ export const companyRouter = createTRPCRouter({
       }
     }),
 
-  // update a company by companyId
+  // Update company
   updateCompany: protectedProcedure
-    .input(
-      z.object({
-        companyId: z.string().uuid(),
-        companyName: z.string().optional(),
-        address: z.string().optional(),
-        phone: z.string().optional(),
-        email: z.string().email().optional(),
-        adminIds: z.array(z.string().uuid()).optional(),
-      }),
-    )
+    .input(companyRouterSchema.update)
     .mutation(async ({ ctx, input }) => {
       const { companyId, adminIds, ...rest } = input;
 
@@ -461,6 +487,15 @@ export const companyRouter = createTRPCRouter({
             admins: {
               columns: {
                 userId: true,
+              },
+              with: {
+                user: {
+                  columns: {
+                    id: true,
+                    userName: true,
+                    email: true,
+                  },
+                },
               },
             },
           },
@@ -542,9 +577,9 @@ export const companyRouter = createTRPCRouter({
       }
     }),
 
-  // delete a company by companyId
+  // Delete company
   deleteCompany: protectedProcedure
-    .input(z.object({ companyId: z.string().uuid() }))
+    .input(companyRouterSchema.delete)
     .mutation(async ({ ctx, input }) => {
       const { companyId } = input;
 
@@ -574,29 +609,7 @@ export const companyRouter = createTRPCRouter({
 
   // add company to the company admin history
   addCompanyToCompanyAdminHistory: protectedProcedure
-    .input(
-      z.object({
-        companyId: z.string().uuid(),
-        changeType: z
-          .enum(["admin_change", "company_sale", "ownership_transfer"])
-          .default("admin_change"),
-        changeReason: z.string().optional(),
-        previousAdminId: z.string().uuid(),
-        previousAdminName: z.string().optional(),
-        previousAdminEmail: z.string().email().optional(),
-        newAdminId: z.string().uuid(),
-        newAdminName: z.string().optional(),
-        newAdminEmail: z.string().email().optional(),
-        previousCompanyName: z.string().optional(),
-        newCompanyName: z.string().optional(),
-        previousCompanyStatus: z
-          .enum(["active", "inactive", "pending", "suspended"])
-          .optional(),
-        newCompanyStatus: z
-          .enum(["active", "inactive", "pending", "suspended"])
-          .optional(),
-      }),
-    )
+    .input(companyAdminHistorySchema)
     .mutation(async ({ ctx, input }) => {
       const {
         companyId,

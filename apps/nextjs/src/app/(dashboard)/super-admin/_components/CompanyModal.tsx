@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Loader2, Package2 } from "lucide-react";
+import { Package2 } from "lucide-react";
 
 import { Button } from "@acme/ui/button";
 import {
@@ -53,14 +53,8 @@ const CompanyModal = ({
   const transformedCompanyData = companyData?.data
     ? {
         ...companyData.data,
-        employeeCount: 0, // Default value since it's not in the API response
-        reportCount: 0, // Default value since it's not in the API response
-        admin: {
-          // Default admin object since it's not in the API response
-          id: companyData.data.companyAdminId,
-          userName: "Admin",
-          email: companyData.data.email ?? "",
-        },
+        employeeCount: 0,
+        reportCount: 0,
       }
     : null;
 

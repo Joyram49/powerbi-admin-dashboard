@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Check, ChevronsUpDown, Loader2, X } from "lucide-react";
 
 import { cn } from "@acme/ui";
