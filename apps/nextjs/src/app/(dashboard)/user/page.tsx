@@ -2,25 +2,12 @@
 
 import { useCallback, useState } from "react";
 
+import type { ReportType } from "@acme/db/schema";
+
 import { useDebounce } from "~/hooks/useDebounce";
 import { api } from "~/trpc/react";
 import { DataTable } from "../_components/DataTable";
 import useUserReportColumns from "./_components/ReportColumns";
-
-interface ReportType {
-  reportId: string;
-  reportName: string;
-  reportUrl: string;
-  dateCreated: Date | null;
-  lastModifiedAt: Date | null;
-  status: "active" | "inactive" | null;
-  accessCount: number | null;
-  userCount: number;
-  company: {
-    id: string;
-    companyName: string;
-  } | null;
-}
 
 export default function UserReportsPage() {
   const [pagination, setPagination] = useState({
@@ -98,7 +85,7 @@ export default function UserReportsPage() {
           onClose={closeReportDialog}
           report={{
             ...selectedReport,
-            id: selectedReport.reportId,
+            id: selectedReport.id,
           }}
         />
       )}

@@ -2,7 +2,6 @@ import type { AdminUserAttributes } from "@supabase/supabase-js";
 import type { SQL } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, ilike, inArray, ne } from "drizzle-orm";
-import { z } from "zod";
 
 import {
   companyAdmins,
@@ -11,26 +10,14 @@ import {
   userReports,
   users,
 } from "@acme/db";
+import { userRouterSchema } from "@acme/db/schema";
 
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 
 export const userRouter = createTRPCRouter({
   // this is used to get all type of users for the super admin
   getAllUsers: protectedProcedure
-    .input(
-      z
-        .object({
-          searched: z.string().toLowerCase().optional().default(""),
-          limit: z.number().default(10),
-          page: z.number().default(1),
-          sortBy: z
-            .enum(["userName", "dateCreated"])
-            .optional()
-            .default("dateCreated"),
-          status: z.enum(["active", "inactive"]).optional(),
-        })
-        .optional(),
-    )
+    .input(userRouterSchema.getAllUsers)
     .query(async ({ ctx, input }) => {
       if (ctx.session.user.role !== "superAdmin") {
         throw new TRPCError({
@@ -110,20 +97,7 @@ export const userRouter = createTRPCRouter({
     }),
   // this is used to get all admin users for the super admin
   getAdminUsers: protectedProcedure
-    .input(
-      z
-        .object({
-          searched: z.string().toLowerCase().optional().default(""),
-          limit: z.number().default(10),
-          page: z.number().default(1),
-          sortBy: z
-            .enum(["userName", "dateCreated"])
-            .optional()
-            .default("dateCreated"),
-          status: z.enum(["active", "inactive"]).optional(),
-        })
-        .optional(),
-    )
+    .input(userRouterSchema.getAdminUsers)
     .query(async ({ ctx, input }) => {
       if (ctx.session.user.role !== "superAdmin") {
         throw new TRPCError({
@@ -202,20 +176,7 @@ export const userRouter = createTRPCRouter({
 
   // this is used to get all general users for the super admin
   getAllGeneralUser: protectedProcedure
-    .input(
-      z
-        .object({
-          searched: z.string().toLowerCase().optional().default(""),
-          limit: z.number().default(10),
-          page: z.number().default(1),
-          sortBy: z
-            .enum(["userName", "dateCreated"])
-            .optional()
-            .default("dateCreated"),
-          status: z.enum(["active", "inactive"]).optional(),
-        })
-        .optional(),
-    )
+    .input(userRouterSchema.getAllGeneralUser)
     .query(async ({ ctx, input }) => {
       if (ctx.session.user.role !== "superAdmin") {
         throw new TRPCError({
@@ -294,16 +255,7 @@ export const userRouter = createTRPCRouter({
 
   // this is used to get all users by company id for the superAdmin and admin
   getUsersByCompanyId: protectedProcedure
-    .input(
-      z
-        .object({
-          companyId: z.string().uuid(),
-          limit: z.number().optional().default(10),
-          page: z.number().optional().default(1),
-          searched: z.string().toLowerCase().optional().default(""),
-        })
-        .optional(),
-    )
+    .input(userRouterSchema.getUsersByCompanyId)
     .query(async ({ ctx, input }) => {
       const { companyId, limit = 10, page = 1, searched = "" } = input ?? {};
 
@@ -405,20 +357,7 @@ export const userRouter = createTRPCRouter({
 
   // this endpoint is for the admin to get all the users from multiple companies that they are owning
   getUsersByAdminId: protectedProcedure
-    .input(
-      z
-        .object({
-          searched: z.string().optional().default(""),
-          limit: z.number().optional().default(10),
-          page: z.number().optional().default(1),
-          sortBy: z
-            .enum(["userName", "dateCreated"])
-            .optional()
-            .default("dateCreated"),
-          status: z.enum(["active", "inactive"]).optional(),
-        })
-        .optional(),
-    )
+    .input(userRouterSchema.getUsersByAdminId)
     .query(async ({ ctx, input }) => {
       if (ctx.session.user.role !== "admin") {
         throw new TRPCError({
@@ -525,7 +464,7 @@ export const userRouter = createTRPCRouter({
     }),
   // this is used to get a all types of user by id for all users
   getUserById: protectedProcedure
-    .input(z.object({ userId: z.string().uuid() }))
+    .input(userRouterSchema.getUserById)
     .query(async ({ input }) => {
       const { userId } = input;
 
@@ -562,7 +501,7 @@ export const userRouter = createTRPCRouter({
 
   // this route is used to get all the users by report id
   getUsersByReportId: protectedProcedure
-    .input(z.object({ reportId: z.string().uuid() }))
+    .input(userRouterSchema.getUsersByReportId)
     .query(async ({ input }) => {
       const { reportId } = input;
 
@@ -606,31 +545,7 @@ export const userRouter = createTRPCRouter({
 
   // this is used to update a user by id for all users except user role
   updateUser: protectedProcedure
-    .input(
-      z
-        .object({
-          userId: z.string().uuid(),
-          modifiedBy: z.string().uuid(),
-          role: z.enum(["user", "admin", "superAdmin"]),
-          status: z.enum(["active", "inactive"]).optional(),
-          companyId: z.string().uuid().optional(),
-          prevCompanyId: z.string().uuid().optional(),
-          userName: z.string().optional().or(z.literal("")),
-        })
-        .refine(
-          (data) => {
-            if (data.companyId) {
-              return !!data.prevCompanyId;
-            }
-            return true;
-          },
-          {
-            message:
-              "When updating company, both new and previous company IDs must be provided",
-            path: ["prevCompanyId"],
-          },
-        ),
-    )
+    .input(userRouterSchema.updateUser)
     .mutation(async ({ ctx, input }) => {
       const { id: updaterId, role: updaterRole } = ctx.session.user;
       // check if the user is capable of updating the user
@@ -723,13 +638,7 @@ export const userRouter = createTRPCRouter({
 
   // this is used to delete a user by id for all users except user role
   deleteUser: protectedProcedure
-    .input(
-      z.object({
-        userId: z.string().uuid(),
-        modifiedBy: z.string().uuid(),
-        role: z.enum(["user", "admin", "superAdmin"]),
-      }),
-    )
+    .input(userRouterSchema.deleteUser)
     .mutation(async ({ ctx, input }) => {
       const { id: updaterId, role: updaterRole } = ctx.session.user;
       // check if the user is capable of updating the user
@@ -757,7 +666,7 @@ export const userRouter = createTRPCRouter({
       if (updaterRole === "admin" && updaterId !== input.modifiedBy) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
-          message: "admin can only delete it's own user(s)",
+          message: "admin can only delete it's own user(s) account",
         });
       }
 
@@ -777,18 +686,6 @@ export const userRouter = createTRPCRouter({
 
         // delete users from supbase database user table
         await db.delete(users).where(eq(users.id, input.userId));
-
-        // delete company admin relationships if the user is an admin
-        if (input.role === "admin") {
-          await db
-            .delete(companyAdmins)
-            .where(eq(companyAdmins.userId, input.userId));
-        }
-
-        // delete user from supabase database userReports table
-        await db
-          .delete(userReports)
-          .where(eq(userReports.userId, input.userId));
 
         return {
           success: true,

@@ -4,20 +4,14 @@ import { and, asc, count, desc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { companies, companyAdmins, db, reports, userReports } from "@acme/db";
+import { reportRouterSchema } from "@acme/db/schema";
 
 import { createTRPCRouter, protectedProcedure } from "../trpc";
-
-const createReportSchema = z.object({
-  reportName: z.string().min(3),
-  reportUrl: z.string().url(),
-  companyId: z.string().uuid(),
-  userIds: z.array(z.string().uuid()),
-});
 
 export const reportRouter = createTRPCRouter({
   // this is the route for the super admin to create a report
   create: protectedProcedure
-    .input(createReportSchema)
+    .input(reportRouterSchema.create)
     .mutation(async ({ ctx, input }) => {
       if (ctx.session.user.role !== "superAdmin") {
         throw new TRPCError({
@@ -72,20 +66,7 @@ export const reportRouter = createTRPCRouter({
 
   // this is the route for the super admin to get all reports
   getAllReports: protectedProcedure
-    .input(
-      z
-        .object({
-          searched: z.string().toLowerCase().optional().default(""),
-          limit: z.number().optional().default(10),
-          page: z.number().optional().default(1),
-          sortBy: z
-            .enum(["reportName", "dateCreated"])
-            .optional()
-            .default("dateCreated"),
-          status: z.enum(["active", "inactive"]).optional(),
-        })
-        .optional(),
-    )
+    .input(reportRouterSchema.getAllReports)
     .query(async ({ ctx, input }) => {
       if (ctx.session.user.role !== "superAdmin") {
         throw new TRPCError({
@@ -164,19 +145,7 @@ export const reportRouter = createTRPCRouter({
 
   // this is the route for the admin to get all reports
   getAllReportsAdmin: protectedProcedure
-    .input(
-      z
-        .object({
-          searched: z.string().optional().default(""),
-          limit: z.number().optional().default(10),
-          page: z.number().optional().default(1),
-          sortBy: z
-            .enum(["reportName", "dateCreated"])
-            .optional()
-            .default("dateCreated"),
-        })
-        .optional(),
-    )
+    .input(reportRouterSchema.getAllReportsAdmin)
     .query(async ({ ctx, input }) => {
       if (ctx.session.user.role !== "admin") {
         throw new TRPCError({
@@ -276,15 +245,7 @@ export const reportRouter = createTRPCRouter({
 
   // this is the route for the user to get all reports
   getAllReportsUser: protectedProcedure
-    .input(
-      z
-        .object({
-          searched: z.string().optional().default(""),
-          limit: z.number().optional().default(10),
-          page: z.number().optional().default(1),
-        })
-        .optional(),
-    )
+    .input(reportRouterSchema.getAllReportsUser)
     .query(async ({ ctx, input }) => {
       if (ctx.session.user.role !== "user") {
         throw new TRPCError({
@@ -315,7 +276,7 @@ export const reportRouter = createTRPCRouter({
 
         const reportsWithUserCounts = await db
           .select({
-            reportId: reports.id,
+            id: reports.id,
             reportName: reports.reportName,
             dateCreated: reports.dateCreated,
             modifiedBy: reports.modifiedBy,
@@ -367,14 +328,7 @@ export const reportRouter = createTRPCRouter({
 
   // this is the route for the super admin to get all reports for a company by company id
   getAllReportsForCompany: protectedProcedure
-    .input(
-      z.object({
-        companyId: z.string().uuid(),
-        limit: z.number().optional().default(10),
-        page: z.number().optional().default(1),
-        searched: z.string().toLowerCase().optional().default(""),
-      }),
-    )
+    .input(reportRouterSchema.getAllReportsForCompany)
     .query(async ({ ctx, input }) => {
       if (ctx.session.user.role === "user") {
         throw new TRPCError({
@@ -402,7 +356,7 @@ export const reportRouter = createTRPCRouter({
 
         const reportsWithUserCounts = await db
           .select({
-            reportId: reports.id,
+            id: reports.id,
             reportName: reports.reportName,
             dateCreated: reports.dateCreated,
             modifiedBy: reports.modifiedBy,
@@ -454,7 +408,7 @@ export const reportRouter = createTRPCRouter({
 
   // this is the route for all type of users to get report by report id
   getReportById: protectedProcedure
-    .input(z.object({ reportId: z.string().uuid() }))
+    .input(reportRouterSchema.getReportById)
     .query(async ({ ctx, input }) => {
       const { reportId } = input;
       const { id: userId, role: userRole } = ctx.session.user;
@@ -670,7 +624,7 @@ export const reportRouter = createTRPCRouter({
 
   // this is the route for the admin and user to increament report view by report id
   increamentReportView: protectedProcedure
-    .input(z.object({ reportId: z.string().uuid() }))
+    .input(reportRouterSchema.increamentReportViews)
     .mutation(async ({ ctx, input }) => {
       if (ctx.session.user.role === "superAdmin") {
         throw new TRPCError({
@@ -714,7 +668,7 @@ export const reportRouter = createTRPCRouter({
 
   // this is the route for the super admin to delete a report
   deleteReport: protectedProcedure
-    .input(z.object({ reportId: z.string().uuid() }))
+    .input(reportRouterSchema.deleteReport)
     .mutation(async ({ ctx, input }) => {
       if (ctx.session.user.role !== "superAdmin") {
         throw new TRPCError({
@@ -741,8 +695,8 @@ export const reportRouter = createTRPCRouter({
 
   // Increment report views when a user clicks on the report URL
   incrementReportViews: protectedProcedure
-    .input(z.object({ reportId: z.string().uuid() }))
-    .mutation(async ({ ctx, input }) => {
+    .input(reportRouterSchema.increamentReportViews)
+    .mutation(async ({ input }) => {
       const { reportId } = input;
       try {
         const [updatedReport] = await db

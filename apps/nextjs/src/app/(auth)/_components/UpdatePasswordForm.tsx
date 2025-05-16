@@ -1,13 +1,14 @@
 "use client";
 
+import type { z } from "zod";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Lock } from "lucide-react";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 
+import { updatePasswordSchemaFrontend } from "@acme/db/schema";
 import { Alert, AlertDescription, AlertTitle } from "@acme/ui/alert";
 import { Button } from "@acme/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@acme/ui/card";
@@ -30,25 +31,7 @@ import { toast } from "@acme/ui/toast";
 
 import { api } from "~/trpc/react";
 
-// Types and Schemas
-const formSchema = z
-  .object({
-    password: z
-      .string()
-      .min(12, { message: "Password must be within 12-20 characters" })
-      .max(20, { message: "Password must be within 12-20 characters" })
-      .regex(/^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/, {
-        message:
-          "Password must include at least one uppercase letter, one number, and one special character",
-      }),
-    confirmPassword: z.string(),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords do not match",
-    path: ["confirmPassword"],
-  });
-
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = z.infer<typeof updatePasswordSchemaFrontend>;
 
 interface UpdatePasswordProps {
   isModal?: boolean;
@@ -177,7 +160,7 @@ export function UpdatePasswordForm({
 
   const utils = api.useUtils();
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(updatePasswordSchemaFrontend),
     defaultValues: {
       password: "",
       confirmPassword: "",

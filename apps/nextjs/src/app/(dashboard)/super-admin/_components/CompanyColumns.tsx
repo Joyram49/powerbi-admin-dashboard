@@ -5,11 +5,11 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowUpDown } from "lucide-react";
 
+import type { CompanyWithAdmins } from "@acme/db/schema";
 import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
 import { Checkbox } from "@acme/ui/checkbox";
 
-import type { Company } from "~/types/company";
 import { api } from "~/trpc/react";
 import { EntityActions } from "../../_components/EntityActions";
 import CompanyModal from "./CompanyModal";
@@ -28,13 +28,15 @@ export function useCompanyColumns() {
 
   // State for edit modal
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [companyToEdit, setCompanyToEdit] = useState<Company | null>(null);
+  const [companyToEdit, setCompanyToEdit] = useState<CompanyWithAdmins | null>(
+    null,
+  );
 
   return useMemo(() => {
-    const columns: ColumnDef<Company>[] = [
+    const columns: ColumnDef<CompanyWithAdmins>[] = [
       {
         id: "select",
-        header: ({ table }: { table: Table<Company> }) => (
+        header: ({ table }: { table: Table<CompanyWithAdmins> }) => (
           <Checkbox
             checked={
               table.getIsAllPageRowsSelected() ||
@@ -47,7 +49,7 @@ export function useCompanyColumns() {
             className="border border-slate-800 checked:border-blue-500 checked:bg-white dark:border-slate-50 dark:checked:bg-slate-800"
           />
         ),
-        cell: ({ row }: { row: Row<Company> }) => (
+        cell: ({ row }: { row: Row<CompanyWithAdmins> }) => (
           <Checkbox
             checked={row.getIsSelected()}
             onCheckedChange={(value) => row.toggleSelected(!!value)}
@@ -76,8 +78,8 @@ export function useCompanyColumns() {
           column,
           table,
         }: {
-          column: Column<Company>;
-          table: Table<Company>;
+          column: Column<CompanyWithAdmins>;
+          table: Table<CompanyWithAdmins>;
         }) => {
           const { sorting } = table.options.meta as TableMeta;
           return (
@@ -156,8 +158,8 @@ export function useCompanyColumns() {
           column,
           table,
         }: {
-          column: Column<Company>;
-          table: Table<Company>;
+          column: Column<CompanyWithAdmins>;
+          table: Table<CompanyWithAdmins>;
         }) => {
           const { sorting } = table.options.meta as TableMeta;
           return (
@@ -230,7 +232,7 @@ export function useCompanyColumns() {
           const company = row.original;
           return (
             <div className="flex items-center">
-              <EntityActions<Company>
+              <EntityActions<CompanyWithAdmins>
                 entity={company}
                 entityName="Company"
                 entityDisplayField="companyName"
@@ -238,7 +240,7 @@ export function useCompanyColumns() {
                   { label: "Copy Company ID", field: "id" },
                   {
                     label: "Copy Company Admin ID",
-                    field: (entity) => entity.admin.id,
+                    field: (entity) => entity.admins[0]?.id,
                   },
                 ]}
                 editAction={{

@@ -1,27 +1,15 @@
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
-import { z } from "zod";
 
 import { db, paymentMethods } from "@acme/db";
+import { paymentMethodRouterSchema } from "@acme/db/schema";
 
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 
 export const paymentMethodRouter = createTRPCRouter({
   // Create a new payment method
   createPaymentMethod: protectedProcedure
-    .input(
-      z.object({
-        stripePaymentMethodId: z.string(),
-        companyId: z.string().uuid(),
-        stripeCustomerId: z.string().optional(),
-        type: z.string(),
-        last4: z.string(),
-        brand: z.string(),
-        expMonth: z.number(),
-        expYear: z.number(),
-        isDefault: z.boolean().default(false),
-      }),
-    )
+    .input(paymentMethodRouterSchema.createPaymentMethod)
     .mutation(async ({ input }) => {
       try {
         const [paymentMethod] = await db
@@ -43,7 +31,7 @@ export const paymentMethodRouter = createTRPCRouter({
 
   // Get payment methods by company ID
   getCompanyPaymentMethods: protectedProcedure
-    .input(z.object({ companyId: z.string().uuid() }))
+    .input(paymentMethodRouterSchema.getPaymentMethods)
     .query(async ({ input }) => {
       try {
         return await db.query.paymentMethods.findMany({
@@ -63,7 +51,7 @@ export const paymentMethodRouter = createTRPCRouter({
 
   // Get payment method by ID
   getPaymentMethodById: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .input(paymentMethodRouterSchema.getPaymentMethodById)
     .query(async ({ input }) => {
       try {
         const paymentMethod = await db.query.paymentMethods.findFirst({
@@ -91,12 +79,7 @@ export const paymentMethodRouter = createTRPCRouter({
 
   // Update payment method
   updatePaymentMethod: protectedProcedure
-    .input(
-      z.object({
-        id: z.string().uuid(),
-        isDefault: z.boolean().optional(),
-      }),
-    )
+    .input(paymentMethodRouterSchema.updatePaymentMethod)
     .mutation(async ({ input }) => {
       try {
         const { id, ...updateData } = input;
@@ -127,7 +110,7 @@ export const paymentMethodRouter = createTRPCRouter({
 
   // Delete payment method
   deletePaymentMethod: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .input(paymentMethodRouterSchema.deletePaymentMethod)
     .mutation(async ({ input }) => {
       try {
         const [paymentMethod] = await db
@@ -156,7 +139,7 @@ export const paymentMethodRouter = createTRPCRouter({
 
   // Get default payment method for company
   getDefaultPaymentMethod: protectedProcedure
-    .input(z.object({ companyId: z.string().uuid() }))
+    .input(paymentMethodRouterSchema.getDefaultPaymentMethod)
     .query(async ({ input }) => {
       try {
         const paymentMethod = await db.query.paymentMethods.findFirst({
@@ -188,7 +171,7 @@ export const paymentMethodRouter = createTRPCRouter({
 
   // Get payment methods by type
   getPaymentMethodsByType: protectedProcedure
-    .input(z.object({ companyId: z.string().uuid(), type: z.string() }))
+    .input(paymentMethodRouterSchema.getPaymentMethodsByType)
     .query(async ({ input }) => {
       try {
         return await db.query.paymentMethods.findMany({

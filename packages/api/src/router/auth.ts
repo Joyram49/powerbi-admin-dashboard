@@ -1,7 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { compareSync, hash } from "bcryptjs";
 import { and, eq } from "drizzle-orm";
-import { z } from "zod";
 
 import {
   companies,
@@ -13,48 +12,15 @@ import {
   subscriptions,
   users,
 } from "@acme/db";
+import { authRouterSchema } from "@acme/db/schema";
 
 import { env } from "../../../auth/env";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 
-export const createUserSchema = z
-  .object({
-    email: z.string().email({ message: "Invalid email address" }),
-    password: z
-      .string()
-      .min(12, { message: "Password must be between 12-20 characters" })
-      .max(20, { message: "Password must be between 12-20 characters" })
-      .regex(
-        /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};:'"\\|,.<>/?]).+$/,
-        {
-          message:
-            "Password must include at least one uppercase letter, one number, and one special character",
-        },
-      ),
-    role: z.enum(["superAdmin", "admin", "user"], {
-      required_error: "Role is required",
-      invalid_type_error: "Invalid role selected",
-    }),
-    companyId: z.string().optional(),
-    userName: z.string().optional(),
-    modifiedBy: z.string().optional(),
-    reportIds: z.array(z.string().uuid()).optional(),
-  })
-  .refine(
-    (data) => {
-      if (data.role === "superAdmin" || data.role === "admin") return true;
-      return !!data.companyId;
-    },
-    {
-      message: "Company ID is required for user roles",
-      path: ["companyId"],
-    },
-  );
-
 export const authRouter = createTRPCRouter({
   // Create user procedure with optional metadata
   createUser: protectedProcedure
-    .input(createUserSchema)
+    .input(authRouterSchema.createUser)
     .mutation(async ({ ctx, input }) => {
       if (ctx.session.user.role === "user") {
         throw new TRPCError({
@@ -232,12 +198,7 @@ export const authRouter = createTRPCRouter({
 
   // Signin procedure
   signIn: publicProcedure
-    .input(
-      z.object({
-        email: z.string().email(),
-        password: z.string(),
-      }),
-    )
+    .input(authRouterSchema.signIn)
     .mutation(async ({ input }) => {
       const supabase = createClientServer();
       try {
@@ -483,13 +444,7 @@ export const authRouter = createTRPCRouter({
 
   // Update user profile (protected route)
   updateProfile: protectedProcedure
-    .input(
-      z.object({
-        // Define what can be updated
-        displayName: z.string().optional(),
-        // Add other updateable fields
-      }),
-    )
+    .input(authRouterSchema.updateProfile)
     .mutation(async ({ ctx, input }) => {
       try {
         // Ensure user is authenticated
@@ -503,7 +458,7 @@ export const authRouter = createTRPCRouter({
 
         const { error } = await supabase.auth.updateUser({
           data: {
-            display_name: input.displayName,
+            userName: input.userName,
             // Map other fields as needed
           },
         });
@@ -529,11 +484,7 @@ export const authRouter = createTRPCRouter({
 
   // Send OTP to verify email
   sendOTP: publicProcedure
-    .input(
-      z.object({
-        email: z.string().email({ message: "Invalid email address" }),
-      }),
-    )
+    .input(authRouterSchema.sendOTP)
     .mutation(async ({ input }) => {
       try {
         const supabase = createClientServer();
@@ -583,12 +534,7 @@ export const authRouter = createTRPCRouter({
 
   // verify OTP
   verifyOTP: publicProcedure
-    .input(
-      z.object({
-        email: z.string().email({ message: "Invalid email address" }),
-        token: z.string().length(6),
-      }),
-    )
+    .input(authRouterSchema.verifyOTP)
     .mutation(async ({ input }) => {
       try {
         const supabase = createClientServer();
@@ -625,21 +571,7 @@ export const authRouter = createTRPCRouter({
 
   // update password only use when need to change own password
   updatePassword: protectedProcedure
-    .input(
-      z.object({
-        password: z
-          .string()
-          .min(12, { message: "Password must be between 12-20 characters" })
-          .max(20, { message: "Password must be between 12-20 characters" })
-          .regex(
-            /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};:'"\\|,.<>/?]).+$/,
-            {
-              message:
-                "Password must include at least one uppercase letter, one number, and one special character",
-            },
-          ),
-      }),
-    )
+    .input(authRouterSchema.updatePassword)
     .mutation(async ({ ctx, input }) => {
       const { id: userId, email: userEmail } = ctx.session.user;
 
@@ -745,22 +677,7 @@ export const authRouter = createTRPCRouter({
 
   // reset user password for admin and super admin only
   resetUserPassword: protectedProcedure
-    .input(
-      z.object({
-        userId: z.string().uuid(),
-        password: z
-          .string()
-          .min(12, { message: "Password must be within 12-20 characters" })
-          .max(20, { message: "Password must be within 12-20 characters" })
-          .regex(
-            /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};:'"\\|,.<>/?]).+$/,
-            {
-              message:
-                "Password must include at least one uppercase letter, one number, and one special character",
-            },
-          ),
-      }),
-    )
+    .input(authRouterSchema.resetUserPassword)
     .mutation(async ({ ctx, input }) => {
       try {
         const supabase = createAdminClient();
@@ -905,7 +822,7 @@ export const authRouter = createTRPCRouter({
 
   // Signup procedure (for creating superAdmin)
   signUp: protectedProcedure
-    .input(createUserSchema)
+    .input(authRouterSchema.createUser)
     .mutation(async ({ ctx, input }) => {
       // Check if the user is superAdmin
       if (ctx.session.user.role !== "superAdmin") {
@@ -980,11 +897,7 @@ export const authRouter = createTRPCRouter({
 
   // Add this new endpoint before the last closing brace of authRouter
   purchaseAdditionalUser: protectedProcedure
-    .input(
-      z.object({
-        companyId: z.string().uuid(),
-      }),
-    )
+    .input(authRouterSchema.purchaseAdditionalUser)
     .mutation(async ({ ctx, input }) => {
       try {
         // Check if user has permission

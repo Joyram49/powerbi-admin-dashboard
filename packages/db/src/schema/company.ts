@@ -85,11 +85,6 @@ export const updateCompanySchema = baseCompanyValidationSchema.extend({
     .optional(),
 });
 
-// Types for the schemas
-export type CreateCompany = z.infer<typeof createCompanySchema>;
-export type UpdateCompany = z.infer<typeof updateCompanySchema>;
-export type BaseCompany = z.infer<typeof baseCompanyValidationSchema>;
-
 // Unified schema for all company router endpoints
 export const companyRouterSchema = {
   // Create company
@@ -166,6 +161,11 @@ export interface CompanyRouterInput {
   update: z.infer<typeof companyRouterSchema.update>;
   delete: z.infer<typeof companyRouterSchema.delete>;
 }
+
+// Types for the schemas
+export type CreateCompany = z.infer<typeof createCompanySchema>;
+export type UpdateCompany = z.infer<typeof updateCompanySchema>;
+export type BaseCompany = z.infer<typeof baseCompanyValidationSchema>;
 
 // Type for company with admins
 export interface CompanyWithAdmins {

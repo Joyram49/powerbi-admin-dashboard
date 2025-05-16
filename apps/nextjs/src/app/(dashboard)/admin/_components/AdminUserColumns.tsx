@@ -1,10 +1,11 @@
 "use client";
 
 import type { Column, ColumnDef, Row, Table } from "@tanstack/react-table";
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { ArrowUpDown, UserPlus } from "lucide-react";
 
+import type { CompanyUser } from "@acme/db/schema";
 import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
 import { Checkbox } from "@acme/ui/checkbox";
@@ -36,10 +37,10 @@ export function useUserColumns() {
   const currentUserId = profileData?.user?.id;
 
   return useMemo(() => {
-    const columns: ColumnDef<User>[] = [
+    const columns: ColumnDef<CompanyUser>[] = [
       {
         id: "select",
-        header: ({ table }: { table: Table<User> }) => (
+        header: ({ table }: { table: Table<CompanyUser> }) => (
           <Checkbox
             checked={
               table.getIsAllPageRowsSelected() ||
@@ -52,7 +53,7 @@ export function useUserColumns() {
             className="border border-slate-800 checked:border-blue-500 checked:bg-white dark:border-slate-50 dark:checked:bg-slate-800"
           />
         ),
-        cell: ({ row }: { row: Row<User> }) => (
+        cell: ({ row }: { row: Row<CompanyUser> }) => (
           <Checkbox
             checked={row.getIsSelected()}
             onCheckedChange={(value) => row.toggleSelected(!!value)}
@@ -69,8 +70,8 @@ export function useUserColumns() {
           column,
           table,
         }: {
-          column: Column<User>;
-          table: Table<User>;
+          column: Column<CompanyUser>;
+          table: Table<CompanyUser>;
         }) => {
           const { sorting } = table.options.meta as TableMeta;
           return (
@@ -160,8 +161,8 @@ export function useUserColumns() {
           column,
           table,
         }: {
-          column: Column<User>;
-          table: Table<User>;
+          column: Column<CompanyUser>;
+          table: Table<CompanyUser>;
         }) => {
           const { sorting } = table.options.meta as TableMeta;
           return (
@@ -201,7 +202,7 @@ export function useUserColumns() {
 
           return (
             <>
-              <EntityActions<User>
+              <EntityActions<CompanyUser>
                 entity={user}
                 entityName="User"
                 entityDisplayField="userName"

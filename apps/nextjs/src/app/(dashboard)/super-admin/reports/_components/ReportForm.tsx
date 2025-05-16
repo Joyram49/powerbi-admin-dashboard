@@ -1,21 +1,15 @@
 "use client";
 
+import type { z } from "zod";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
-import { Check, ChevronsUpDown, Loader2, X } from "lucide-react";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 
+import type { ReportWithUsers } from "@acme/db/schema";
+import { reportRouterSchema } from "@acme/db/schema";
 import { Button } from "@acme/ui/button";
-import {
-  Command,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@acme/ui/command";
 import {
   Form,
   FormControl,
@@ -37,23 +31,6 @@ import { toast } from "@acme/ui/toast";
 import { MultiSelect } from "~/app/(dashboard)/_components/MultiSelect";
 import { api } from "~/trpc/react";
 
-// Define types
-export interface ReportType {
-  id: string;
-  reportName: string;
-  reportUrl: string;
-  accessCount?: number | null;
-  dateCreated?: Date | null;
-  status: "active" | "inactive" | null;
-  lastModifiedAt?: Date | null;
-  company: {
-    id: string;
-    companyName: string;
-  } | null;
-  userCounts?: number;
-  usersList?: { id: string; name: string }[];
-}
-
 interface UserOption {
   value: string;
   label: string;
@@ -61,25 +38,10 @@ interface UserOption {
 
 interface ReportFormProps {
   onClose: (shouldRefresh?: boolean) => void;
-  initialData?: ReportType | null;
+  initialData?: ReportWithUsers | null;
   userRole: "superAdmin" | "admin" | "user";
   companyId?: string;
 }
-
-// Define form schema
-const formSchema = z.object({
-  reportName: z.string().min(3, {
-    message: "Report name must be at least 3 characters",
-  }),
-  reportUrl: z.string().url({
-    message: "Please enter a valid URL",
-  }),
-  companyId: z.string().uuid({
-    message: "Please select a company",
-  }),
-  status: z.enum(["active", "inactive"]),
-  userIds: z.array(z.string().uuid()),
-});
 
 export default function ReportForm({
   onClose,
@@ -94,8 +56,8 @@ export default function ReportForm({
   const utils = api.useUtils();
   const router = useRouter();
   // Setup form with defaults
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<z.infer<typeof reportRouterSchema.create>>({
+    resolver: zodResolver(reportRouterSchema.create),
     defaultValues: {
       reportName: initialData?.reportName ?? "",
       reportUrl: initialData?.reportUrl ?? "",
@@ -171,7 +133,7 @@ export default function ReportForm({
   // Update form with detailed report data when loaded - run only once
   useEffect(() => {
     if (reportData?.report && !initialFormSetRef.current) {
-      const reportDetails = reportData.report as ReportType;
+      const reportDetails = reportData.report as ReportWithUsers;
       form.reset({
         reportName: reportDetails.reportName,
         reportUrl: reportDetails.reportUrl,
@@ -184,7 +146,7 @@ export default function ReportForm({
   }, [reportData, form]);
 
   // Form submission handler
-  const onSubmit = (data: z.infer<typeof formSchema>) => {
+  const onSubmit = (data: z.infer<typeof reportRouterSchema.create>) => {
     setLoading(true);
 
     if (initialData?.id) {

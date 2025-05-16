@@ -1,27 +1,15 @@
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
-import { z } from "zod";
 
 import { billings, db, paymentMethods, subscriptions } from "@acme/db";
+import { billingRouterSchema } from "@acme/db/schema";
 
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 
 export const billingRouter = createTRPCRouter({
   // Create a new billing record
   createBilling: protectedProcedure
-    .input(
-      z.object({
-        stripeInvoiceId: z.string(),
-        companyId: z.string().uuid(),
-        stripeCustomerId: z.string().optional(),
-        billingDate: z.date(),
-        status: z.string(),
-        amount: z.number(),
-        plan: z.string(),
-        pdfLink: z.string().optional(),
-        paymentStatus: z.string(),
-      }),
-    )
+    .input(billingRouterSchema.createBilling)
     .mutation(async ({ input }) => {
       try {
         const [billing] = await db
@@ -46,7 +34,7 @@ export const billingRouter = createTRPCRouter({
 
   // Get all billing records for a company
   getCompanyBillings: protectedProcedure
-    .input(z.object({ companyId: z.string().uuid() }))
+    .input(billingRouterSchema.getCompanyBillings)
     .query(async ({ input }) => {
       try {
         return await db.query.billings.findMany({
@@ -67,7 +55,7 @@ export const billingRouter = createTRPCRouter({
 
   // Get a specific billing record
   getBillingById: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .input(billingRouterSchema.getBillingById)
     .query(async ({ input }) => {
       try {
         const billing = await db.query.billings.findFirst({
@@ -95,14 +83,7 @@ export const billingRouter = createTRPCRouter({
 
   // Update a billing record
   updateBilling: protectedProcedure
-    .input(
-      z.object({
-        id: z.string().uuid(),
-        status: z.string().optional(),
-        paymentStatus: z.string().optional(),
-        pdfLink: z.string().optional(),
-      }),
-    )
+    .input(billingRouterSchema.updateBilling)
     .mutation(async ({ input }) => {
       try {
         const { id, ...updateData } = input;
@@ -133,7 +114,7 @@ export const billingRouter = createTRPCRouter({
 
   // Delete a billing record
   deleteBilling: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .input(billingRouterSchema.deleteBilling)
     .mutation(async ({ input }) => {
       try {
         const [billing] = await db
@@ -162,12 +143,7 @@ export const billingRouter = createTRPCRouter({
 
   // Get billing records by status
   getBillingsByStatus: protectedProcedure
-    .input(
-      z.object({
-        companyId: z.string().uuid(),
-        status: z.string(),
-      }),
-    )
+    .input(billingRouterSchema.getBillingsByStatus)
     .query(async ({ input }) => {
       try {
         return await db.query.billings.findMany({
@@ -192,13 +168,7 @@ export const billingRouter = createTRPCRouter({
 
   // Get billing records by date range
   getBillingsByDateRange: protectedProcedure
-    .input(
-      z.object({
-        companyId: z.string().uuid(),
-        startDate: z.date(),
-        endDate: z.date(),
-      }),
-    )
+    .input(billingRouterSchema.getBillingsByDateRange)
     .query(async ({ input }) => {
       try {
         return await db.query.billings.findMany({
@@ -223,7 +193,7 @@ export const billingRouter = createTRPCRouter({
     }),
 
   getCompanyBilling: protectedProcedure
-    .input(z.object({ companyId: z.string().uuid() }))
+    .input(billingRouterSchema.getCompanyBilling)
     .query(async ({ input }) => {
       try {
         const { companyId } = input;

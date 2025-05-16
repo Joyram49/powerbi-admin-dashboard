@@ -1,11 +1,10 @@
+import type { ReportType } from "@acme/db/schema";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@acme/ui/dialog";
-
-import type { ReportType } from "../super-admin/reports/_components/ReportForm";
 
 interface ReportViewerProps {
   isOpen: boolean;
@@ -14,7 +13,6 @@ interface ReportViewerProps {
 }
 
 // Report Viewer Component
-
 export default function ReportViewer({
   isOpen,
   onClose,

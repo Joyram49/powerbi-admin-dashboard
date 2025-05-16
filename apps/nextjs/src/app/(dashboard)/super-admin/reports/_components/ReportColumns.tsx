@@ -4,11 +4,11 @@ import type { Column, ColumnDef, Row, Table } from "@tanstack/react-table";
 import { useCallback, useMemo, useState } from "react";
 import { ArrowUpDown, ExternalLinkIcon } from "lucide-react";
 
+import type { ReportType } from "@acme/db/schema";
 import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
 import { Checkbox } from "@acme/ui/checkbox";
 
-import type { ReportType } from "./ReportForm";
 import { EntityActions } from "~/app/(dashboard)/_components/EntityActions";
 import ReportViewer from "~/app/(dashboard)/_components/ReportViewer";
 import { api } from "~/trpc/react";
@@ -33,7 +33,7 @@ export function useReportColumns() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [reportToEdit, setReportToEdit] = useState<ReportType | null>(null);
 
-  const openReportDialog = useCallback(async (report: ReportType) => {
+  const openReportDialog = useCallback((report: ReportType) => {
     setSelectedReport(report);
     setIsDialogOpen(true);
   }, []);
@@ -81,7 +81,7 @@ export function useReportColumns() {
           return (
             <div className="text-left">
               <span className="hidden xl:inline">{id}</span>
-              <span className="xl:hidden">{id?.slice(0, 10)}...</span>
+              <span className="xl:hidden">{id.slice(0, 10)}...</span>
             </div>
           );
         },
@@ -158,7 +158,7 @@ export function useReportColumns() {
           <div className="text-center font-medium"># Report Views</div>
         ),
         cell: ({ row }) => (
-          <div className="text-center">{row.original.accessCount ?? 0}</div>
+          <div className="text-center">{row.original.accessCount || 0}</div>
         ),
       },
       {
@@ -257,7 +257,9 @@ export function useReportColumns() {
                 }}
                 deleteAction={{
                   onDelete: async () => {
-                    await deleteMutation.mutateAsync({ reportId: report.id });
+                    await deleteMutation.mutateAsync({
+                      reportId: report.id,
+                    });
                     await utils.report.getAllReports.invalidate();
                     await utils.report.getAllReportsForCompany.invalidate();
                     await utils.report.getAllReportsAdmin.invalidate();
