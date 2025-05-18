@@ -398,6 +398,7 @@ export const companyRouter = createTRPCRouter({
         address: z.string().optional(),
         phone: z.string().optional(),
         email: z.string().email().optional(),
+        companyAdminId: z.string().uuid().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {

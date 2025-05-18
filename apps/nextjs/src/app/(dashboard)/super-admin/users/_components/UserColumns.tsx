@@ -100,6 +100,7 @@ export function useUserColumns() {
         header: () => <div className="text-left font-medium">ID</div>,
         cell: ({ row }) => {
           const { id } = row.original;
+          console.log("row.original", row.original.company);
           return (
             <div className="text-left">
               <span className="hidden xl:inline">{id}</span>
@@ -121,12 +122,14 @@ export function useUserColumns() {
             <Badge
               variant={
                 role === "admin"
-                  ? "secondary"
+                  ? "default"
                   : role === "superAdmin"
                     ? "destructive"
                     : "outline"
               }
-              className="justify-center"
+              className={`justify-center border-primary ${
+                role === "admin" ? "bg-primary text-white" : ""
+              }`}
             >
               {role as string}
             </Badge>
@@ -199,7 +202,7 @@ export function useUserColumns() {
         id: "actions",
         cell: ({ row }) => {
           const user = row.original;
-
+          console.log("user", user);
           return (
             <>
               <EntityActions<User>
@@ -230,6 +233,29 @@ export function useUserColumns() {
                 }}
                 deleteAction={{
                   onDelete: async () => {
+                    // Check if the user is an admin
+                    if (user.role === "admin") {
+                      // Check if admin is associated with any company
+                      if (user.company && user.companyId) {
+                        throw new Error(
+                          `This admin is currently associated with company: ${user.company.companyName}. Please remove the company association before deleting this user.`,
+                        );
+                      }
+
+                      // Get companies where this admin is the company admin
+                      const adminCompanies =
+                        await utils.company.getCompaniesByAdminId.fetch({
+                          companyAdminId: user.id,
+                        });
+
+                      if (adminCompanies.data.length > 0) {
+                        throw new Error(
+                          `This admin is currently managing the following companies: ${adminCompanies.data.map((c) => c.companyName).join(", ")}. Please reassign these companies to another admin before deleting this admin.`,
+                        );
+                      }
+                    }
+
+                    // Proceed with deletion if admin has no companies or user is not an admin
                     await deleteMutation.mutateAsync({
                       userId: user.id,
                       role: user.role,
@@ -242,7 +268,13 @@ export function useUserColumns() {
                   },
                   title: "Delete User Account",
                   description:
-                    "Are you sure you want to delete this user account? All associated data will be lost.",
+                    user.role === "admin"
+                      ? `Are you sure you want to delete this admin account? ${
+                          user.company
+                            ? `\n\nAssociated Companies: ${user.company.companyName}. Want to delete Associated Admin: `
+                            : ""
+                        }`
+                      : "Are you sure you want to delete this user account? All associated data will be lost.",
                 }}
               />
 

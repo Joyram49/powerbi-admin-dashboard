@@ -4,17 +4,29 @@ import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import {
+  Check,
   CheckCircle,
   ChevronLeft,
   ChevronRight,
+  ChevronsUpDown,
   Loader2,
   User,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
+import { cn } from "@acme/ui";
 import { Button } from "@acme/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@acme/ui/card";
+import { Combobox } from "@acme/ui/combobox";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@acme/ui/command";
 import {
   Form,
   FormControl,
@@ -25,13 +37,7 @@ import {
   FormMessage,
 } from "@acme/ui/form";
 import { Input } from "@acme/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@acme/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@acme/ui/popover";
 import { Separator } from "@acme/ui/separator";
 import { toast } from "@acme/ui/toast";
 
@@ -106,12 +112,12 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
   const [mounted, setMounted] = useState(false);
   const [formStep, setFormStep] = useState(0);
   const [selectedAdminId, setSelectedAdminId] = useState<string>("");
-  const [isSelectOpen, setIsSelectOpen] = useState(false);
 
   const { data: admins, isLoading: adminsLoading } =
     api.user.getAdminUsers.useQuery(
       {
         limit: 100,
+        searched: "",
       },
       {
         enabled: true,
@@ -204,6 +210,7 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
           address: values.address,
           phone: values.phone,
           email: values.email,
+          companyAdminId: values.adminId,
         });
       } else {
         // For new company, we need admin information
@@ -255,14 +262,16 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
 
   if (!mounted) return null;
 
-  // Find the selected admin's display name
-  const selectedAdmin = admins?.data.find(
-    (admin) => admin.id === selectedAdminId,
-  );
-  const selectedAdminDisplay = selectedAdmin
-    ? `${selectedAdmin.userName}${selectedAdmin.email ? ` (${selectedAdmin.email})` : ""}`
-    : "Select an administrator";
-
+  // Ensure we have a valid array of admin items for the Combobox
+  const adminItems =
+    admins?.data && Array.isArray(admins.data)
+      ? admins.data.map((admin) => ({
+          value: admin.id,
+          label: admin.userName || "Unnamed Admin",
+          description: admin.email,
+        }))
+      : [];
+  console.log(adminItems);
   return (
     <div className="mx-auto max-w-4xl p-2 sm:p-4 md:p-6">
       <Card className="overflow-hidden border bg-gray-100 dark:border-gray-800 dark:bg-gray-900">
@@ -430,64 +439,68 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
                       control={companyForm.control}
                       name="adminId"
                       render={({ field }) => (
-                        <FormItem>
+                        <FormItem className="flex flex-col">
                           <FormLabel className="text-sm font-medium dark:text-gray-300">
                             Company Administrator
                           </FormLabel>
-
-                          <div className="space-y-2">
-                            <div className="relative">
-                              <Select
-                                value={selectedAdminId}
-                                onValueChange={(value) => {
-                                  setSelectedAdminId(value);
-                                  field.onChange(value);
-                                }}
-                                open={isSelectOpen}
-                                onOpenChange={(open) => {
-                                  setIsSelectOpen(open);
-                                }}
-                              >
-                                <FormControl>
-                                  <SelectTrigger className="w-full bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">
-                                    <SelectValue placeholder="Select an administrator">
-                                      {selectedAdminDisplay}
-                                    </SelectValue>
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent className="max-h-60 bg-white dark:border-gray-700 dark:bg-gray-800">
-                                  {adminsLoading ? (
-                                    <div className="flex items-center justify-center p-4">
-                                      <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
-                                      <span className="ml-2 text-sm text-gray-500">
-                                        Loading administrators...
-                                      </span>
-                                    </div>
-                                  ) : admins?.data && admins.data.length > 0 ? (
-                                    admins.data.map((admin) => (
-                                      <SelectItem
-                                        key={admin.id}
-                                        value={admin.id}
-                                        className="flex flex-col items-start py-2 dark:text-white dark:hover:bg-gray-700 dark:focus:bg-gray-700"
-                                      >
-                                        <div className="font-medium">
-                                          {admin.userName || "Unnamed Admin"}
-                                        </div>
-                                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                                          {admin.email}
-                                        </div>
-                                      </SelectItem>
-                                    ))
-                                  ) : (
-                                    <div className="p-2 text-center text-sm text-gray-500 dark:text-gray-400">
-                                      "No administrators available"
-                                    </div>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant="outline"
+                                  role="combobox"
+                                  className={cn(
+                                    "w-full justify-between border-gray-700 bg-gray-800 text-white hover:bg-gray-700",
+                                    !field.value && "text-muted-foreground",
                                   )}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-
+                                  disabled={adminsLoading}
+                                >
+                                  {field.value
+                                    ? adminItems.find(
+                                        (admin) => admin.value === field.value,
+                                      )?.label
+                                    : "Select an administrator"}
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-full border-gray-600 bg-gray-800 p-0">
+                              <Command className="w-full border-gray-600 bg-gray-800">
+                                <CommandInput
+                                  placeholder="Search administrators..."
+                                  className="h-9 border-gray-600"
+                                />
+                                <CommandList className="max-h-[200px] overflow-y-auto bg-gray-800">
+                                  <CommandEmpty className="text-gray-400">
+                                    No administrators found.
+                                  </CommandEmpty>
+                                  <CommandGroup className="border-gray-700">
+                                    {adminItems.map((admin) => (
+                                      <CommandItem
+                                        value={admin.label}
+                                        key={admin.value}
+                                        onSelect={() => {
+                                          field.onChange(admin.value);
+                                          setSelectedAdminId(admin.value);
+                                        }}
+                                        className="cursor-pointer text-white data-[selected=true]:bg-gray-900 data-[selected=true]:text-white dark:hover:bg-gray-900 dark:focus:bg-gray-700"
+                                      >
+                                        {admin.label}
+                                        <Check
+                                          className={cn(
+                                            "ml-auto h-4 w-4",
+                                            admin.value === field.value
+                                              ? "text-blue-500 opacity-100"
+                                              : "opacity-0",
+                                          )}
+                                        />
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
                           <FormDescription className="text-xs text-gray-500 dark:text-gray-400">
                             Search and select an administrator or create a new
                             one

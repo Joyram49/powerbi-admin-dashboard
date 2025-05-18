@@ -4,18 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
-import { Check, ChevronsUpDown, Loader2, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { Button } from "@acme/ui/button";
-import {
-  Command,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@acme/ui/command";
 import {
   Form,
   FormControl,
@@ -40,6 +32,7 @@ import { api } from "~/trpc/react";
 // Define types
 export interface ReportType {
   id: string;
+  reportId?: string;
   reportName: string;
   reportUrl: string;
   accessCount?: number | null;

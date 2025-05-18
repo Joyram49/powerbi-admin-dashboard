@@ -44,7 +44,7 @@ export function useCompanyColumns() {
               table.toggleAllPageRowsSelected(!!value)
             }
             aria-label="Select all"
-            className="border border-slate-800 checked:border-blue-500 checked:bg-white dark:border-slate-50 dark:checked:bg-slate-800"
+            className="border border-slate-200 checked:border-blue-500 checked:bg-white dark:border-slate-700 dark:checked:bg-slate-800"
           />
         ),
         cell: ({ row }: { row: Row<Company> }) => (
@@ -52,7 +52,7 @@ export function useCompanyColumns() {
             checked={row.getIsSelected()}
             onCheckedChange={(value) => row.toggleSelected(!!value)}
             aria-label="Select row"
-            className="border border-slate-800 checked:border-blue-500 checked:bg-white dark:border-slate-50 dark:checked:bg-slate-800"
+            className="border border-slate-200 checked:border-blue-500 checked:bg-white dark:border-slate-700 dark:checked:bg-slate-800"
           />
         ),
         enableSorting: false,
@@ -131,7 +131,7 @@ export function useCompanyColumns() {
         cell: ({ row }) => (
           <Button
             variant="link"
-            className="border bg-gray-100 text-center hover:border-primary/90 dark:bg-gray-800 dark:hover:bg-gray-700"
+            className="border border-slate-200 bg-gray-100 text-center hover:border-primary/90 dark:border-slate-700 dark:bg-gray-800 dark:hover:bg-gray-700"
             onClick={() => {
               router.push(`/super-admin/users?companyId=${row.original.id}`);
             }}
@@ -146,7 +146,7 @@ export function useCompanyColumns() {
         cell: ({ row }) => (
           <Button
             variant="link"
-            className="border bg-gray-100 text-center hover:border-primary/90 dark:bg-gray-800 dark:hover:bg-gray-700"
+            className="border border-slate-200 bg-gray-100 text-center hover:border-primary/90 dark:border-slate-700 dark:bg-gray-800 dark:hover:bg-gray-700"
             onClick={() => {
               router.push(`/super-admin/reports?companyId=${row.original.id}`);
             }}

@@ -23,7 +23,7 @@ interface TableMeta {
 export function useReportColumns() {
   // Hook calls inside the custom hook
   const utils = api.useUtils();
-  const incrementViewsMutation = api.report.incrementReportViews.useMutation();
+  const incrementViewsMutation = api.report.incrementReportView.useMutation();
   const router = useRouter();
 
   // State for report viewer

@@ -1,13 +1,14 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ExternalLinkIcon } from "lucide-react";
 
 import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
 
 import ReportViewer from "~/app/(dashboard)/_components/ReportViewer";
+import { api } from "~/trpc/react";
 
 interface ReportType {
   reportId: string;
@@ -25,14 +26,29 @@ interface ReportType {
 }
 
 export default function useUserReportColumns() {
+  const utils = api.useUtils();
+  const incrementViewsMutation = api.report.incrementReportView.useMutation();
+
   // State for report viewer
   const [selectedReport, setSelectedReport] = useState<ReportType | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const openReportDialog = (report: ReportType) => {
-    setSelectedReport(report);
-    setIsDialogOpen(true);
-  };
+  const openReportDialog = useCallback(
+    async (report: ReportType) => {
+      try {
+        await incrementViewsMutation.mutateAsync({ reportId: report.reportId });
+        await utils.report.getAllReportsUser.invalidate();
+
+        setSelectedReport(report);
+        setIsDialogOpen(true);
+      } catch (error) {
+        console.error("Failed to increment report views:", error);
+        setSelectedReport(report);
+        setIsDialogOpen(true);
+      }
+    },
+    [incrementViewsMutation, utils.report],
+  );
 
   const closeReportDialog = () => {
     setIsDialogOpen(false);
@@ -135,7 +151,7 @@ export default function useUserReportColumns() {
     ];
 
     return columns;
-  }, []);
+  }, [openReportDialog]);
 
   return {
     columns,

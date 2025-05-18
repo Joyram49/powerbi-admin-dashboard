@@ -668,14 +668,14 @@ export const reportRouter = createTRPCRouter({
       }
     }),
 
-  // this is the route for the admin and user to increament report view by report id
-  increamentReportView: protectedProcedure
+  // this is the route for the admin and user to increment report view by report id
+  incrementReportView: protectedProcedure
     .input(z.object({ reportId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       if (ctx.session.user.role === "superAdmin") {
         throw new TRPCError({
           code: "UNAUTHORIZED",
-          message: "You are not authorized to increament report view",
+          message: "You are not authorized to increment report view",
         });
       }
 
@@ -740,40 +740,40 @@ export const reportRouter = createTRPCRouter({
     }),
 
   // Increment report views when a user clicks on the report URL
-  incrementReportViews: protectedProcedure
-    .input(z.object({ reportId: z.string().uuid() }))
-    .mutation(async ({ ctx, input }) => {
-      const { reportId } = input;
-      try {
-        const [updatedReport] = await db
-          .update(reports)
-          .set({
-            accessCount: sql`${reports.accessCount} + 1`,
-            lastModifiedAt: new Date(),
-          })
-          .where(eq(reports.id, reportId))
-          .returning();
+  // incrementReportViews: protectedProcedure
+  //   .input(z.object({ reportId: z.string().uuid() }))
+  //   .mutation(async ({ ctx, input }) => {
+  //     const { reportId } = input;
+  //     try {
+  //       const [updatedReport] = await db
+  //         .update(reports)
+  //         .set({
+  //           accessCount: sql`${reports.accessCount} + 1`,
+  //           lastModifiedAt: new Date(),
+  //         })
+  //         .where(eq(reports.id, reportId))
+  //         .returning();
 
-        if (!updatedReport) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Report not found",
-          });
-        }
+  //       if (!updatedReport) {
+  //         throw new TRPCError({
+  //           code: "NOT_FOUND",
+  //           message: "Report not found",
+  //         });
+  //       }
 
-        return {
-          success: true,
-          message: "Report views incremented successfully",
-          report: updatedReport,
-        };
-      } catch (error) {
-        if (error instanceof TRPCError) {
-          throw error;
-        }
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: String(error),
-        });
-      }
-    }),
+  //       return {
+  //         success: true,
+  //         message: "Report views incremented successfully",
+  //         report: updatedReport,
+  //       };
+  //     } catch (error) {
+  //       if (error instanceof TRPCError) {
+  //         throw error;
+  //       }
+  //       throw new TRPCError({
+  //         code: "INTERNAL_SERVER_ERROR",
+  //         message: String(error),
+  //       });
+  //     }
+  //   }),
 });

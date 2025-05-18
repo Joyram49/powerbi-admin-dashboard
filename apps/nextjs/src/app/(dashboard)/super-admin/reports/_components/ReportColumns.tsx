@@ -76,12 +76,12 @@ export function useReportColumns() {
         accessorKey: "id",
         header: () => <div className="text-left font-medium">Report ID</div>,
         cell: ({ row }) => {
-          const { id } = row.original;
-
+          const { id, reportId } = row.original;
+          const displayId = id || reportId;
           return (
             <div className="text-left">
-              <span className="hidden xl:inline">{id}</span>
-              <span className="xl:hidden">{id?.slice(0, 10)}...</span>
+              <span className="hidden xl:inline">{displayId}</span>
+              <span className="xl:hidden">{displayId?.slice(0, 10)}...</span>
             </div>
           );
         },

@@ -14,6 +14,23 @@ import { EntityActions } from "~/app/(dashboard)/_components/EntityActions";
 import { api } from "~/trpc/react";
 import UserModal from "../../super-admin/users/_components/UserModal";
 
+interface CompanyUser {
+  id: string;
+  userName: string;
+  email: string;
+  role: "user" | "admin" | "superAdmin";
+  status: "active" | "inactive" | null;
+  dateCreated: Date;
+  lastLogin: Date | null;
+  companyId?: string | null;
+  modifiedBy: string | null;
+  isSuperAdmin: boolean;
+  passwordHistory: string[] | null;
+  company: {
+    companyName: string;
+  } | null;
+}
+
 interface TableMeta {
   sorting?: {
     sortBy?: "userName" | "dateCreated";
@@ -35,11 +52,11 @@ export function useUserColumns() {
   const { data: profileData } = api.auth.getProfile.useQuery();
   const currentUserId = profileData?.user?.id;
 
-  return useMemo(() => {
-    const columns: ColumnDef<User>[] = [
+  const columns = useMemo(() => {
+    const columns: ColumnDef<CompanyUser>[] = [
       {
         id: "select",
-        header: ({ table }: { table: Table<User> }) => (
+        header: ({ table }: { table: Table<CompanyUser> }) => (
           <Checkbox
             checked={
               table.getIsAllPageRowsSelected() ||
@@ -52,7 +69,7 @@ export function useUserColumns() {
             className="border border-slate-800 checked:border-blue-500 checked:bg-white dark:border-slate-50 dark:checked:bg-slate-800"
           />
         ),
-        cell: ({ row }: { row: Row<User> }) => (
+        cell: ({ row }: { row: Row<CompanyUser> }) => (
           <Checkbox
             checked={row.getIsSelected()}
             onCheckedChange={(value) => row.toggleSelected(!!value)}
@@ -69,8 +86,8 @@ export function useUserColumns() {
           column,
           table,
         }: {
-          column: Column<User>;
-          table: Table<User>;
+          column: Column<CompanyUser>;
+          table: Table<CompanyUser>;
         }) => {
           const { sorting } = table.options.meta as TableMeta;
           return (
@@ -160,8 +177,8 @@ export function useUserColumns() {
           column,
           table,
         }: {
-          column: Column<User>;
-          table: Table<User>;
+          column: Column<CompanyUser>;
+          table: Table<CompanyUser>;
         }) => {
           const { sorting } = table.options.meta as TableMeta;
           return (
@@ -200,94 +217,93 @@ export function useUserColumns() {
           const user = row.original;
 
           return (
-            <>
-              <EntityActions<User>
-                entity={user}
-                entityName="User"
-                entityDisplayField="userName"
-                copyActions={[
-                  { label: "Copy User ID", field: "id" },
-                  { label: "Copy Email", field: "email" },
-                ]}
-                customActions={[
-                  {
-                    label: "Reset Password",
-                    icon: <UserPlus className="h-4 w-4" />,
-                    onClick: () => {
-                      setSelectedUserForPasswordReset({
-                        id: user.id,
-                        isOpen: true,
-                      });
-                    },
-                  },
-                ]}
-                editAction={{
-                  onEdit: () => {
-                    setSelectedUserId(user.id);
-                    setIsEditModalOpen(true);
-                  },
-                }}
-                deleteAction={{
-                  onDelete: async () => {
-                    await deleteMutation.mutateAsync({
-                      userId: user.id,
-                      role: user.role,
-                      modifiedBy: currentUserId ?? "",
+            <EntityActions<CompanyUser>
+              entity={user}
+              entityName="User"
+              entityDisplayField="userName"
+              copyActions={[
+                { label: "Copy User ID", field: "id" },
+                { label: "Copy Email", field: "email" },
+              ]}
+              customActions={[
+                {
+                  label: "Reset Password",
+                  icon: <UserPlus className="h-4 w-4" />,
+                  onClick: () => {
+                    setSelectedUserForPasswordReset({
+                      id: user.id,
+                      isOpen: true,
                     });
-                    await utils.user.getAdminUsers.invalidate();
-                    await utils.user.getAllGeneralUser.invalidate();
-                    await utils.user.getUsersByCompanyId.invalidate();
                   },
-                  title: "Delete User Account",
-                  description:
-                    "Are you sure you want to delete this user account? All associated data will be lost.",
-                }}
-              />
-
-              {/* Password Reset Modal */}
-              {selectedUserForPasswordReset?.id === user.id && (
-                <UpdatePasswordForm
-                  isModal
-                  isOpen={selectedUserForPasswordReset.isOpen}
-                  onClose={() => setSelectedUserForPasswordReset(null)}
-                  userId={user.id}
-                  onSuccess={async () => {
-                    setSelectedUserForPasswordReset(null);
-                    await utils.user.getAdminUsers.invalidate();
-                    await utils.user.getAllGeneralUser.invalidate();
-                    await utils.user.getUsersByCompanyId.invalidate();
-                  }}
-                />
-              )}
-              {/* Edit Modal */}
-              {selectedUserId === user.id && (
-                <UserModal
-                  userId={selectedUserId}
-                  isOpen={isEditModalOpen}
-                  setIsOpen={setIsEditModalOpen}
-                  type="edit"
-                  triggerButton={false}
-                  onClose={() => {
-                    setIsEditModalOpen(false);
-                    setSelectedUserId(undefined);
-                  }}
-                />
-              )}
-            </>
+                },
+              ]}
+              editAction={{
+                onEdit: () => {
+                  setSelectedUserId(user.id);
+                  setIsEditModalOpen(true);
+                },
+              }}
+              deleteAction={{
+                onDelete: async () => {
+                  await deleteMutation.mutateAsync({
+                    userId: user.id,
+                    role: user.role,
+                    modifiedBy: currentUserId ?? "",
+                  });
+                  await utils.user.getAdminUsers.invalidate();
+                  await utils.user.getAllGeneralUser.invalidate();
+                  await utils.user.getUsersByCompanyId.invalidate();
+                },
+                title: "Delete User Account",
+                description:
+                  "Are you sure you want to delete this user account? All associated data will be lost.",
+              }}
+            />
           );
         },
       },
     ];
 
     return columns;
-  }, [
-    deleteMutation,
-    utils,
-    selectedUserForPasswordReset,
-    currentUserId,
-    isEditModalOpen,
-    selectedUserId,
-  ]);
+  }, [deleteMutation, utils, currentUserId]);
+
+  // Render modals outside of columns definition
+  const modals = (
+    <>
+      {/* Password Reset Modal */}
+      {selectedUserForPasswordReset && (
+        <UpdatePasswordForm
+          isModal
+          isOpen={selectedUserForPasswordReset.isOpen}
+          onClose={() => setSelectedUserForPasswordReset(null)}
+          userId={selectedUserForPasswordReset.id}
+          onSuccess={async () => {
+            setSelectedUserForPasswordReset(null);
+            await utils.user.getAdminUsers.invalidate();
+            await utils.user.getAllGeneralUser.invalidate();
+            await utils.user.getUsersByCompanyId.invalidate();
+          }}
+        />
+      )}
+
+      {/* Edit Modal */}
+      {selectedUserId && (
+        <UserModal
+          userId={selectedUserId}
+          isOpen={isEditModalOpen}
+          setIsOpen={setIsEditModalOpen}
+          type="edit"
+          triggerButton={false}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setSelectedUserId(undefined);
+          }}
+        />
+      )}
+    </>
+  );
+
+  return { columns, modals };
 }
 
 export default useUserColumns;
