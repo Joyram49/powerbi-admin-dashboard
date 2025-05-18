@@ -153,7 +153,7 @@ export function useReportColumns() {
               }
             }}
           >
-            {row.original.userCounts ?? 0}
+            {row.original.userCounts || 0}
           </Button>
         ),
       },

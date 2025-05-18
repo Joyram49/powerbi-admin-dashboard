@@ -112,7 +112,7 @@ export interface ReportType {
   status: "active" | "inactive" | null;
   reportUrl: string;
   accessCount: number;
-  userCount: number;
+  userCounts: number;
   company: {
     id: string;
     companyName: string;

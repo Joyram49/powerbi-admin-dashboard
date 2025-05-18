@@ -284,7 +284,7 @@ export const reportRouter = createTRPCRouter({
             status: reports.status,
             reportUrl: reports.reportUrl,
             accessCount: reports.accessCount,
-            userCount: db.$count(
+            userCounts: db.$count(
               userReports,
               eq(userReports.reportId, reports.id),
             ),
@@ -364,7 +364,7 @@ export const reportRouter = createTRPCRouter({
             status: reports.status,
             reportUrl: reports.reportUrl,
             accessCount: reports.accessCount,
-            userCount: db.$count(
+            userCounts: db.$count(
               userReports,
               eq(userReports.reportId, reports.id),
             ),
@@ -496,7 +496,8 @@ export const reportRouter = createTRPCRouter({
             ...report,
             usersList: usersWithNames.map((item) => ({
               id: item.user.id,
-              name: item.user.userName || item.user.email,
+              email: item.user.email,
+              userName: item.user.userName || item.user.email,
             })),
           },
         };

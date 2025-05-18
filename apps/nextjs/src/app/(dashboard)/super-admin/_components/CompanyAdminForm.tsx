@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 
-import type { Admins, CreateAdminFormValues, User } from "@acme/db/schema";
+import type { Admins, CreateAdminFormValues } from "@acme/db/schema";
 import { createAdminSchema } from "@acme/db/schema";
 import { Button } from "@acme/ui/button";
 import {
@@ -97,8 +97,12 @@ const AdminCreationDialog = ({
 
       // Notify parent component about the new admin
       if (adminUser.user) {
-        const user = adminUser.user as User;
-        const userName = user.userName || "anonymous";
+        const user = adminUser.user as {
+          id: string;
+          email: string;
+          user_metadata: { userName?: string };
+        };
+        const userName = user.user_metadata.userName ?? "anonymous";
         const admin: Admins = {
           id: user.id,
           userName,

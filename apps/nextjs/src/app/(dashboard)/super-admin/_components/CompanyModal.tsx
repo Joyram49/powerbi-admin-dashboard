@@ -115,7 +115,7 @@ const CompanyModal = ({
             ) : (
               <CompanyForm
                 onClose={handleClose}
-                initialData={transformedCompanyData}
+                initialData={transformedCompanyData ?? undefined}
               />
             )}
           </div>

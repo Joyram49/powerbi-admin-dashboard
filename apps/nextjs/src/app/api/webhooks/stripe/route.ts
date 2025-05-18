@@ -2,7 +2,14 @@ import { headers } from "next/headers";
 import { eq } from "drizzle-orm";
 
 import { stripe } from "@acme/api";
-import { billings, db, paymentMethods, subscriptions } from "@acme/db";
+import {
+  billings,
+  companies,
+  db,
+  paymentMethods,
+  subscriptions,
+  users,
+} from "@acme/db";
 
 import { env } from "~/env";
 
@@ -39,7 +46,7 @@ export async function POST(req: Request) {
           await stripe.subscriptions.update(subscription.id, {
             metadata: {
               companyId: session.metadata.companyId,
-              tier: session.metadata.tier,
+              tier: session.metadata.tier ?? "unknown",
             },
           });
 
@@ -52,14 +59,16 @@ export async function POST(req: Request) {
             stripeSubscriptionId: subscription.id,
             companyId: session.metadata.companyId,
             stripeCustomerId: session.customer as string,
-            plan: session.metadata.tier,
-            amount: subscription.items.data[0]?.price.unit_amount / 100,
+            plan: session.metadata.tier ?? "unknown",
+            amount: (
+              (subscription.items.data[0]?.price?.unit_amount ?? 0) / 100
+            ).toString(),
             billingInterval:
-              subscription.items.data[0]?.price.recurring?.interval === "month"
+              subscription.items.data[0]?.price?.recurring?.interval === "month"
                 ? "monthly"
                 : "yearly",
             status: subscription.status,
-            userLimit: getPlanUserLimit(session.metadata.tier),
+            userLimit: getPlanUserLimit(session.metadata.tier ?? "unknown"),
             currentPeriodEnd: new Date(subscription.current_period_end * 1000),
             stripePortalUrl: portalUrl,
           });
@@ -106,7 +115,7 @@ export async function POST(req: Request) {
             stripeCustomerId: invoice.customer as string,
             billingDate: new Date(invoice.created * 1000),
             status: "paid",
-            amount: invoice.amount_paid / 100, // Convert from cents to dollars
+            amount: (invoice.amount_paid / 100).toString(),
             plan: productName,
             pdfLink: invoice.invoice_pdf,
             paymentStatus: "paid",
@@ -119,16 +128,28 @@ export async function POST(req: Request) {
         const subscription = event.data.object;
         if (subscription.customer) {
           await db
-            .update(subscriptions)
-            .set({
-              status: "cancelled",
-              currentPeriodEnd: new Date(
-                subscription.current_period_end * 1000,
-              ),
-              updatedAt: new Date(),
-              stripePortalUrl: null,
-            })
+            .delete(subscriptions)
             .where(eq(subscriptions.stripeSubscriptionId, subscription.id));
+
+          const companyId = subscription.metadata.companyId;
+          if (!companyId) {
+            console.error("No company ID found in subscription metadata");
+            break;
+          }
+
+          await db
+            .update(companies)
+            .set({
+              hasAdditionalUserPurchase: false,
+            })
+            .where(eq(companies.id, companyId));
+
+          await db
+            .update(users)
+            .set({
+              status: "inactive",
+            })
+            .where(eq(users.companyId, companyId));
         }
         break;
       }
@@ -164,7 +185,9 @@ export async function POST(req: Request) {
               currentPeriodEnd: new Date(
                 subscription.current_period_end * 1000,
               ),
-              amount: subscription.items.data[0]?.price.unit_amount / 100,
+              amount: (
+                subscription.items.data[0]?.price?.unit_amount ?? 0 / 100
+              ).toString(),
               plan: product.name,
               userLimit: getPlanUserLimit(product.name),
               updatedAt: new Date(),
@@ -187,8 +210,12 @@ export async function POST(req: Request) {
 
           if (subscriptions.data.length > 0) {
             const subscription = subscriptions.data[0];
-            const companyId = subscription.metadata.companyId;
+            if (!subscription) {
+              console.error("No subscription found in data");
+              break;
+            }
 
+            const companyId = subscription.metadata.companyId;
             if (!companyId) {
               console.error("No company ID found in subscription metadata");
               break;
