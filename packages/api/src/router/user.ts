@@ -1,30 +1,23 @@
 import type { AdminUserAttributes } from "@supabase/supabase-js";
 import type { SQL } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, ilike, ne } from "drizzle-orm";
-import { z } from "zod";
+import { and, asc, desc, eq, ilike, inArray, ne } from "drizzle-orm";
 
-import { companies, createAdminClient, db, userReports, users } from "@acme/db";
+import {
+  companyAdmins,
+  createAdminClient,
+  db,
+  userReports,
+  users,
+} from "@acme/db";
+import { userRouterSchema } from "@acme/db/schema";
 
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 
 export const userRouter = createTRPCRouter({
   // this is used to get all type of users for the super admin
   getAllUsers: protectedProcedure
-    .input(
-      z
-        .object({
-          searched: z.string().toLowerCase().optional().default(""),
-          limit: z.number().default(10),
-          page: z.number().default(1),
-          sortBy: z
-            .enum(["userName", "dateCreated"])
-            .optional()
-            .default("dateCreated"),
-          status: z.enum(["active", "inactive"]).optional(),
-        })
-        .optional(),
-    )
+    .input(userRouterSchema.getAllUsers)
     .query(async ({ ctx, input }) => {
       if (ctx.session.user.role !== "superAdmin") {
         throw new TRPCError({
@@ -104,20 +97,7 @@ export const userRouter = createTRPCRouter({
     }),
   // this is used to get all admin users for the super admin
   getAdminUsers: protectedProcedure
-    .input(
-      z
-        .object({
-          searched: z.string().toLowerCase().optional().default(""),
-          limit: z.number().default(10),
-          page: z.number().default(1),
-          sortBy: z
-            .enum(["userName", "dateCreated"])
-            .optional()
-            .default("dateCreated"),
-          status: z.enum(["active", "inactive"]).optional(),
-        })
-        .optional(),
-    )
+    .input(userRouterSchema.getAdminUsers)
     .query(async ({ ctx, input }) => {
       if (ctx.session.user.role !== "superAdmin") {
         throw new TRPCError({
@@ -196,20 +176,7 @@ export const userRouter = createTRPCRouter({
 
   // this is used to get all general users for the super admin
   getAllGeneralUser: protectedProcedure
-    .input(
-      z
-        .object({
-          searched: z.string().toLowerCase().optional().default(""),
-          limit: z.number().default(10),
-          page: z.number().default(1),
-          sortBy: z
-            .enum(["userName", "dateCreated"])
-            .optional()
-            .default("dateCreated"),
-          status: z.enum(["active", "inactive"]).optional(),
-        })
-        .optional(),
-    )
+    .input(userRouterSchema.getAllGeneralUser)
     .query(async ({ ctx, input }) => {
       if (ctx.session.user.role !== "superAdmin") {
         throw new TRPCError({
@@ -288,16 +255,7 @@ export const userRouter = createTRPCRouter({
 
   // this is used to get all users by company id for the superAdmin and admin
   getUsersByCompanyId: protectedProcedure
-    .input(
-      z
-        .object({
-          companyId: z.string().uuid(),
-          limit: z.number().optional().default(10),
-          page: z.number().optional().default(1),
-          searched: z.string().toLowerCase().optional().default(""),
-        })
-        .optional(),
-    )
+    .input(userRouterSchema.getUsersByCompanyId)
     .query(async ({ ctx, input }) => {
       const { companyId, limit = 10, page = 1, searched = "" } = input ?? {};
 
@@ -399,22 +357,16 @@ export const userRouter = createTRPCRouter({
 
   // this endpoint is for the admin to get all the users from multiple companies that they are owning
   getUsersByAdminId: protectedProcedure
-    .input(
-      z
-        .object({
-          searched: z.string().toLowerCase().optional().default(""),
-          limit: z.number().default(10),
-          page: z.number().default(1),
-          sortBy: z
-            .enum(["userName", "dateCreated"])
-            .optional()
-            .default("dateCreated"),
-          status: z.enum(["active", "inactive"]).optional(),
-        })
-        .optional(),
-    )
+    .input(userRouterSchema.getUsersByAdminId)
     .query(async ({ ctx, input }) => {
-      const { id: adminId, role: adminRole } = ctx.session.user;
+      if (ctx.session.user.role !== "admin") {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You are not authorized to get users",
+        });
+      }
+
+      const { id: adminId } = ctx.session.user;
       const {
         limit = 10,
         page = 1,
@@ -423,15 +375,7 @@ export const userRouter = createTRPCRouter({
         status,
       } = input ?? {};
 
-      if (adminRole !== "admin") {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You are not authorized to get users by admin id",
-        });
-      }
-
       try {
-        // Dynamic WHERE conditions
         const whereConditions: SQL[] = [];
 
         if (searched) {
@@ -447,48 +391,57 @@ export const userRouter = createTRPCRouter({
             ? [asc(users.userName)]
             : [desc(users.dateCreated)];
 
-        // get all the companies that the admin is owning
-        const companyList = await db.query.companies.findMany({
-          where: eq(companies.companyAdminId, adminId),
+        // Get all companies where the admin is associated
+        const adminCompanies = await db.query.companyAdmins.findMany({
+          where: eq(companyAdmins.userId, adminId),
+          columns: {
+            companyId: true,
+          },
         });
 
-        // Get total count across all companies
-        const totalUsers = await Promise.all(
-          companyList.map(async (company) => {
-            return db.$count(
-              users,
-              whereConditions.length > 0
-                ? and(eq(users.companyId, company.id), ...whereConditions)
-                : eq(users.companyId, company.id),
-            );
-          }),
-        ).then((counts) => counts.reduce((sum, count) => sum + count, 0));
+        const companyIds = adminCompanies.map((company) => company.companyId);
 
-        const userList = await Promise.all(
-          companyList.map(async (company) => {
-            return db.query.users.findMany({
-              columns: {
-                isSuperAdmin: false,
-                passwordHistory: false,
-                companyId: false,
-              },
-              with: {
-                company: {
-                  columns: {
-                    companyName: true,
-                  },
-                },
-              },
-              where:
-                whereConditions.length > 0
-                  ? and(eq(users.companyId, company.id), ...whereConditions)
-                  : eq(users.companyId, company.id),
-              limit,
-              offset: (page - 1) * limit,
-              orderBy: orderByCondition,
-            });
-          }),
+        if (companyIds.length === 0) {
+          return {
+            success: true,
+            message: "No companies found",
+            total: 0,
+            limit,
+            page,
+            data: [],
+          };
+        }
+
+        // Get total count across all companies
+        const totalUsers = await db.$count(
+          users,
+          whereConditions.length > 0
+            ? and(inArray(users.companyId, companyIds), ...whereConditions)
+            : inArray(users.companyId, companyIds),
         );
+
+        // Get users from all companies
+        const userList = await db.query.users.findMany({
+          columns: {
+            isSuperAdmin: false,
+            passwordHistory: false,
+            companyId: false,
+          },
+          with: {
+            company: {
+              columns: {
+                companyName: true,
+              },
+            },
+          },
+          where:
+            whereConditions.length > 0
+              ? and(inArray(users.companyId, companyIds), ...whereConditions)
+              : inArray(users.companyId, companyIds),
+          limit,
+          offset: (page - 1) * limit,
+          orderBy: orderByCondition,
+        });
 
         return {
           success: true,
@@ -496,7 +449,7 @@ export const userRouter = createTRPCRouter({
           total: totalUsers,
           limit,
           page,
-          data: userList.flat(),
+          data: userList,
         };
       } catch (error) {
         if (error instanceof TRPCError) {
@@ -511,7 +464,7 @@ export const userRouter = createTRPCRouter({
     }),
   // this is used to get a all types of user by id for all users
   getUserById: protectedProcedure
-    .input(z.object({ userId: z.string().uuid() }))
+    .input(userRouterSchema.getUserById)
     .query(async ({ input }) => {
       const { userId } = input;
 
@@ -546,18 +499,53 @@ export const userRouter = createTRPCRouter({
       }
     }),
 
+  // this route is used to get all the users by report id
+  getUsersByReportId: protectedProcedure
+    .input(userRouterSchema.getUsersByReportId)
+    .query(async ({ input }) => {
+      const { reportId } = input;
+
+      try {
+        const users = await db.query.userReports.findMany({
+          where: eq(userReports.reportId, reportId),
+          columns: {
+            userId: false,
+          },
+          with: {
+            user: {
+              columns: {
+                passwordHistory: false,
+                modifiedBy: false,
+                isSuperAdmin: false,
+                role: false,
+              },
+            },
+          },
+        });
+
+        const flattenedUsers = users.map(({ user, ...rest }) => ({
+          ...rest,
+          ...user,
+        }));
+
+        return {
+          success: true,
+          message: "Users fetched successfully",
+          data: flattenedUsers,
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+        });
+      }
+    }),
+
   // this is used to update a user by id for all users except user role
   updateUser: protectedProcedure
-    .input(
-      z.object({
-        userId: z.string().uuid(),
-        modifiedBy: z.string().uuid(),
-        role: z.enum(["user", "admin", "superAdmin"]),
-        status: z.enum(["active", "inactive"]).optional(),
-        companyId: z.string().uuid().optional(),
-        userName: z.string().optional().or(z.literal("")),
-      }),
-    )
+    .input(userRouterSchema.updateUser)
     .mutation(async ({ ctx, input }) => {
       const { id: updaterId, role: updaterRole } = ctx.session.user;
       // check if the user is capable of updating the user
@@ -599,6 +587,13 @@ export const userRouter = createTRPCRouter({
           authUpdateData.user_metadata = { userName: input.userName };
         }
         authUpdateData.user_metadata = { role: input.role };
+
+        // if the company id isn't same as the present company id, then delete all the user's related reports
+        if (input.prevCompanyId !== input.companyId) {
+          await db
+            .delete(userReports)
+            .where(eq(userReports.userId, input.userId));
+        }
 
         // Update Supabase Auth
         if (Object.keys(authUpdateData).length > 0) {
@@ -643,13 +638,7 @@ export const userRouter = createTRPCRouter({
 
   // this is used to delete a user by id for all users except user role
   deleteUser: protectedProcedure
-    .input(
-      z.object({
-        userId: z.string().uuid(),
-        modifiedBy: z.string().uuid(),
-        role: z.enum(["user", "admin", "superAdmin"]),
-      }),
-    )
+    .input(userRouterSchema.deleteUser)
     .mutation(async ({ ctx, input }) => {
       const { id: updaterId, role: updaterRole } = ctx.session.user;
       // check if the user is capable of updating the user
@@ -677,7 +666,7 @@ export const userRouter = createTRPCRouter({
       if (updaterRole === "admin" && updaterId !== input.modifiedBy) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
-          message: "admin can only delete it's own user(s)",
+          message: "admin can only delete it's own user(s) account",
         });
       }
 
@@ -697,18 +686,6 @@ export const userRouter = createTRPCRouter({
 
         // delete users from supbase database user table
         await db.delete(users).where(eq(users.id, input.userId));
-
-        // delete company from supbase database company table
-        if (input.role === "admin") {
-          await db
-            .delete(companies)
-            .where(eq(companies.companyAdminId, input.userId));
-        }
-
-        // delete user from supabase database userReports table
-        await db
-          .delete(userReports)
-          .where(eq(userReports.userId, input.userId));
 
         return {
           success: true,

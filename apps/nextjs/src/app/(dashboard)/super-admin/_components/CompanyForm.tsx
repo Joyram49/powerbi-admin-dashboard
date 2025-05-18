@@ -41,30 +41,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@acme/ui/popover";
 import { Separator } from "@acme/ui/separator";
 import { toast } from "@acme/ui/toast";
 
-import type { Company } from "~/types/company";
 import { api } from "~/trpc/react";
+import { MultiSelect } from "../../_components/MultiSelect";
 import AdminCreationDialog from "./CompanyAdminForm";
-
-const PHONE_NUMBER_REGEX =
-  /^(?:(?:\+|00)?\d{1,4}[-.\s]?)?(?:\(?\d{1,4}\)?[-.\s]?)?[\d\s-]{6,20}$/;
-
-// Form validation schemas
-const companyFormSchema = z.object({
-  companyName: z.string().min(3, "Company name must be at least 3 characters"),
-  address: z.string(),
-  phone: z
-    .string()
-    .optional()
-    .refine(
-      (val) =>
-        val === undefined || val.trim() === "" || PHONE_NUMBER_REGEX.test(val),
-      "Invalid phone number format",
-    ),
-  email: z.string().email("Valid email is required"),
-  adminId: z
-    .string()
-    .min(1, "Please select an existing admin or create a new one"),
-});
 
 // Animation variants
 const containerVariants = {
@@ -92,18 +71,10 @@ const buttonVariants = {
   tap: { scale: 0.97 },
 };
 
-interface User {
-  id: string;
-  userName: string;
-  email: string;
-  role: string;
-  status?: "active" | "inactive" | null;
-}
-
 interface CompanyFormProps {
   onClose: (shouldRefresh?: boolean) => void;
   setDialogOpen?: (open: boolean) => void;
-  initialData?: Company | null;
+  initialData?: CompanyWithAdmins;
 }
 
 const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
@@ -128,15 +99,26 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
   const utils = api.useUtils();
 
   // Company form
-  const companyForm = useForm({
-    resolver: zodResolver(companyFormSchema),
-    defaultValues: {
-      companyName: "",
-      address: "",
-      phone: "",
-      email: "",
-      adminId: "",
-    },
+  const companyForm = useForm<CompanyFormValues>({
+    resolver: zodResolver(
+      initialData ? updateCompanySchema : createCompanySchema,
+    ),
+    defaultValues: initialData
+      ? {
+          companyId: initialData.id,
+          companyName: initialData.companyName,
+          address: initialData.address ?? "",
+          phone: initialData.phone ?? "",
+          email: initialData.email ?? "",
+          adminIds: initialData.admins.map((admin) => admin.id),
+        }
+      : {
+          companyName: "",
+          address: "",
+          phone: "",
+          email: "",
+          adminIds: [],
+        },
     mode: "onChange",
   });
 
@@ -144,13 +126,14 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
   useEffect(() => {
     if (initialData) {
       companyForm.reset({
+        companyId: initialData.id,
         companyName: initialData.companyName,
         address: initialData.address ?? "",
         phone: initialData.phone ?? "",
         email: initialData.email ?? "",
-        adminId: initialData.admin.id,
+        adminIds: initialData.admins.map((admin) => admin.id),
       });
-      setSelectedAdminId(initialData.admin.id);
+      setSelectedAdmins([...initialData.admins]);
     }
   }, [initialData, companyForm]);
 
@@ -183,7 +166,7 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
     onSuccess: async (data) => {
       setCompanyFormSubmitted(false);
       toast.success("Company Added", {
-        description: `${data.company?.companyName} has been successfully created.`,
+        description: `${data.company.companyName} has been successfully created.`,
       });
       companyForm.reset();
       setFormStep(0);
@@ -198,11 +181,12 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
     },
   });
 
-  const onSubmitCompany = (values: z.infer<typeof companyFormSchema>) => {
+  const onSubmitCompany = (values: CompanyFormValues) => {
     setCompanyFormSubmitted(true);
 
     try {
       if (initialData) {
+        console.log("formData", values);
         // Update existing company
         updateCompanyMutation.mutate({
           companyId: initialData.id,
@@ -214,7 +198,7 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
         });
       } else {
         // For new company, we need admin information
-        if (!selectedAdminId) {
+        if (!selectedAdmins.length) {
           toast.error("Admin Selection Required", {
             description: "Please select an administrator for this company",
           });
@@ -222,13 +206,15 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
           return;
         }
 
+        const selectedAdminIds = selectedAdmins.map((admin) => admin.id);
+
         // Create company with selected admin
         createCompanyMutation.mutate({
           companyName: values.companyName,
           address: values.address,
           phone: values.phone,
           email: values.email,
-          companyAdminId: selectedAdminId,
+          adminIds: selectedAdminIds,
         });
       }
     } catch (error) {
@@ -254,10 +240,13 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
     }
   };
 
-  const handleAdminCreated = async (adminId: string) => {
-    setSelectedAdminId(adminId);
-    companyForm.setValue("adminId", adminId);
-    await companyForm.trigger("adminId");
+  const handleAdminCreated = async (admin: Admins) => {
+    setSelectedAdmins([...selectedAdmins, admin]);
+    companyForm.setValue("adminIds", [
+      ...selectedAdmins.map((a) => a.id),
+      admin.id,
+    ]);
+    await companyForm.trigger("adminIds");
   };
 
   if (!mounted) return null;
@@ -287,12 +276,12 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
                   ? "Edit Company"
                   : formStep === 0
                     ? "Add New Company"
-                    : "Contact Details"}
+                    : "Company Administrator"}
               </CardTitle>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                 {formStep === 0
                   ? "Enter company information"
-                  : "Complete contact information"}
+                  : "Select the company Administrator. you can select multiple administrators but first one must be the primary administrator."}
               </p>
             </motion.div>
 
@@ -437,7 +426,7 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
                   <motion.div variants={itemVariants}>
                     <FormField
                       control={companyForm.control}
-                      name="adminId"
+                      name="adminIds"
                       render={({ field }) => (
                         <FormItem className="flex flex-col">
                           <FormLabel className="text-sm font-medium dark:text-gray-300">
@@ -502,17 +491,15 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
                             </PopoverContent>
                           </Popover>
                           <FormDescription className="text-xs text-gray-500 dark:text-gray-400">
-                            Search and select an administrator or create a new
-                            one
+                            Search and select one or more administrators. The
+                            first one will be the primary administrator.
                           </FormDescription>
                           <FormMessage className="text-xs dark:text-red-400" />
                         </FormItem>
                       )}
                     />
                   </motion.div>
-
                   <Separator className="my-2 dark:bg-gray-800" />
-
                   <motion.div
                     className="flex flex-wrap justify-between gap-3 pt-2"
                     variants={itemVariants}
@@ -532,7 +519,6 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
                         Add new admin
                       </Button>
                     </motion.div>
-
                     <div className="flex gap-2">
                       <motion.div
                         variants={buttonVariants}
@@ -549,7 +535,6 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
                           Back
                         </Button>
                       </motion.div>
-
                       <motion.div
                         variants={buttonVariants}
                         whileHover="hover"

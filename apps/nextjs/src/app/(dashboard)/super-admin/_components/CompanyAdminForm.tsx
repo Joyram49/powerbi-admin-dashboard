@@ -5,8 +5,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
-import * as z from "zod";
 
+import type { Admins, CreateAdminFormValues, User } from "@acme/db/schema";
+import { createAdminSchema } from "@acme/db/schema";
 import { Button } from "@acme/ui/button";
 import {
   Dialog,
@@ -55,33 +56,10 @@ const buttonVariants = {
   tap: { scale: 0.97 },
 };
 
-const adminFormSchema = z
-  .object({
-    userName: z
-      .string()
-      .min(2, "Username is required")
-      .refine((val) => !val.includes(" "), "Username cannot contain spaces"),
-    email: z.string().email("Valid email is required"),
-    password: z
-      .string()
-      .min(12, "Password must be at least 12 characters")
-      .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-      .regex(/[a-z]/, "Password must contain at least one lowercase letter")
-      .regex(/[0-9]/, "Password must contain at least one number"),
-    confirmPassword: z
-      .string()
-      .min(12, "Password must be at least 12 characters"),
-    role: z.literal("admin"),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords do not match",
-    path: ["confirmPassword"],
-  });
-
 interface AdminCreationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAdminCreated: (adminId: string) => void;
+  onAdminCreated: (admin: Admins) => void;
 }
 
 const AdminCreationDialog = ({
@@ -94,7 +72,7 @@ const AdminCreationDialog = ({
 
   // Admin form
   const adminForm = useForm({
-    resolver: zodResolver(adminFormSchema),
+    resolver: zodResolver(createAdminSchema),
     defaultValues: {
       userName: "",
       email: "",
@@ -119,7 +97,14 @@ const AdminCreationDialog = ({
 
       // Notify parent component about the new admin
       if (adminUser.user) {
-        onAdminCreated(adminUser.user.id);
+        const user = adminUser.user as User;
+        const userName = user.userName || "anonymous";
+        const admin: Admins = {
+          id: user.id,
+          userName,
+          email: user.email,
+        };
+        onAdminCreated(admin);
       }
 
       // Refresh admin users list in the background
@@ -133,7 +118,7 @@ const AdminCreationDialog = ({
     },
   });
 
-  const onSubmitAdmin = (values: z.infer<typeof adminFormSchema>) => {
+  const onSubmitAdmin = (values: CreateAdminFormValues) => {
     setAdminFormSubmitted(true);
 
     // Create a new admin user

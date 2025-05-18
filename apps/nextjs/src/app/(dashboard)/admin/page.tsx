@@ -3,6 +3,8 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { useCallback, useEffect, useState } from "react";
 
+import type { CompanyUser } from "@acme/db/schema";
+
 import {
   Select,
   SelectContent,
@@ -15,23 +17,6 @@ import { api } from "~/trpc/react";
 import { DataTable } from "../_components/DataTable";
 import UserModal from "../super-admin/users/_components/UserModal";
 import { useUserColumns } from "./_components/AdminUserColumns";
-
-interface CompanyUser {
-  id: string;
-  userName: string;
-  email: string;
-  role: "user" | "admin" | "superAdmin";
-  status: "active" | "inactive" | null;
-  dateCreated: Date;
-  lastLogin: Date | null;
-  companyId?: string | null;
-  modifiedBy: string | null;
-  isSuperAdmin: boolean;
-  passwordHistory: string[] | null;
-  company: {
-    companyName: string;
-  } | null;
-}
 
 export default function AdminPage() {
   const [pagination, setPagination] = useState({

@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-import type { ReportType } from "./_components/ReportForm";
+import type { ReportType } from "@acme/db/schema";
+
 import { useDebounce } from "~/hooks/useDebounce";
 import { api } from "~/trpc/react";
 import { DataTable } from "../../_components/DataTable";

@@ -19,6 +19,7 @@ export default defineConfig({
     "./src/schema/subscription.ts",
     "./src/schema/payment-method.ts",
     "./src/schema/company-admin-history.ts",
+    "./src/schema/company-admin.ts",
   ],
   out: "./migrations",
   dialect: "postgresql",

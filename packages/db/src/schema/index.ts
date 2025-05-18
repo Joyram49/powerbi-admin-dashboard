@@ -2,6 +2,7 @@ import { relations } from "drizzle-orm";
 
 import { billings } from "./billing";
 import { companies } from "./company";
+import { companyAdmins } from "./company-admin";
 import { companyAdminHistory } from "./company-admin-history";
 import { loginAttempts } from "./login-attempts";
 import { mouseActivities } from "./mouse-activity";
@@ -16,6 +17,7 @@ import { userSessions } from "./userSessions";
 
 export * from "./billing";
 export * from "./company";
+export * from "./company-admin";
 export * from "./company-admin-history";
 export * from "./login-attempts";
 export * from "./mouse-activity";
@@ -36,19 +38,29 @@ export const userRelations = relations(users, ({ one, many }) => ({
   }),
   posts: many(posts), // A user can have multiple posts
   userReports: many(userReports),
+  adminCompanies: many(companyAdmins), // New relation for admin companies
 }));
 
 // Company relations
-export const companyRelations = relations(companies, ({ one, many }) => ({
-  admin: one(users, {
-    fields: [companies.companyAdminId],
-    references: [users.id],
-  }),
+export const companyRelations = relations(companies, ({ many }) => ({
   adminHistory: many(companyAdminHistory),
   employees: many(users),
   billings: many(billings),
   subscriptions: many(subscriptions),
   paymentMethods: many(paymentMethods),
+  admins: many(companyAdmins), // New relation for company admins
+}));
+
+// Company Admin relations
+export const companyAdminRelations = relations(companyAdmins, ({ one }) => ({
+  company: one(companies, {
+    fields: [companyAdmins.companyId],
+    references: [companies.id],
+  }),
+  user: one(users, {
+    fields: [companyAdmins.userId],
+    references: [users.id],
+  }),
 }));
 
 // Post relations

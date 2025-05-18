@@ -2,7 +2,8 @@
 
 import { useCallback, useState } from "react";
 
-import type { ReportType } from "../../super-admin/reports/_components/ReportForm";
+import type { ReportType } from "@acme/db/schema";
+
 import { useDebounce } from "~/hooks/useDebounce";
 import { api } from "~/trpc/react";
 import { DataTable } from "../../_components/DataTable";

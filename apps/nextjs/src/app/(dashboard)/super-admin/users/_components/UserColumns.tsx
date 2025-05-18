@@ -1,7 +1,7 @@
 "use client";
 
 import type { Column, ColumnDef, Row, Table } from "@tanstack/react-table";
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { ArrowUpDown, UserPlus } from "lucide-react";
 

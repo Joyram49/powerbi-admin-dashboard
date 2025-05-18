@@ -10,11 +10,9 @@ export interface Company {
   modifiedBy: string | null;
   employeeCount: number;
   reportCount: number;
-  admin: {
+  admins: {
     id: string;
     userName: string;
     email: string;
-    phone?: string;
-    companyAdminId?: string;
-  };
+  }[];
 }

@@ -1,20 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
-import { Check, ChevronsUpDown, Loader2, Save, X } from "lucide-react";
+import { Loader2, Save } from "lucide-react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
+import type { User } from "@acme/db/schema";
 import { Button } from "@acme/ui/button";
-import {
-  Command,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@acme/ui/command";
 import {
   Form,
   FormControl,
@@ -23,26 +17,10 @@ import {
   FormLabel,
   FormMessage,
 } from "@acme/ui/form";
-import { Popover, PopoverContent, PopoverTrigger } from "@acme/ui/popover";
 import { toast } from "@acme/ui/toast";
 
 import { MultiSelect } from "~/app/(dashboard)/_components/MultiSelect";
 import { api } from "~/trpc/react";
-
-interface User {
-  id: string;
-  userName: string;
-  email: string;
-  status: "active" | "inactive" | null;
-  modifiedBy: string | null;
-  companyId: string | null;
-  role: "user" | "superAdmin" | "admin";
-  dateCreated: Date;
-  lastLogin: Date | null;
-  company: {
-    companyName: string;
-  } | null;
-}
 
 interface UserOption {
   value: string;
@@ -74,7 +52,6 @@ export default function AdminReportForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
-  const initialFormSetRef = useRef(false);
 
   // Setup form with defaults
   const form = useForm<z.infer<typeof formSchema>>({
@@ -85,7 +62,7 @@ export default function AdminReportForm({
   });
 
   // Fetch users for the company
-  const { data: usersData, isLoading } = api.user.getUsersByCompanyId.useQuery({
+  const { data: usersData } = api.user.getUsersByCompanyId.useQuery({
     companyId: initialData.companyId,
     limit: 100,
     page: 1,

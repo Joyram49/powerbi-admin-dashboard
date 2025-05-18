@@ -10,7 +10,6 @@
 
 ## Installation
 
-
 > [!NOTE]
 >
 > Make sure to follow the system requirements specified in [`package.json#engines`](./package.json#L4) before proceeding.
@@ -281,3 +280,341 @@ npm run -w @acme/db push
 The stack originates from [create-t3-app](https://github.com/tinycor/create-t3-app).
 
 A [blog post](https://jumr.dev/blog/t3-turbo) where I wrote how to migrate a T3 app into this.
+
+```
+tiny-t3-turbo
+├─ .npmrc
+├─ .nvmrc
+├─ apps
+│  ├─ auth-proxy
+│  │  ├─ eslint.config.js
+│  │  ├─ package.json
+│  │  ├─ README.md
+│  │  ├─ routes
+│  │  │  └─ r
+│  │  │     └─ [...auth].ts
+│  │  ├─ tsconfig.json
+│  │  └─ turbo.json
+│  ├─ expo
+│  │  ├─ .expo-shared
+│  │  │  └─ assets.json
+│  │  ├─ app.config.ts
+│  │  ├─ assets
+│  │  │  └─ icon.png
+│  │  ├─ babel.config.js
+│  │  ├─ eas.json
+│  │  ├─ eslint.config.mjs
+│  │  ├─ index.ts
+│  │  ├─ metro.config.js
+│  │  ├─ package.json
+│  │  ├─ src
+│  │  │  ├─ app
+│  │  │  │  ├─ index.tsx
+│  │  │  │  ├─ post
+│  │  │  │  │  └─ [id].tsx
+│  │  │  │  └─ _layout.tsx
+│  │  │  ├─ styles.css
+│  │  │  ├─ types
+│  │  │  │  └─ nativewind-env.d.ts
+│  │  │  └─ utils
+│  │  │     ├─ api.tsx
+│  │  │     ├─ auth.tsx
+│  │  │     ├─ base-url.tsx
+│  │  │     └─ session-store.ts
+│  │  ├─ tailwind.config.ts
+│  │  ├─ tsconfig.json
+│  │  └─ turbo.json
+│  └─ nextjs
+│     ├─ eslint.config.js
+│     ├─ next.config.js
+│     ├─ package.json
+│     ├─ postcss.config.cjs
+│     ├─ public
+│     │  ├─ favicon.ico
+│     │  ├─ joc-logo-color.png
+│     │  ├─ joc-logo.png
+│     │  └─ t3-icon.svg
+│     ├─ README.md
+│     ├─ src
+│     │  ├─ app
+│     │  │  ├─ (auth)
+│     │  │  │  ├─ forgot-password
+│     │  │  │  │  └─ page.tsx
+│     │  │  │  ├─ layout.tsx
+│     │  │  │  ├─ login
+│     │  │  │  │  └─ page.tsx
+│     │  │  │  ├─ register
+│     │  │  │  │  └─ page.tsx
+│     │  │  │  ├─ reset-password
+│     │  │  │  │  └─ page.tsx
+│     │  │  │  ├─ verify-otp
+│     │  │  │  │  └─ page.tsx
+│     │  │  │  └─ _components
+│     │  │  │     ├─ AuthFooter.tsx
+│     │  │  │     ├─ ForgotPasswordForm.tsx
+│     │  │  │     ├─ SignInForm.tsx
+│     │  │  │     ├─ SignUp.tsx
+│     │  │  │     ├─ TokenVerifyForm.tsx
+│     │  │  │     └─ UpdatePasswordForm.tsx
+│     │  │  ├─ (dashboard)
+│     │  │  │  ├─ admin
+│     │  │  │  │  ├─ page.tsx
+│     │  │  │  │  └─ reports
+│     │  │  │  │     ├─ page.tsx
+│     │  │  │  │     └─ _components
+│     │  │  │  │        └─ ReportColumns.tsx
+│     │  │  │  ├─ layout.tsx
+│     │  │  │  ├─ super-admin
+│     │  │  │  │  ├─ billing
+│     │  │  │  │  │  └─ page.tsx
+│     │  │  │  │  ├─ change-password
+│     │  │  │  │  │  └─ page.tsx
+│     │  │  │  │  ├─ layout.tsx
+│     │  │  │  │  ├─ page.tsx
+│     │  │  │  │  ├─ reports
+│     │  │  │  │  │  ├─ page.tsx
+│     │  │  │  │  │  └─ _components
+│     │  │  │  │  │     ├─ add-report-form.tsx
+│     │  │  │  │  │     ├─ ReportColumns.tsx
+│     │  │  │  │  │     ├─ ReportForm.tsx
+│     │  │  │  │  │     ├─ ReportModal.tsx
+│     │  │  │  │  │     └─ update-report-form.tsx
+│     │  │  │  │  ├─ settings
+│     │  │  │  │  │  └─ page.tsx
+│     │  │  │  │  ├─ users
+│     │  │  │  │  │  ├─ page.tsx
+│     │  │  │  │  │  └─ _components
+│     │  │  │  │  │     ├─ UserColumns.tsx
+│     │  │  │  │  │     ├─ UserForm.tsx
+│     │  │  │  │  │     └─ UserModal.tsx
+│     │  │  │  │  └─ _components
+│     │  │  │  │     ├─ CompanyColumns.tsx
+│     │  │  │  │     ├─ CompanyForm.tsx
+│     │  │  │  │     ├─ CompanyModal.tsx
+│     │  │  │  │     ├─ report-metrics
+│     │  │  │  │     │  ├─ active-accounts.tsx
+│     │  │  │  │     │  ├─ error-card.tsx
+│     │  │  │  │     │  ├─ report-metrics.tsx
+│     │  │  │  │     │  ├─ skeleton-card.tsx
+│     │  │  │  │     │  ├─ total-reports-card.tsx
+│     │  │  │  │     │  ├─ total-users-card.tsx
+│     │  │  │  │     │  └─ user-engagement.tsx
+│     │  │  │  │     └─ SuperAdminTab.tsx
+│     │  │  │  ├─ user
+│     │  │  │  │  ├─ page.tsx
+│     │  │  │  │  └─ _components
+│     │  │  │  │     └─ ReportColumns.tsx
+│     │  │  │  └─ _components
+│     │  │  │     ├─ DataTable.tsx
+│     │  │  │     ├─ EntityActions.tsx
+│     │  │  │     ├─ Header.tsx
+│     │  │  │     ├─ MultiSelect.tsx
+│     │  │  │     ├─ Pagination.tsx
+│     │  │  │     ├─ ReportViewer.tsx
+│     │  │  │     ├─ Sidebar.tsx
+│     │  │  │     └─ SidebarTrigger.tsx
+│     │  │  ├─ api
+│     │  │  │  ├─ auth
+│     │  │  │  │  └─ confirm
+│     │  │  │  │     └─ route.ts
+│     │  │  │  ├─ track
+│     │  │  │  │  └─ session
+│     │  │  │  │     └─ [id]
+│     │  │  │  │        └─ route.ts
+│     │  │  │  ├─ trpc
+│     │  │  │  │  └─ [trpc]
+│     │  │  │  │     └─ route.ts
+│     │  │  │  └─ webhooks
+│     │  │  │     └─ stripe
+│     │  │  │        └─ route.ts
+│     │  │  ├─ cancel
+│     │  │  │  └─ page.tsx
+│     │  │  ├─ error.tsx
+│     │  │  ├─ globals.css
+│     │  │  ├─ layout.tsx
+│     │  │  └─ success
+│     │  │     └─ page.tsx
+│     │  ├─ components
+│     │  │  └─ ActivityTracker.tsx
+│     │  ├─ env.ts
+│     │  ├─ hooks
+│     │  │  ├─ useActivityTracking.ts
+│     │  │  ├─ useDebounce.ts
+│     │  │  └─ useSessionActivity.ts
+│     │  ├─ middleware.ts
+│     │  ├─ server
+│     │  │  └─ api
+│     │  │     └─ routers
+│     │  ├─ trpc
+│     │  │  ├─ query-client.ts
+│     │  │  ├─ react.tsx
+│     │  │  └─ server.ts
+│     │  ├─ types
+│     │  │  └─ company.ts
+│     │  └─ utils
+│     │     ├─ formatDuration.ts
+│     │     ├─ routes.ts
+│     │     └─ supabase
+│     │        └─ middleware.ts
+│     ├─ tailwind.config.ts
+│     ├─ tsconfig.json
+│     ├─ turbo.json
+│     └─ types
+│        └─ next-types.d.ts
+├─ changes.md
+├─ LICENSE
+├─ package.json
+├─ packages
+│  ├─ api
+│  │  ├─ env.ts
+│  │  ├─ eslint.config.js
+│  │  ├─ package.json
+│  │  ├─ src
+│  │  │  ├─ index.ts
+│  │  │  ├─ root.ts
+│  │  │  ├─ router
+│  │  │  │  ├─ auth.ts
+│  │  │  │  ├─ billing.ts
+│  │  │  │  ├─ company.ts
+│  │  │  │  ├─ payment-method.ts
+│  │  │  │  ├─ post.ts
+│  │  │  │  ├─ report.ts
+│  │  │  │  ├─ session.ts
+│  │  │  │  ├─ stripe.ts
+│  │  │  │  ├─ subscription.ts
+│  │  │  │  └─ user.ts
+│  │  │  ├─ trpc.ts
+│  │  │  └─ utils
+│  │  │     └─ tierProducts.ts
+│  │  └─ tsconfig.json
+│  ├─ auth
+│  │  ├─ env.ts
+│  │  ├─ eslint.config.js
+│  │  ├─ package.json
+│  │  ├─ src
+│  │  │  └─ index.ts
+│  │  └─ tsconfig.json
+│  ├─ db
+│  │  ├─ drizzle.config.ts
+│  │  ├─ env.ts
+│  │  ├─ eslint.config.js
+│  │  ├─ migrations
+│  │  ├─ package.json
+│  │  ├─ src
+│  │  │  ├─ index.ts
+│  │  │  ├─ schema
+│  │  │  │  ├─ billing.ts
+│  │  │  │  ├─ company-admin-history.ts
+│  │  │  │  ├─ company.ts
+│  │  │  │  ├─ index.ts
+│  │  │  │  ├─ login-attempts.ts
+│  │  │  │  ├─ mouse-activity.ts
+│  │  │  │  ├─ payment-method.ts
+│  │  │  │  ├─ post.ts
+│  │  │  │  ├─ report-metrics.ts
+│  │  │  │  ├─ report.ts
+│  │  │  │  ├─ subscription.ts
+│  │  │  │  ├─ user.ts
+│  │  │  │  ├─ userReports.ts
+│  │  │  │  └─ userSessions.ts
+│  │  │  └─ supabase
+│  │  │     ├─ client.ts
+│  │  │     ├─ dbConnect.ts
+│  │  │     └─ server.ts
+│  │  └─ tsconfig.json
+│  ├─ ui
+│  │  ├─ components.json
+│  │  ├─ eslint.config.js
+│  │  ├─ hooks
+│  │  │  └─ use-mobile.tsx
+│  │  ├─ package.json
+│  │  ├─ src
+│  │  │  ├─ accordion.tsx
+│  │  │  ├─ alert-dialog.tsx
+│  │  │  ├─ alert.tsx
+│  │  │  ├─ avatar.tsx
+│  │  │  ├─ badge.tsx
+│  │  │  ├─ breadcrumb.tsx
+│  │  │  ├─ button.tsx
+│  │  │  ├─ calendar.tsx
+│  │  │  ├─ card.tsx
+│  │  │  ├─ carousel.tsx
+│  │  │  ├─ chart.tsx
+│  │  │  ├─ checkbox.tsx
+│  │  │  ├─ command.tsx
+│  │  │  ├─ dialog.tsx
+│  │  │  ├─ dropdown-menu.tsx
+│  │  │  ├─ form.tsx
+│  │  │  ├─ hover-card.tsx
+│  │  │  ├─ index.ts
+│  │  │  ├─ input-otp.tsx
+│  │  │  ├─ input.tsx
+│  │  │  ├─ label.tsx
+│  │  │  ├─ navigation-menu.tsx
+│  │  │  ├─ pagination.tsx
+│  │  │  ├─ popover.tsx
+│  │  │  ├─ progress.tsx
+│  │  │  ├─ scroll-area.tsx
+│  │  │  ├─ select.tsx
+│  │  │  ├─ separator.tsx
+│  │  │  ├─ sheet.tsx
+│  │  │  ├─ sidebar.tsx
+│  │  │  ├─ skeleton.tsx
+│  │  │  ├─ sonner.tsx
+│  │  │  ├─ switch.tsx
+│  │  │  ├─ table.tsx
+│  │  │  ├─ tabs.tsx
+│  │  │  ├─ textarea.tsx
+│  │  │  ├─ theme.tsx
+│  │  │  ├─ toast.tsx
+│  │  │  ├─ toggle.tsx
+│  │  │  └─ tooltip.tsx
+│  │  ├─ tsconfig.json
+│  │  └─ unused.css
+│  └─ validators
+│     ├─ eslint.config.js
+│     ├─ package.json
+│     ├─ src
+│     │  └─ index.ts
+│     └─ tsconfig.json
+├─ pnpm-lock.yaml
+├─ pnpm-workspace.yaml
+├─ README.md
+├─ tooling
+│  ├─ eslint
+│  │  ├─ base.js
+│  │  ├─ nextjs.js
+│  │  ├─ package.json
+│  │  ├─ react.js
+│  │  ├─ tsconfig.json
+│  │  └─ types.d.ts
+│  ├─ github
+│  │  ├─ package.json
+│  │  └─ setup
+│  │     └─ action.yml
+│  ├─ prettier
+│  │  ├─ index.js
+│  │  ├─ package.json
+│  │  └─ tsconfig.json
+│  ├─ tailwind
+│  │  ├─ base.ts
+│  │  ├─ eslint.config.js
+│  │  ├─ native.ts
+│  │  ├─ package.json
+│  │  ├─ tsconfig.json
+│  │  └─ web.ts
+│  └─ typescript
+│     ├─ base.json
+│     ├─ internal-package.json
+│     └─ package.json
+├─ trigger.txt
+├─ turbo
+│  └─ generators
+│     ├─ config.ts
+│     └─ templates
+│        ├─ eslint.config.js.hbs
+│        ├─ package.json.hbs
+│        └─ tsconfig.json.hbs
+└─ turbo.json
+
+```

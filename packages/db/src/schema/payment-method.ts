@@ -7,6 +7,7 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
+import { z } from "zod";
 
 import { companies } from "./company";
 
@@ -34,5 +35,45 @@ export const paymentMethods = pgTable("payment_methods", {
     .notNull()
     .defaultNow(),
 });
+
+export const paymentMethodRouterSchema = {
+  createPaymentMethod: z.object({
+    stripePaymentMethodId: z.string(),
+    companyId: z.string().uuid(),
+    stripeCustomerId: z.string().optional(),
+    type: z.string(),
+    last4: z.string(),
+    brand: z.string(),
+    expMonth: z.number(),
+    expYear: z.number(),
+    isDefault: z.boolean().default(false),
+  }),
+
+  getPaymentMethods: z.object({
+    companyId: z.string().uuid(),
+  }),
+
+  getPaymentMethodById: z.object({
+    id: z.string().uuid(),
+  }),
+
+  updatePaymentMethod: z.object({
+    id: z.string().uuid(),
+    isDefault: z.boolean().optional(),
+  }),
+
+  deletePaymentMethod: z.object({
+    id: z.string().uuid(),
+  }),
+
+  getDefaultPaymentMethod: z.object({
+    companyId: z.string().uuid(),
+  }),
+
+  getPaymentMethodsByType: z.object({
+    companyId: z.string().uuid(),
+    type: z.string(),
+  }),
+};
 
 export type PaymentMethod = typeof paymentMethods.$inferSelect;

@@ -5,10 +5,10 @@ import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowUpDown, ExternalLinkIcon } from "lucide-react";
 
+import type { ReportType } from "@acme/db/schema";
 import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
 
-import type { ReportType } from "~/app/(dashboard)/super-admin/reports/_components/ReportForm";
 import { EntityActions } from "~/app/(dashboard)/_components/EntityActions";
 import ReportViewer from "~/app/(dashboard)/_components/ReportViewer";
 import { api } from "~/trpc/react";
@@ -163,7 +163,7 @@ export function useReportColumns() {
           <div className="text-center font-medium"># Report Views</div>
         ),
         cell: ({ row }) => (
-          <div className="text-center">{row.original.accessCount ?? 0}</div>
+          <div className="text-center">{row.original.accessCount || 0}</div>
         ),
       },
       {
