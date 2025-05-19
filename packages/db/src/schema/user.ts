@@ -299,6 +299,9 @@ export const userRouterSchema = {
   }),
   getUsersByReportId: z.object({
     reportId: z.string().uuid(),
+    page: z.number().optional().default(1),
+    limit: z.number().optional().default(10),
+    searched: z.string().optional().default(""),
   }),
   updateUser: updateUserSchema,
   deleteUser: z.object({

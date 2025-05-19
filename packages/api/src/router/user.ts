@@ -515,9 +515,15 @@ export const userRouter = createTRPCRouter({
             user: {
               columns: {
                 passwordHistory: false,
-                modifiedBy: false,
                 isSuperAdmin: false,
-                role: false,
+              },
+              with: {
+                company: {
+                  columns: {
+                    id: true,
+                    companyName: true,
+                  },
+                },
               },
             },
           },

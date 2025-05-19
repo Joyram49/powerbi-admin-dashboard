@@ -2,12 +2,19 @@
 
 import type { Column, ColumnDef, Row, Table } from "@tanstack/react-table";
 import { useCallback, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowUpDown, ExternalLinkIcon } from "lucide-react";
 
 import type { ReportType } from "@acme/db/schema";
 import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
 import { Checkbox } from "@acme/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@acme/ui/dialog";
 
 import { EntityActions } from "~/app/(dashboard)/_components/EntityActions";
 import ReportViewer from "~/app/(dashboard)/_components/ReportViewer";
@@ -21,7 +28,7 @@ interface TableMeta {
 }
 
 export function useReportColumns() {
-  // Hook calls inside the custom hook
+  const router = useRouter();
   const utils = api.useUtils();
   const deleteMutation = api.report.deleteReport.useMutation();
 
@@ -76,12 +83,11 @@ export function useReportColumns() {
         accessorKey: "id",
         header: () => <div className="text-left font-medium">Report ID</div>,
         cell: ({ row }) => {
-          const { id, reportId } = row.original;
-          const displayId = id || reportId;
+          const { id } = row.original;
           return (
             <div className="text-left">
-              <span className="hidden xl:inline">{displayId}</span>
-              <span className="xl:hidden">{displayId?.slice(0, 10)}...</span>
+              <span className="hidden xl:inline">{id}</span>
+              <span className="xl:hidden">{id.slice(0, 10)}...</span>
             </div>
           );
         },
@@ -96,6 +102,7 @@ export function useReportColumns() {
           table: Table<ReportType>;
         }) => {
           const { sorting } = table.options.meta as TableMeta;
+
           return (
             <Button
               variant="ghost"
@@ -146,10 +153,19 @@ export function useReportColumns() {
         ),
       },
       {
-        accessorKey: "userCount",
+        id: "userCount",
+        accessorKey: "userCounts",
         header: () => <div className="text-center font-medium"># Users</div>,
         cell: ({ row }) => (
-          <div className="text-center">{row.original.userCounts ?? 0}</div>
+          <Button
+            variant="link"
+            className="border border-slate-200 bg-gray-100 text-center hover:border-primary/90 dark:border-slate-700 dark:bg-gray-800 dark:hover:bg-gray-700"
+            onClick={() => {
+              router.push(`/super-admin/users?reportId=${row.original.id}`);
+            }}
+          >
+            {row.original.userCounts || 0}
+          </Button>
         ),
       },
       {
@@ -225,6 +241,7 @@ export function useReportColumns() {
         ),
         cell: ({ row }) => {
           const status = row.original.status;
+          console.log(row.original);
           return (
             <Badge
               variant={status === "active" ? "success" : "destructive"}
@@ -288,7 +305,14 @@ export function useReportColumns() {
     ];
 
     return columns;
-  }, [deleteMutation, utils, isEditModalOpen, reportToEdit, openReportDialog]);
+  }, [
+    deleteMutation,
+    utils,
+    isEditModalOpen,
+    reportToEdit,
+    openReportDialog,
+    router,
+  ]);
 
   return {
     columns,

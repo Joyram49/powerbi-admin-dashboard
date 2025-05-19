@@ -93,7 +93,7 @@ export const reportRouterSchema = {
     reportId: z.string().uuid(),
     userIds: z.array(z.string().uuid()),
   }),
-  increamentReportViews: z.object({
+  incrementReportView: z.object({
     reportId: z.string().uuid(),
   }),
   deleteReport: z.object({
@@ -112,7 +112,7 @@ export interface ReportType {
   status: "active" | "inactive" | null;
   reportUrl: string;
   accessCount: number;
-  userCount: number;
+  userCounts: number;
   company: {
     id: string;
     companyName: string;

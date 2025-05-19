@@ -9,11 +9,12 @@ import { useDebounce } from "~/hooks/useDebounce";
 import { api } from "~/trpc/react";
 import { DataTable } from "../../_components/DataTable";
 import useUserColumns from "./_components/UserColumns";
-import UserModal from "./_components/UserModal"; // Import your user modal button
+import UserModal from "./_components/UserModal";
 
 export default function UsersPage() {
   const searchParams = useSearchParams();
   const companyId = searchParams.get("companyId");
+  const reportId = searchParams.get("reportId");
 
   const [pagination, setPagination] = useState({
     page: 1,
@@ -31,25 +32,31 @@ export default function UsersPage() {
 
   const [pageTitle, setPageTitle] = useState("All Users");
 
-  // Set page title based on if we're filtering by company
+  // Set page title based on if we're filtering by company or report
   useEffect(() => {
-    if (companyId) {
+    if (reportId) {
+      setPageTitle("Report Users");
+    } else if (companyId) {
       setPageTitle("Company Users");
-      // If we have a company filter, we likely want to see general users
       setUserType("general");
     } else {
       setPageTitle("All Users");
     }
-  }, [companyId]);
+  }, [companyId, reportId]);
 
-  // Determine which queries should be enabled based on user role
+  // If we have a reportId, fetch report users
+  const { data: reportUsersData } = api.user.getUsersByReportId.useQuery(
+    { reportId: reportId ?? "" },
+    { enabled: !!reportId },
+  );
+
+  // Determine which queries should be enabled based on user role and filters
   const isSuperAdmin = userRole === "superAdmin";
   const isAdmin = userRole === "admin";
 
   // Set defaults based on role
   useState(() => {
     if (isAdmin) {
-      // If admin, default to admin users
       setUserType("admin");
     }
   });
@@ -64,7 +71,7 @@ export default function UsersPage() {
         searched: debouncedSearch,
       },
       {
-        enabled: !!companyId,
+        enabled: !!companyId && !reportId,
       },
     );
 
@@ -78,7 +85,7 @@ export default function UsersPage() {
         sortBy,
       },
       {
-        enabled: isSuperAdmin && userType === "all" && !companyId,
+        enabled: isSuperAdmin && userType === "all" && !companyId && !reportId,
       },
     );
 
@@ -93,7 +100,10 @@ export default function UsersPage() {
       },
       {
         enabled:
-          (isSuperAdmin || isAdmin) && userType === "admin" && !companyId,
+          (isSuperAdmin || isAdmin) &&
+          userType === "admin" &&
+          !companyId &&
+          !reportId,
       },
     );
 
@@ -108,13 +118,18 @@ export default function UsersPage() {
       },
       {
         enabled:
-          (isSuperAdmin || isAdmin) && userType === "general" && !companyId,
+          (isSuperAdmin || isAdmin) &&
+          userType === "general" &&
+          !companyId &&
+          !reportId,
       },
     );
 
   // Determine which data to use
   const userData = (() => {
-    if (companyId && companyUsersData) {
+    if (reportId && reportUsersData?.data) {
+      return reportUsersData.data;
+    } else if (companyId && companyUsersData) {
       return companyUsersData.users;
     } else if (userType === "all" && allUsersData) {
       return allUsersData.data;
@@ -127,7 +142,9 @@ export default function UsersPage() {
   })();
 
   const totalItems = (() => {
-    if (companyId && companyUsersData) {
+    if (reportId && reportUsersData?.data) {
+      return reportUsersData.data.length;
+    } else if (companyId && companyUsersData) {
       return companyUsersData.total;
     } else if (userType === "all" && allUsersData) {
       return allUsersData.total;
@@ -140,7 +157,9 @@ export default function UsersPage() {
   })();
 
   const pageLimit = (() => {
-    if (companyId && companyUsersData) {
+    if (reportId) {
+      return pagination.limit;
+    } else if (companyId && companyUsersData) {
       return companyUsersData.limit;
     } else if (userType === "all" && allUsersData) {
       return allUsersData.limit;
@@ -182,8 +201,8 @@ export default function UsersPage() {
     <div className="container mx-auto w-full max-w-[98%] p-6">
       <h1 className="mb-6 text-2xl font-bold">{pageTitle}</h1>
 
-      {/* User type selector - hide if filtering by company */}
-      {!companyId && (
+      {/* User type selector - hide if filtering by company or report */}
+      {!companyId && !reportId && (
         <div className="mb-4 flex gap-2">
           <Button
             onClick={() => setUserType("all")}
@@ -239,7 +258,9 @@ export default function UsersPage() {
         }}
         isLoading={isLoading}
         placeholder="Search by user email..."
-        actionButton={<UserModal companyId={companyId ?? undefined} />}
+        actionButton={
+          !reportId && <UserModal companyId={companyId ?? undefined} />
+        }
         pageSize={pagination.limit}
         pageSizeOptions={[10, 20, 50, 100]}
       />

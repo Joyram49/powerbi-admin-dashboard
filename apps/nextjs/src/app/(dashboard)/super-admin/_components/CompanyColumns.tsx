@@ -240,7 +240,7 @@ export function useCompanyColumns() {
                   { label: "Copy Company ID", field: "id" },
                   {
                     label: "Copy Company Admin ID",
-                    field: (entity) => entity.admins[0]?.id,
+                    field: (entity) => entity.admins[0]?.id ?? "",
                   },
                 ]}
                 editAction={{

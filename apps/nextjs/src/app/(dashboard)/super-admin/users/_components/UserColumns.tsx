@@ -2,6 +2,7 @@
 
 import type { Column, ColumnDef, Row, Table } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { ArrowUpDown, UserPlus } from "lucide-react";
 
@@ -35,7 +36,7 @@ export function useUserColumns() {
 
   const { data: profileData } = api.auth.getProfile.useQuery();
   const currentUserId = profileData?.user?.id;
-
+  const router = useRouter();
   return useMemo(() => {
     const columns: ColumnDef<User>[] = [
       {
@@ -186,7 +187,9 @@ export function useUserColumns() {
           );
         },
         cell: ({ row }) => {
-          return format(new Date(row.original.dateCreated), "MMM dd, yyyy");
+          const dateCreated = row.original.dateCreated;
+
+          return format(new Date(dateCreated), "MMM dd, yyyy");
         },
       },
       {
@@ -291,6 +294,7 @@ export function useUserColumns() {
                     await utils.user.getAdminUsers.invalidate();
                     await utils.user.getAllGeneralUser.invalidate();
                     await utils.user.getUsersByCompanyId.invalidate();
+                    await utils.user.getUsersByReportId.invalidate();
                   }}
                 />
               )}

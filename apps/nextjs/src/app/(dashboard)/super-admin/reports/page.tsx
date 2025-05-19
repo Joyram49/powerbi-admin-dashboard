@@ -59,7 +59,7 @@ export default function ReportsDashboard() {
     );
 
   // If no companyId, use the general report API
-  const { data: reportData, isLoading: isLoadingAllReports } =
+  const { data: allReportsData, isLoading: isLoadingAllReports } =
     api.report.getAllReports.useQuery(
       {
         searched: debouncedSearch,
@@ -75,13 +75,13 @@ export default function ReportsDashboard() {
   // Determine which data to use
   const reports = companyId
     ? (companyReportData?.reports ?? [])
-    : (reportData?.data ?? []);
+    : (allReportsData?.data ?? []);
   const total = companyId
     ? (companyReportData?.total ?? 0)
-    : (reportData?.total ?? 0);
+    : (allReportsData?.total ?? 0);
   const pageLimit = companyId
     ? (companyReportData?.limit ?? pagination.limit)
-    : (reportData?.limit ?? pagination.limit);
+    : (allReportsData?.limit ?? pagination.limit);
   const isLoading = companyId ? isLoadingCompanyReports : isLoadingAllReports;
 
   const handleSearchChange = useCallback((value: string) => {

@@ -104,7 +104,6 @@ export const reportRouter = createTRPCRouter({
           columns: {
             companyId: false,
           },
-          where: and(...whereConditions),
           with: {
             company: {
               columns: {
@@ -119,6 +118,7 @@ export const reportRouter = createTRPCRouter({
                 "user_counts",
               ),
           },
+          where: and(...whereConditions),
           orderBy: orderByCondition,
           limit,
           offset: (page - 1) * limit,
@@ -364,7 +364,7 @@ export const reportRouter = createTRPCRouter({
             status: reports.status,
             reportUrl: reports.reportUrl,
             accessCount: reports.accessCount,
-            userCount: db.$count(
+            userCounts: db.$count(
               userReports,
               eq(userReports.reportId, reports.id),
             ),
@@ -622,9 +622,9 @@ export const reportRouter = createTRPCRouter({
       }
     }),
 
-  // this is the route for the admin and user to increament report view by report id
-  increamentReportView: protectedProcedure
-    .input(reportRouterSchema.increamentReportViews)
+  // this is the route for the admin and user to increment report view by report id
+  incrementReportView: protectedProcedure
+    .input(reportRouterSchema.incrementReportView)
     .mutation(async ({ ctx, input }) => {
       if (ctx.session.user.role === "superAdmin") {
         throw new TRPCError({
@@ -692,42 +692,4 @@ export const reportRouter = createTRPCRouter({
         });
       }
     }),
-
-  // Increment report views when a user clicks on the report URL
-  incrementReportViews: protectedProcedure
-    .input(reportRouterSchema.increamentReportViews)
-    .mutation(async ({ input }) => {
-      const { reportId } = input;
-      try {
-        const [updatedReport] = await db
-          .update(reports)
-          .set({
-            accessCount: sql`${reports.accessCount} + 1`,
-            lastModifiedAt: new Date(),
-          })
-          .where(eq(reports.id, reportId))
-          .returning();
-
-  //       if (!updatedReport) {
-  //         throw new TRPCError({
-  //           code: "NOT_FOUND",
-  //           message: "Report not found",
-  //         });
-  //       }
-
-  //       return {
-  //         success: true,
-  //         message: "Report views incremented successfully",
-  //         report: updatedReport,
-  //       };
-  //     } catch (error) {
-  //       if (error instanceof TRPCError) {
-  //         throw error;
-  //       }
-  //       throw new TRPCError({
-  //         code: "INTERNAL_SERVER_ERROR",
-  //         message: String(error),
-  //       });
-  //     }
-  //   }),
 });

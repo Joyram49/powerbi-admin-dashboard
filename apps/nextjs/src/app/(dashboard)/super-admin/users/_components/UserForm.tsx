@@ -242,6 +242,7 @@ export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
       await utils.user.getAdminUsers.invalidate();
       await utils.user.getAllGeneralUser.invalidate();
       await utils.user.getUsersByCompanyId.invalidate();
+      await utils.user.getUsersByReportId.invalidate();
       if (initialData?.role === "admin") {
         await utils.user.getUsersByAdminId.invalidate();
       }
@@ -345,7 +346,7 @@ export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
         companyId: values.companyId,
         userName: values.userName,
         password: values.password,
-        prevCompanyId: initialData?.companyId,
+        prevCompanyId: initialData?.companyId ?? "",
       };
 
       console.log("Updating user:", updateData);

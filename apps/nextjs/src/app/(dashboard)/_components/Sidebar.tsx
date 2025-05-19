@@ -188,7 +188,7 @@ export default function AppSidebar() {
   }
 
   return (
-    <Sidebar className="hidden w-full max-w-64 flex-col bg-slate-900 text-white dark:bg-slate-800 lg:flex">
+    <Sidebar className="hidden w-full max-w-64 flex-col bg-slate-900 text-white dark:bg-slate-800 lg:flex border-gray-200 dark:border-gray-800">
       <div className="flex h-16 items-center justify-between border-b border-slate-800 bg-slate-900 px-4">
         <Link href="/" className="flex items-center">
           <Image
