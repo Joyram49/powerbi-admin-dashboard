@@ -641,6 +641,40 @@ export const companyRouter = createTRPCRouter({
       }
     }),
 
+  // enable company
+  enableACompany: protectedProcedure
+    .input(companyRouterSchema.disable)
+    .mutation(async ({ ctx, input }) => {
+      const { companyId } = input;
+
+      if (ctx.session.user.role !== "superAdmin") {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You are not authorized to enable companies",
+        });
+      }
+
+      try {
+        await db
+          .update(companies)
+          .set({ status: "active" })
+          .where(eq(companies.id, companyId));
+
+        return {
+          success: true,
+          message: "Company enabled successfully",
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: String(error),
+        });
+      }
+    }),
+
   // add company to the company admin history
   addCompanyToCompanyAdminHistory: protectedProcedure
     .input(companyAdminHistorySchema)
