@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Edit, MoreHorizontal, Trash2 } from "lucide-react";
+import { Ban, Edit, MoreHorizontal, Trash2 } from "lucide-react";
 
 import { Button } from "@acme/ui/button";
 import {
@@ -46,6 +46,12 @@ interface EntityActionsProps<T> {
     description?: string;
     confirmLabel?: string;
   };
+  disableAction?: {
+    onDisable: () => Promise<void>;
+    title?: string;
+    description?: string;
+    confirmLabel?: string;
+  };
 }
 
 export function EntityActions<T>({
@@ -56,8 +62,11 @@ export function EntityActions<T>({
   customActions = [],
   editAction,
   deleteAction,
+  disableAction,
 }: EntityActionsProps<T>) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDisableDialogOpen, setIsDisableDialogOpen] = useState(false);
+  const [isDisablePending, setIsDisablePending] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isDeletePending, setIsDeletePending] = useState(false);
   const router = useRouter();
@@ -117,6 +126,37 @@ export function EntityActions<T>({
     }
   };
 
+  const handleDisableClick = () => {
+    setIsDropdownOpen(false);
+    if (disableAction?.onDisable) {
+      setTimeout(() => {
+        setIsDisableDialogOpen(true);
+      }, 100);
+    }
+  };
+
+  const handleDisable = async () => {
+    if (!disableAction) return;
+
+    setIsDisablePending(true);
+    try {
+      await disableAction.onDisable();
+      toast.success(`${entityName} Disabled`, {
+        description: `${entityDisplayName} has been successfully disabled.`,
+      });
+      router.refresh();
+      setIsDisableDialogOpen(false);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "An error occurred";
+      toast.error("Disable Failed", {
+        description:
+          errorMessage || `Failed to disable ${entityName.toLowerCase()}`,
+      });
+    } finally {
+      setIsDisablePending(false);
+    }
+  };
   return (
     <>
       <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
@@ -192,6 +232,17 @@ export function EntityActions<T>({
               Delete | {entityDisplayName}
             </DropdownMenuItem>
           )}
+
+          {/* Disable action */}
+          {disableAction && (
+            <DropdownMenuItem
+              onClick={handleDisableClick}
+              className="cursor-pointer text-red-500 hover:!bg-red-50 dark:text-red-600 dark:hover:!bg-red-900 dark:hover:text-white"
+            >
+              <Ban className="mr-2 h-4 w-4" />
+              Disable | {entityDisplayName}
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -235,6 +286,51 @@ export function EntityActions<T>({
                   {isDeletePending
                     ? "Deleting..."
                     : (deleteAction.confirmLabel ?? "Delete")}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Disable Confirmation Dialog */}
+      {disableAction && isDisableDialogOpen && (
+        <Dialog
+          open={isDisableDialogOpen}
+          onOpenChange={(open) => {
+            if (!open) setIsDisableDialogOpen(false);
+          }}
+        >
+          <DialogContent className="dark:border-gray-700 dark:bg-gray-900">
+            <DialogHeader>
+              <DialogTitle className="dark:text-white">
+                {disableAction.title ?? `Disable ${entityName}`}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="dark:text-gray-200">
+                {disableAction.description ??
+                  `Are you sure you want to disable the ${entityName.toLowerCase()}: `}
+                <strong>{entityDisplayName}</strong>?
+              </p>
+
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsDisableDialogOpen(false)}
+                  className="dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDisable}
+                  disabled={isDisablePending}
+                  className="dark:bg-red-700 dark:hover:bg-red-600"
+                >
+                  {isDisablePending
+                    ? "Disabling..."
+                    : (disableAction.confirmLabel ?? "Disable")}
                 </Button>
               </div>
             </div>

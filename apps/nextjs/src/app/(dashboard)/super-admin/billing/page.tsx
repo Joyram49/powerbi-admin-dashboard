@@ -15,6 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@acme/ui/card";
+import { toast } from "@acme/ui/toast";
 
 import { api } from "~/trpc/react";
 
@@ -88,6 +89,7 @@ export default function BillingPage() {
     },
     onError: (error) => {
       console.error("Error creating checkout session:", error);
+      toast.error(error.message || "Error creating checkout session");
       setLoading(null);
     },
   });
@@ -109,7 +111,7 @@ export default function BillingPage() {
     createCheckout.mutate({
       tier,
       customerEmail: email,
-      companyId: "f640b546-ef23-41d5-b60c-cd06cfbd8b32",
+      companyId: "46105855-ac4d-43b3-baab-650af0b024b4",
       ...(tier === "enterprise" ? { customAmount, customSetupFee } : {}),
     });
   };
@@ -235,25 +237,25 @@ export default function BillingPage() {
 
   const tiers = [
     {
-      id: "data_foundation",
+      id: "data_foundation" as const,
       name: "Data Foundation",
       description: "Essential data management and analytics",
       price: "$200/month + $500 setup fee",
     },
     {
-      id: "insight_accelerator",
+      id: "insight_accelerator" as const,
       name: "Insight Accelerator",
       description: "Advanced analytics and reporting",
       price: "$300/month + $800 setup fee",
     },
     {
-      id: "strategic_navigator",
+      id: "strategic_navigator" as const,
       name: "Strategic Navigator",
       description: "Full analytics suite with strategic insights",
       price: "$600/month + $1,500 setup fee",
     },
     {
-      id: "enterprise",
+      id: "enterprise" as const,
       name: "Enterprise",
       description: "Custom solutions for large organizations",
       price: "Custom pricing",

@@ -23,7 +23,7 @@ interface TableMeta {
 export function useCompanyColumns() {
   // Hook calls inside the custom hook
   const utils = api.useUtils();
-  const deleteMutation = api.company.deleteCompany.useMutation();
+  const disableMutation = api.company.disableACompany.useMutation();
   const router = useRouter();
 
   // State for edit modal
@@ -236,22 +236,17 @@ export function useCompanyColumns() {
                 entity={company}
                 entityName="Company"
                 entityDisplayField="companyName"
-                copyActions={[
-                  { label: "Copy Company ID", field: "id" },
-                  {
-                    label: "Copy Company Admin ID",
-                    field: (entity) => entity.admins[0]?.id ?? "",
-                  },
-                ]}
                 editAction={{
                   onEdit: () => {
                     setCompanyToEdit(company);
                     setIsEditModalOpen(true);
                   },
                 }}
-                deleteAction={{
-                  onDelete: async () => {
-                    await deleteMutation.mutateAsync({ companyId: company.id });
+                disableAction={{
+                  onDisable: async () => {
+                    await disableMutation.mutateAsync({
+                      companyId: company.id,
+                    });
                     await utils.company.getAllCompanies.invalidate();
                   },
                 }}
@@ -278,7 +273,7 @@ export function useCompanyColumns() {
     ];
 
     return columns;
-  }, [deleteMutation, utils, isEditModalOpen, companyToEdit, router]);
+  }, [utils, isEditModalOpen, companyToEdit, router, disableMutation]);
 }
 
 export default useCompanyColumns;

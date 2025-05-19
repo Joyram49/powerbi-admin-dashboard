@@ -28,9 +28,9 @@ export const companies = pgTable("company", {
   lastActivity: timestamp("last_activity", { withTimezone: true }),
   modifiedBy: varchar("modified_by", { length: 255 }),
   numOfEmployees: integer("num_of_employees").notNull().default(0),
-  hasAdditionalUserPurchase: boolean("has_additional_user_purchase").default(
-    false,
-  ),
+  hasAdditionalUserPurchase: boolean("has_additional_user_purchase")
+    .notNull()
+    .default(false),
 });
 
 // Base company schema without adminIds
@@ -149,6 +149,13 @@ export const companyRouterSchema = {
       message: "Company ID must be a valid UUID",
     }),
   }),
+
+  // disable company
+  disable: z.object({
+    companyId: z.string().uuid({
+      message: "Company ID must be a valid UUID",
+    }),
+  }),
 };
 
 // Type for the unified schema
@@ -160,6 +167,7 @@ export interface CompanyRouterInput {
   getByAdminId: z.infer<typeof companyRouterSchema.getByAdminId>;
   update: z.infer<typeof companyRouterSchema.update>;
   delete: z.infer<typeof companyRouterSchema.delete>;
+  disable: z.infer<typeof companyRouterSchema.disable>;
 }
 
 // Types for the schemas

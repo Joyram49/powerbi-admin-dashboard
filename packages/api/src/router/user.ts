@@ -4,9 +4,11 @@ import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, ilike, inArray, ne } from "drizzle-orm";
 
 import {
+  companies,
   companyAdmins,
   createAdminClient,
   db,
+  subscriptions,
   userReports,
   users,
 } from "@acme/db";
@@ -593,6 +595,64 @@ export const userRouter = createTRPCRouter({
           authUpdateData.user_metadata = { userName: input.userName };
         }
         authUpdateData.user_metadata = { role: input.role };
+
+        // Check company status if status is being updated
+        if (input.status) {
+          // If company is not being changed, check prevCompanyId status
+          if (input.companyId === input.prevCompanyId) {
+            if (!input.prevCompanyId) {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message:
+                  "Previous company ID is required when updating user status",
+              });
+            }
+
+            const prevCompany = await db.query.companies.findFirst({
+              where: eq(companies.id, input.prevCompanyId),
+            });
+
+            if (!prevCompany || prevCompany.status !== "active") {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message:
+                  "Cannot update user status: Current company is inactive",
+              });
+            }
+          } else {
+            if (!input.companyId) {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: "Company ID is required when updating user status",
+              });
+            }
+
+            const newCompany = await db.query.companies.findFirst({
+              where: eq(companies.id, input.companyId),
+            });
+
+            if (!newCompany || newCompany.status !== "active") {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: "Cannot update user status: New company is inactive",
+              });
+            }
+          }
+        }
+
+        // check if the companyId has active subscription or not
+        if (input.companyId) {
+          const companySubscription = await db.query.subscriptions.findFirst({
+            where: eq(subscriptions.companyId, input.companyId),
+          });
+
+          if (!companySubscription || companySubscription.status !== "active") {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Cannot update user: Company has no active subscription",
+            });
+          }
+        }
 
         // if the company id isn't same as the present company id, then delete all the user's related reports
         if (input.prevCompanyId !== input.companyId) {

@@ -346,7 +346,7 @@ export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
         companyId: values.companyId,
         userName: values.userName,
         password: values.password,
-        prevCompanyId: initialData?.companyId ?? "",
+        prevCompanyId: initialData?.companyId ?? undefined,
       };
 
       console.log("Updating user:", updateData);

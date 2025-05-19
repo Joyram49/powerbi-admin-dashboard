@@ -10,6 +10,7 @@ export interface Company {
   modifiedBy: string | null;
   employeeCount: number;
   reportCount: number;
+  hasAdditionalUserPurchase: boolean;
   admins: {
     id: string;
     userName: string;

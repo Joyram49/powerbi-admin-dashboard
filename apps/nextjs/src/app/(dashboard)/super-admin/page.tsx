@@ -2,7 +2,9 @@
 
 import { useCallback, useState } from "react";
 
-import type { Company } from "~/types/company"; // Make sure to import the Company type
+// Make sure to import the Company type
+import type { CompanyWithAdmins } from "@acme/db/schema";
+
 import { useDebounce } from "~/hooks/useDebounce";
 import { api } from "~/trpc/react";
 import { DataTable } from "../_components/DataTable";
@@ -45,7 +47,7 @@ export default function SuperDashboard() {
 
   return (
     <div className="container mx-auto w-full max-w-[98%] p-6">
-      <DataTable<Company, unknown, "companyName" | "dateJoined">
+      <DataTable<CompanyWithAdmins, unknown, "companyName" | "dateJoined">
         columns={columns}
         data={companies}
         pagination={{

@@ -167,11 +167,18 @@ export const authRouter = createTRPCRouter({
           });
         }
 
+        if (!user) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to create user in auth system",
+          });
+        }
+
         const hashedPassword = await hash(input.password, 10);
 
         // Insert the user into your custom users table.
         await db.insert(users).values({
-          id: user?.id,
+          id: user.id,
           userName: input.userName ?? input.email,
           email: input.email,
           companyId: input.companyId ?? null,
@@ -204,7 +211,7 @@ export const authRouter = createTRPCRouter({
       try {
         // First, check if the user exists in our database
         const userExists = await db
-          .select({ id: users.id })
+          .select({ id: users.id, status: users.status })
           .from(users)
           .where(eq(users.email, input.email))
           .limit(1);
@@ -214,6 +221,16 @@ export const authRouter = createTRPCRouter({
           throw new TRPCError({
             code: "UNAUTHORIZED",
             message: "Invalid login credentials",
+          });
+        }
+
+        // check if user is not active
+        const isInactive = userExists[0]?.status === "inactive";
+
+        if (isInactive) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "Account is inactive. Please contact your administrator.",
           });
         }
 
