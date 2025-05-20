@@ -101,7 +101,12 @@ export function SignInForm() {
   });
 
   async function onSubmit(data: z.infer<typeof authRouterSchema.signIn>) {
-    await signIn.mutateAsync(data);
+    try {
+      await signIn.mutateAsync(data);
+    } catch (error) {
+      // Error is already handled in the mutation's onError callback
+      console.error("Sign in error:", error);
+    }
   }
 
   return (

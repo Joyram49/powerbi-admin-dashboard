@@ -85,25 +85,29 @@ export function useReportColumns() {
         }) => {
           const { sorting } = table.options.meta as TableMeta;
           return (
-            <Button
-              variant="ghost"
-              onClick={() => {
-                if (sorting?.onSortChange) {
-                  sorting.onSortChange("reportName");
-                } else {
-                  column.toggleSorting(column.getIsSorted() === "asc");
-                }
-              }}
-              className="text-center font-medium"
-            >
-              Report Name
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
+            <div className="flex justify-center">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  if (sorting?.onSortChange) {
+                    sorting.onSortChange("reportName");
+                  } else {
+                    column.toggleSorting(column.getIsSorted() === "asc");
+                  }
+                }}
+                className="text-center font-medium dark:hover:bg-gray-900"
+              >
+                Report Name
+                <ArrowUpDown className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
           );
         },
         cell: ({ row }) => (
-          <div className="text-center font-semibold">
-            {row.original.reportName}
+          <div className="flex justify-center">
+            <div className="text-center font-semibold">
+              {row.original.reportName}
+            </div>
           </div>
         ),
       },
@@ -126,32 +130,22 @@ export function useReportColumns() {
       },
       {
         accessorKey: "company",
-        header: () => <div className="text-center font-medium">Company</div>,
+        header: () => <div className="text-left font-medium">Company</div>,
         cell: ({ row }) => (
-          <div className="text-center">
+          <div className="text-left">
             {row.original.company?.companyName ?? "N/A"}
           </div>
         ),
       },
       {
-        accessorKey: "userCount",
+        id: "userCount",
+        accessorKey: "userCounts",
         header: () => <div className="text-center font-medium"># Users</div>,
         cell: ({ row }) => (
           <Button
             variant="link"
-            className="border bg-gray-100 text-center hover:border-primary/90 dark:bg-gray-800 dark:hover:bg-gray-700"
-            onClick={async () => {
-              try {
-                // Invalidate the users query
-                await utils.user.getAllUsers.invalidate();
-                // Navigate to users page with report filter
-                router.push(
-                  `/admin?reportId=${row.original.id}&companyId=${row.original.company?.id}`,
-                );
-              } catch (error) {
-                console.error("Error navigating to users:", error);
-              }
-            }}
+            className="border border-slate-200 bg-gray-100 text-center hover:border-primary/90 dark:border-slate-700 dark:bg-gray-800 dark:hover:bg-gray-700"
+            onClick={() => router.push(`/admin?reportId=${row.original.id}`)}
           >
             {row.original.userCounts || 0}
           </Button>
@@ -177,26 +171,26 @@ export function useReportColumns() {
         }) => {
           const { sorting } = table.options.meta as TableMeta;
           return (
-            <Button
-              variant="ghost"
-              className="text-center font-medium"
-              onClick={() => {
-                // If sorting is available, use it
-                if (sorting?.onSortChange) {
-                  sorting.onSortChange("dateCreated");
-                } else {
-                  // Fallback to the default column sorting
-                  column.toggleSorting(column.getIsSorted() === "asc");
-                }
-              }}
-            >
-              Created At
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
+            <div className="flex justify-center">
+              <Button
+                variant="ghost"
+                className="text-center font-medium dark:hover:bg-gray-900"
+                onClick={() => {
+                  if (sorting?.onSortChange) {
+                    sorting.onSortChange("dateCreated");
+                  } else {
+                    column.toggleSorting(column.getIsSorted() === "asc");
+                  }
+                }}
+              >
+                Created At
+                <ArrowUpDown className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
           );
         },
         cell: ({ row }) => (
-          <div className="text-center">
+          <div className="flex justify-center">
             {row.original.dateCreated
               ? new Date(row.original.dateCreated).toLocaleDateString()
               : "N/A"}
@@ -206,10 +200,10 @@ export function useReportColumns() {
       {
         accessorKey: "lastModifiedAt",
         header: () => (
-          <div className="text-center font-medium">Last Modified</div>
+          <div className="text-left font-medium">Last Modified</div>
         ),
         cell: ({ row }) => (
-          <div className="text-center">
+          <div className="text-left">
             {row.original.lastModifiedAt
               ? new Date(row.original.lastModifiedAt).toLocaleDateString()
               : "N/A"}
@@ -219,24 +213,30 @@ export function useReportColumns() {
       {
         accessorKey: "status",
         header: ({ column }) => (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            className="text-center font-medium"
-          >
-            Status
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
+          <div className="flex justify-center">
+            <Button
+              variant="ghost"
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
+              className="text-center font-medium dark:hover:bg-gray-900"
+            >
+              Status
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
         ),
         cell: ({ row }) => {
           const status = row.original.status;
           return (
-            <Badge
-              variant={status === "active" ? "success" : "destructive"}
-              className="justify-center"
-            >
-              {(status as string) || "N/A"}
-            </Badge>
+            <div className="flex justify-center">
+              <Badge
+                variant={status === "active" ? "success" : "destructive"}
+                className="justify-center"
+              >
+                {(status as string) || "N/A"}
+              </Badge>
+            </div>
           );
         },
       },
@@ -276,7 +276,7 @@ export function useReportColumns() {
         },
       },
     ];
-  }, [isEditModalOpen, reportToEdit, openReportDialog, router, utils.user]);
+  }, [isEditModalOpen, reportToEdit, openReportDialog, router]);
 
   return {
     columns,

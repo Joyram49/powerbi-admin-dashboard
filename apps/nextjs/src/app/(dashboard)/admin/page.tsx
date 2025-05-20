@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import type { CompanyUser } from "@acme/db/schema";
 import {
@@ -18,6 +19,8 @@ import UserModal from "../super-admin/users/_components/UserModal";
 import { useUserColumns } from "./_components/AdminUserColumns";
 
 export default function AdminPage() {
+  const searchParams = useSearchParams();
+  const reportId = searchParams.get("reportId");
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -70,7 +73,14 @@ export default function AdminPage() {
       },
     );
 
-  const { columns } = useUserColumns();
+  // Fetch users for the specific report
+  const { data: reportUsersData, isLoading: isLoadingReportUsers } =
+    api.user.getUsersByReportId.useQuery(
+      { reportId: reportId ?? "" },
+      { enabled: !!reportId },
+    );
+
+  const { columns, modals } = useUserColumns();
 
   const handleSearchChange = useCallback((value: string) => {
     setSearchInput(value);
@@ -91,49 +101,67 @@ export default function AdminPage() {
     }));
   }, []);
 
-  const transformedUsers = (
-    selectedCompanyId === "all"
-      ? (usersData?.data ?? [])
-      : (companyUsersData?.users ?? [])
-  ).map((user) => ({
-    ...user,
-    isSuperAdmin: user.role === "superAdmin",
-    passwordHistory: [],
-  }));
+  const transformedUsers = (() => {
+    if (reportId && reportUsersData?.data) {
+      return reportUsersData.data.map((user) => ({
+        ...user,
+        isSuperAdmin: user.role === "superAdmin",
+        passwordHistory: [],
+      }));
+    }
+    return (
+      selectedCompanyId === "all"
+        ? (usersData?.data ?? [])
+        : (companyUsersData?.users ?? [])
+    ).map((user) => ({
+      ...user,
+      isSuperAdmin: user.role === "superAdmin",
+      passwordHistory: [],
+    }));
+  })();
 
-  const totalUsers =
-    selectedCompanyId === "all"
+  const totalUsers = (() => {
+    if (reportId && reportUsersData?.data) {
+      return reportUsersData.data.length;
+    }
+    return selectedCompanyId === "all"
       ? (usersData?.total ?? 0)
       : (companyUsersData?.total ?? 0);
+  })();
 
   return (
     <div className="container mx-auto w-full max-w-[98%] p-6">
-      <div className="z-10 mb-4">
-        <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
-          <SelectTrigger className="w-[250px] border-slate-200 dark:border-slate-800">
-            <SelectValue placeholder="All Users" />
-          </SelectTrigger>
-          <SelectContent className="border-slate-200 dark:border-slate-700 dark:bg-slate-800">
-            <SelectItem
-              value="all"
-              className="mb-2 cursor-pointer hover:bg-slate-100 data-[state=checked]:bg-slate-600 dark:hover:bg-slate-700 dark:data-[state=checked]:bg-slate-600"
-            >
-              All Users
-            </SelectItem>
-            {companiesData?.data.map((company) => (
+      {!reportId && (
+        <div className="z-10 mb-4">
+          <Select
+            value={selectedCompanyId}
+            onValueChange={setSelectedCompanyId}
+          >
+            <SelectTrigger className="w-[250px] border-slate-200 dark:border-slate-800">
+              <SelectValue placeholder="All Users" />
+            </SelectTrigger>
+            <SelectContent className="border-slate-200 dark:border-slate-700 dark:bg-slate-800">
               <SelectItem
-                key={company.id}
-                value={company.id}
-                className="cursor-pointer hover:bg-slate-100 data-[state=checked]:bg-slate-600 dark:hover:bg-slate-700 dark:data-[state=checked]:bg-slate-600"
+                value="all"
+                className="mb-2 cursor-pointer hover:bg-slate-100 data-[state=checked]:bg-slate-600 dark:hover:bg-slate-700 dark:data-[state=checked]:bg-slate-600"
               >
-                {company.companyName}
+                All Users
               </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+              {companiesData?.data.map((company) => (
+                <SelectItem
+                  key={company.id}
+                  value={company.id}
+                  className="cursor-pointer hover:bg-slate-100 data-[state=checked]:bg-slate-600 dark:hover:bg-slate-700 dark:data-[state=checked]:bg-slate-600"
+                >
+                  {company.companyName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
-      {isLoading || isLoadingCompanyUsers ? (
+      {isLoading || isLoadingCompanyUsers || isLoadingReportUsers ? (
         <DataTableSkeleton
           columnCount={columns.length}
           rowCount={pagination.limit}
@@ -164,15 +192,13 @@ export default function AdminPage() {
             value: searchInput,
             onChange: handleSearchChange,
           }}
-          isLoading={
-            selectedCompanyId === "all" ? isLoading : isLoadingCompanyUsers
-          }
           placeholder="Search by user email..."
-          actionButton={<UserModal />}
+          actionButton={!reportId && <UserModal />}
           pageSize={pagination.limit}
           pageSizeOptions={[10, 20, 50, 100]}
         />
       )}
+      {modals}
     </div>
   );
 }

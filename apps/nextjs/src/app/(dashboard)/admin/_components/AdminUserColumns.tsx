@@ -100,7 +100,7 @@ export function useUserColumns() {
                   column.toggleSorting(column.getIsSorted() === "asc");
                 }
               }}
-              className="text-left font-medium"
+              className="text-left font-medium dark:hover:bg-gray-900"
             >
               Name
               <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -140,12 +140,12 @@ export function useUserColumns() {
             <Badge
               variant={
                 role === "admin"
-                  ? "secondary"
+                  ? "default"
                   : role === "superAdmin"
                     ? "destructive"
-                    : "outline"
+                    : "secondary"
               }
-              className="justify-center"
+              className="justify-center text-white"
             >
               {role as string}
             </Badge>
@@ -185,24 +185,30 @@ export function useUserColumns() {
         }) => {
           const { sorting } = table.options.meta as TableMeta;
           return (
-            <Button
-              variant="ghost"
-              onClick={() => {
-                if (sorting?.onSortChange) {
-                  sorting.onSortChange("dateCreated");
-                } else {
-                  column.toggleSorting(column.getIsSorted() === "asc");
-                }
-              }}
-              className="text-center font-medium"
-            >
-              Created At
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
+            <div className="flex justify-center">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  if (sorting?.onSortChange) {
+                    sorting.onSortChange("dateCreated");
+                  } else {
+                    column.toggleSorting(column.getIsSorted() === "asc");
+                  }
+                }}
+                className="flex items-center justify-center font-medium hover:bg-slate-100 dark:hover:bg-gray-900"
+              >
+                Created At
+                <ArrowUpDown className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
           );
         },
         cell: ({ row }: { row: Row<CompanyUserType> }) => {
-          return format(new Date(row.original.dateCreated), "MMM dd, yyyy");
+          return (
+            <div className="text-center">
+              {format(new Date(row.original.dateCreated), "MMM dd, yyyy")}
+            </div>
+          );
         },
       },
       {

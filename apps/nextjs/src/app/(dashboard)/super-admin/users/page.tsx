@@ -16,6 +16,11 @@ export default function UsersPage() {
   const searchParams = useSearchParams();
   const companyId = searchParams.get("companyId");
   const reportId = searchParams.get("reportId");
+  const userType = searchParams.get("userType") as
+    | "all"
+    | "admin"
+    | "general"
+    | null;
 
   const [pagination, setPagination] = useState({
     page: 1,
@@ -26,7 +31,9 @@ export default function UsersPage() {
   const [sortBy, setSortBy] = useState<"userName" | "dateCreated">(
     "dateCreated",
   );
-  const [userType, setUserType] = useState<"all" | "admin" | "general">("all");
+  const [userTypeState, setUserTypeState] = useState<
+    "all" | "admin" | "general"
+  >(userType ?? "all");
   const columns = useUserColumns();
   const { data: profileData } = api.auth.getProfile.useQuery();
   const userRole = profileData?.user?.user_metadata.role as string;
@@ -38,31 +45,47 @@ export default function UsersPage() {
     if (reportId) {
       setPageTitle("Report Users");
     } else if (companyId) {
-      setPageTitle("Company Users");
-      setUserType("general");
+      if (userType === "admin") {
+        setPageTitle("Company Admins");
+      } else {
+        setPageTitle("Company Users");
+      }
+      setUserTypeState(userType ?? "general");
     } else {
       setPageTitle("All Users");
     }
-  }, [companyId, reportId]);
+  }, [companyId, reportId, userType]);
 
   // If we have a reportId, fetch report users
-  const { data: reportUsersData } = api.user.getUsersByReportId.useQuery(
-    { reportId: reportId ?? "" },
-    { enabled: !!reportId },
-  );
+  const { data: reportUsersData, isLoading: isLoadingReportUsers } =
+    api.user.getUsersByReportId.useQuery(
+      { reportId: reportId ?? "" },
+      { enabled: !!reportId },
+    );
 
   // Determine which queries should be enabled based on user role and filters
   const isSuperAdmin = userRole === "superAdmin";
   const isAdmin = userRole === "admin";
 
   // Set defaults based on role
-  useState(() => {
+  useEffect(() => {
     if (isAdmin) {
-      setUserType("admin");
+      setUserTypeState("admin");
     }
-  });
+  }, [isAdmin]);
 
-  // Use getUsersByCompanyId when companyId is present
+  // Use getAdminsByCompanyId when companyId is present and userType is admin
+  const { data: companyAdminsData, isLoading: isLoadingCompanyAdmins } =
+    api.user.getAdminsByCompanyId.useQuery(
+      {
+        companyId: companyId ?? "",
+      },
+      {
+        enabled: !!companyId && userType === "admin" && !reportId,
+      },
+    );
+
+  // Use getUsersByCompanyId when companyId is present and userType is not admin
   const { data: companyUsersData, isLoading: isLoadingCompanyUsers } =
     api.user.getUsersByCompanyId.useQuery(
       {
@@ -72,7 +95,7 @@ export default function UsersPage() {
         searched: debouncedSearch,
       },
       {
-        enabled: !!companyId && !reportId,
+        enabled: !!companyId && userType !== "admin" && !reportId,
       },
     );
 
@@ -86,7 +109,8 @@ export default function UsersPage() {
         sortBy,
       },
       {
-        enabled: isSuperAdmin && userType === "all" && !companyId && !reportId,
+        enabled:
+          isSuperAdmin && userTypeState === "all" && !companyId && !reportId,
       },
     );
 
@@ -102,7 +126,7 @@ export default function UsersPage() {
       {
         enabled:
           (isSuperAdmin || isAdmin) &&
-          userType === "admin" &&
+          userTypeState === "admin" &&
           !companyId &&
           !reportId,
       },
@@ -120,7 +144,7 @@ export default function UsersPage() {
       {
         enabled:
           (isSuperAdmin || isAdmin) &&
-          userType === "general" &&
+          userTypeState === "general" &&
           !companyId &&
           !reportId,
       },
@@ -130,13 +154,19 @@ export default function UsersPage() {
   const userData = (() => {
     if (reportId && reportUsersData?.data) {
       return reportUsersData.data;
+    } else if (companyId && userType === "admin" && companyAdminsData?.data) {
+      // Transform admin data to match User type
+      return companyAdminsData.data.map((admin) => ({
+        ...admin,
+        company: null, // Add missing company field
+      }));
     } else if (companyId && companyUsersData) {
       return companyUsersData.users;
-    } else if (userType === "all" && allUsersData) {
+    } else if (userTypeState === "all" && allUsersData) {
       return allUsersData.data;
-    } else if (userType === "admin" && adminUsersData) {
+    } else if (userTypeState === "admin" && adminUsersData) {
       return adminUsersData.data;
-    } else if (userType === "general" && generalUsersData) {
+    } else if (userTypeState === "general" && generalUsersData) {
       return generalUsersData.data;
     }
     return [];
@@ -145,13 +175,15 @@ export default function UsersPage() {
   const totalItems = (() => {
     if (reportId && reportUsersData?.data) {
       return reportUsersData.data.length;
+    } else if (companyId && userType === "admin" && companyAdminsData?.data) {
+      return companyAdminsData.data.length;
     } else if (companyId && companyUsersData) {
       return companyUsersData.total;
-    } else if (userType === "all" && allUsersData) {
+    } else if (userTypeState === "all" && allUsersData) {
       return allUsersData.total;
-    } else if (userType === "admin" && adminUsersData) {
+    } else if (userTypeState === "admin" && adminUsersData) {
       return adminUsersData.total;
-    } else if (userType === "general" && generalUsersData) {
+    } else if (userTypeState === "general" && generalUsersData) {
       return generalUsersData.total;
     }
     return 0;
@@ -160,13 +192,15 @@ export default function UsersPage() {
   const pageLimit = (() => {
     if (reportId) {
       return pagination.limit;
+    } else if (companyId && userType === "admin") {
+      return companyAdminsData?.data.length ?? pagination.limit;
     } else if (companyId && companyUsersData) {
       return companyUsersData.limit;
-    } else if (userType === "all" && allUsersData) {
+    } else if (userTypeState === "all" && allUsersData) {
       return allUsersData.limit;
-    } else if (userType === "admin" && adminUsersData) {
+    } else if (userTypeState === "admin" && adminUsersData) {
       return adminUsersData.limit;
-    } else if (userType === "general" && generalUsersData) {
+    } else if (userTypeState === "general" && generalUsersData) {
       return generalUsersData.limit;
     }
     return pagination.limit;
@@ -176,7 +210,9 @@ export default function UsersPage() {
     isLoadingAllUsers ||
     isLoadingAdminUsers ||
     isLoadingGeneralUsers ||
-    isLoadingCompanyUsers;
+    isLoadingCompanyUsers ||
+    isLoadingCompanyAdmins ||
+    isLoadingReportUsers;
 
   const handleSearchChange = useCallback((value: string) => {
     setSearchInput(value);
@@ -206,9 +242,9 @@ export default function UsersPage() {
       {!companyId && !reportId && (
         <div className="mb-4 flex gap-2">
           <Button
-            onClick={() => setUserType("all")}
+            onClick={() => setUserTypeState("all")}
             className={`rounded px-4 py-2 ${
-              userType === "all"
+              userTypeState === "all"
                 ? "bg-blue-600 text-white"
                 : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
             }`}
@@ -216,9 +252,9 @@ export default function UsersPage() {
             All Users
           </Button>
           <Button
-            onClick={() => setUserType("admin")}
+            onClick={() => setUserTypeState("admin")}
             className={`rounded px-4 py-2 ${
-              userType === "admin"
+              userTypeState === "admin"
                 ? "bg-blue-600 text-white"
                 : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
             }`}
@@ -226,9 +262,9 @@ export default function UsersPage() {
             Admin Users
           </Button>
           <Button
-            onClick={() => setUserType("general")}
+            onClick={() => setUserTypeState("general")}
             className={`rounded px-4 py-2 ${
-              userType === "general"
+              userTypeState === "general"
                 ? "bg-blue-600 text-white"
                 : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
             }`}

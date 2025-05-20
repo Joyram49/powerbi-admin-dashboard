@@ -30,12 +30,16 @@ export default function ReportViewer({
             </DialogTitle>
           </div>
         </DialogHeader>
-        <div className="h-[calc(100vh-5rem)] overflow-auto bg-white dark:bg-slate-900">
+        <div className="relative h-[calc(100vh-5rem)] overflow-auto bg-white dark:bg-slate-900">
           <iframe
             src={report.reportUrl}
             className="h-full w-full border-0 bg-white dark:bg-slate-900"
             title={report.reportName}
           />
+          {/* Overlay for bottom left corner */}
+          <div className="absolute bottom-0 left-0 h-9 w-[190px] bg-[#eaeaea]" />
+          {/* Overlay for bottom right corner */}
+          <div className="absolute bottom-0 right-0 h-9 w-[190px] bg-[#eaeaea]" />
         </div>
       </DialogContent>
     </Dialog>

@@ -603,11 +603,13 @@ export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
                       }
                     }}
                     value={field.value}
-                    disabled={!!initialData?.id} // Only disable in update mode
+                    disabled={isUpdateMode} // Only disable in update mode
                   >
                     <FormControl>
                       <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">
-                        <SelectValue placeholder="Select user role" />
+                        <SelectValue placeholder="Select user role">
+                          <span className="capitalize">{field.value}</span>
+                        </SelectValue>
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent className="bg-white dark:border-gray-700 dark:bg-gray-800">

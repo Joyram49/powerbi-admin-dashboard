@@ -25,6 +25,7 @@ export function useCompanyColumns() {
   // Hook calls inside the custom hook
   const utils = api.useUtils();
   const disableMutation = api.company.disableACompany.useMutation();
+  const enableMutation = api.company.enableACompany.useMutation();
   const router = useRouter();
 
   // State for edit modal
@@ -115,13 +116,14 @@ export function useCompanyColumns() {
         header: () => <div className="text-left font-medium">Admins</div>,
         cell: ({ row }) => {
           const admins = row.original.admins;
-          console.log("admins", admins);
           return (
             <Button
               variant="link"
               className="border border-slate-200 bg-gray-100 text-left hover:border-primary/90 dark:border-slate-700 dark:bg-gray-800 dark:hover:bg-gray-700"
               onClick={() => {
-                router.push(`/super-admin/users?companyId=${row.original.id}`);
+                router.push(
+                  `/super-admin/users?companyId=${row.original.id}&userType=admin`,
+                );
               }}
             >
               {admins.length || 0}
@@ -268,9 +270,15 @@ export function useCompanyColumns() {
                     onClick: () => {
                       void (async () => {
                         try {
-                          await disableMutation.mutateAsync({
-                            companyId: company.id,
-                          });
+                          if (company.status === "active") {
+                            await disableMutation.mutateAsync({
+                              companyId: company.id,
+                            });
+                          } else {
+                            await enableMutation.mutateAsync({
+                              companyId: company.id,
+                            });
+                          }
                           await utils.company.getAllCompanies.invalidate();
                           toast.success(
                             `Company ${company.status === "active" ? "disabled" : "enabled"} successfully`,
@@ -315,7 +323,14 @@ export function useCompanyColumns() {
     ];
 
     return columns;
-  }, [utils, isEditModalOpen, companyToEdit, router, disableMutation]);
+  }, [
+    utils,
+    isEditModalOpen,
+    companyToEdit,
+    router,
+    disableMutation,
+    enableMutation,
+  ]);
 }
 
 export default useCompanyColumns;
