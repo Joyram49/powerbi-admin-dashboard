@@ -8,7 +8,7 @@ import {
   getPaginationRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { Loader2, Search, SlidersHorizontal, X } from "lucide-react";
+import { Search, SlidersHorizontal, X } from "lucide-react";
 
 import { Button } from "@acme/ui/button";
 import {
@@ -18,7 +18,6 @@ import {
   DropdownMenuTrigger,
 } from "@acme/ui/dropdown-menu";
 import { Input } from "@acme/ui/input";
-import { Skeleton } from "@acme/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -28,6 +27,7 @@ import {
   TableRow,
 } from "@acme/ui/table";
 
+import { DataTableSkeleton } from "./DataTableSkeleton";
 import { Pagination } from "./Pagination";
 
 // Generic data table props that can work with any data type
@@ -108,6 +108,18 @@ export function DataTable<TData, TValue, TSortField extends string>({
 
   const selectedRowsCount = Object.keys(rowSelection).length;
 
+  if (isLoading) {
+    return (
+      <DataTableSkeleton
+        columnCount={columns.length}
+        rowCount={pageSize}
+        searchable={!!search}
+        filterable={true}
+        actionButton={!!actionButton}
+      />
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -143,7 +155,7 @@ export function DataTable<TData, TValue, TSortField extends string>({
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
-                className="flex items-center gap-x-2 dark:bg-slate-900"
+                className="flex items-center gap-x-2 border-slate-200 dark:border-slate-700 dark:bg-slate-900"
               >
                 <SlidersHorizontal className="h-4 w-4" />
                 <span className="hidden sm:inline">Columns</span>
@@ -173,15 +185,18 @@ export function DataTable<TData, TValue, TSortField extends string>({
           </DropdownMenu>
         </div>
       </div>
-      <div className="overflow-auto rounded-md border-[1px] border-slate-900/10 drop-shadow-sm dark:border-white/10">
-        <Table>
-          <TableHeader className="bg-white dark:bg-slate-800">
+      <div className="w-full overflow-auto rounded-md border-[1px] border-slate-200 drop-shadow-sm dark:border-slate-700">
+        <Table className="border-collapse bg-gray-50">
+          <TableHeader className="dark:border-slate-70 border-slate-200 bg-gray-50 dark:bg-slate-800">
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="hover:bg-transparent">
+              <TableRow
+                key={headerGroup.id}
+                className="border-slate-200 hover:bg-transparent dark:border-slate-700"
+              >
                 {headerGroup.headers.map((header) => (
                   <TableHead
                     key={header.id}
-                    className="whitespace-nowrap font-medium"
+                    className="whitespace-nowrap border-slate-200 font-medium dark:border-slate-700"
                   >
                     {header.isPlaceholder
                       ? null
@@ -194,26 +209,19 @@ export function DataTable<TData, TValue, TSortField extends string>({
               </TableRow>
             ))}
           </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              Array.from({ length: pageSize }).map((_, index) => (
-                <TableRow key={index}>
-                  {columns.map((_, colIndex) => (
-                    <TableCell key={colIndex}>
-                      <Skeleton className="h-6 w-full animate-pulse bg-slate-400" />
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : table.getRowModel().rows.length ? (
+          <TableBody className="bg-gray-50 dark:bg-slate-800">
+            {table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() ? "selected" : undefined}
-                  className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                  className="border-slate-200 transition-colors hover:bg-gray-100 dark:border-slate-700 dark:hover:bg-slate-700/50"
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="break-words">
+                    <TableCell
+                      key={cell.id}
+                      className="break-words border-slate-200 dark:border-slate-700"
+                    >
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext(),
@@ -226,11 +234,10 @@ export function DataTable<TData, TValue, TSortField extends string>({
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
-                  className="h-24 text-center"
+                  className="h-24 border-slate-200 text-center dark:border-slate-700"
                 >
                   <div className="flex flex-col items-center justify-center gap-2">
                     <div className="flex items-center gap-2">
-                      <Loader2 className="size-4 animate-spin" />
                       <span>No data found</span>
                     </div>
                     {search.value && (

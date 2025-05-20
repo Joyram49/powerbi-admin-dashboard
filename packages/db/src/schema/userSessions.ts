@@ -1,4 +1,5 @@
 import { integer, pgTable, timestamp, uuid } from "drizzle-orm/pg-core";
+import { z } from "zod";
 
 import { reports } from "./report";
 import { users } from "./user";
@@ -21,5 +22,12 @@ export const userSessions = pgTable("user_sessions", {
     onDelete: "set null",
   }),
 });
+
+export const userSessionRouterSchema = {
+  updateSession: z.object({
+    sessionId: z.string().uuid(),
+    totalActiveTime: z.number(),
+  }),
+};
 
 export type UserSession = typeof userSessions.$inferSelect;

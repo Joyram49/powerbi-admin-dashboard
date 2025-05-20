@@ -1,8 +1,8 @@
 import { TRPCError } from "@trpc/server";
 import { and, eq, isNull } from "drizzle-orm";
-import { z } from "zod";
 
 import { db, userSessions } from "@acme/db";
+import { userSessionRouterSchema } from "@acme/db/schema";
 
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 
@@ -10,7 +10,6 @@ export const sessionRouter = createTRPCRouter({
   // this endpoint is create session for new user or update for existing user
   createOrUpdateSession: protectedProcedure.mutation(async ({ ctx }) => {
     const userId = ctx.session.user.id;
-    console.log("userId", userId);
 
     try {
       // First, check if ANY session exists for this user (active or not)
@@ -99,12 +98,7 @@ export const sessionRouter = createTRPCRouter({
 
   // this endpoint will update the user session upon pressing signou button
   updateSession: protectedProcedure
-    .input(
-      z.object({
-        sessionId: z.string().uuid(),
-        totalActiveTime: z.number(),
-      }),
-    )
+    .input(userSessionRouterSchema.updateSession)
     .mutation(async ({ input, ctx }) => {
       const { sessionId, totalActiveTime } = input;
       const userId = ctx.session.user.id;

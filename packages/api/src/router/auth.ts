@@ -1,57 +1,26 @@
 import { TRPCError } from "@trpc/server";
 import { compareSync, hash } from "bcryptjs";
-import { eq } from "drizzle-orm";
-import { z } from "zod";
+import { and, eq } from "drizzle-orm";
 
 import {
+  companies,
+  companyAdmins,
   createAdminClient,
   createClientServer,
   db,
   loginAttempts,
+  subscriptions,
   users,
 } from "@acme/db";
+import { authRouterSchema } from "@acme/db/schema";
 
 import { env } from "../../../auth/env";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 
-export const createUserSchema = z
-  .object({
-    email: z.string().email({ message: "Invalid email address" }),
-    password: z
-      .string()
-      .min(12, { message: "Password must be between 12-20 characters" })
-      .max(20, { message: "Password must be between 12-20 characters" })
-      .regex(
-        /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};:'"\\|,.<>/?]).+$/,
-        {
-          message:
-            "Password must include at least one uppercase letter, one number, and one special character",
-        },
-      ),
-    role: z.enum(["superAdmin", "admin", "user"], {
-      required_error: "Role is required",
-      invalid_type_error: "Invalid role selected",
-    }),
-    companyId: z.string().optional(),
-    userName: z.string().optional(),
-    modifiedBy: z.string().optional(),
-    reportIds: z.array(z.string().uuid()).optional(),
-  })
-  .refine(
-    (data) => {
-      if (data.role === "superAdmin" || data.role === "admin") return true;
-      return !!data.companyId;
-    },
-    {
-      message: "Company ID is required for user roles",
-      path: ["companyId"],
-    },
-  );
-
 export const authRouter = createTRPCRouter({
   // Create user procedure with optional metadata
   createUser: protectedProcedure
-    .input(createUserSchema)
+    .input(authRouterSchema.createUser)
     .mutation(async ({ ctx, input }) => {
       if (ctx.session.user.role === "user") {
         throw new TRPCError({
@@ -73,6 +42,110 @@ export const authRouter = createTRPCRouter({
       const supabase = createAdminClient();
 
       try {
+        // check the company plan if the company has exceeded the limit of users
+        if (input.role === "user" && input.companyId) {
+          // get the company data
+          const company = await db
+            .select()
+            .from(companies)
+            .where(
+              and(
+                eq(companies.id, input.companyId),
+                eq(companies.status, "active"),
+              ),
+            );
+
+          if (!company[0]) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Company not found",
+            });
+          }
+
+          // get the company subscription data
+          const companySubscription = await db
+            .select()
+            .from(subscriptions)
+            .where(
+              and(
+                eq(subscriptions.companyId, input.companyId),
+                eq(subscriptions.status, "active"),
+              ),
+            );
+
+          if (!companySubscription[0]) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Company has no active subscription",
+            });
+          }
+
+          const currentEmployeeCount = company[0]?.numOfEmployees ?? 0;
+          const userLimit = companySubscription[0]?.userLimit ?? 0;
+
+          // Check if company has reached user limit
+          if (currentEmployeeCount >= userLimit) {
+            // Check if company has purchased additional user
+            if (!company[0]?.hasAdditionalUserPurchase) {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message:
+                  "Company has reached the user limit. Please purchase additional user access for $25 per user.",
+              });
+            }
+          }
+
+          // Use admin API to create user without affecting current session
+          const {
+            data: { user },
+            error,
+          } = await supabase.auth.admin.createUser({
+            email: input.email,
+            password: input.password,
+            email_confirm: true,
+            user_metadata: {
+              role: input.role,
+              userName: input.userName ?? input.email,
+            },
+          });
+
+          if (error) {
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: error.message || "Failed to create user in auth system",
+            });
+          }
+
+          const hashedPassword = await hash(input.password, 10);
+
+          // Insert the user into your custom users table.
+          await db.insert(users).values({
+            id: user?.id,
+            userName: input.userName ?? input.email,
+            email: input.email,
+            companyId: input.companyId ?? null,
+            role: input.role,
+            isSuperAdmin: false,
+            dateCreated: new Date(),
+            modifiedBy: ctx.session.user.id,
+            passwordHistory: [hashedPassword],
+          });
+
+          // Update company's employee count and reset additional user purchase flag
+          await db
+            .update(companies)
+            .set({
+              numOfEmployees: currentEmployeeCount + 1,
+              hasAdditionalUserPurchase: false,
+            })
+            .where(eq(companies.id, input.companyId));
+
+          return {
+            success: true,
+            user: user,
+          };
+        }
+
         // Use admin API to create user without affecting current session
         const {
           data: { user },
@@ -94,11 +167,18 @@ export const authRouter = createTRPCRouter({
           });
         }
 
+        if (!user) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to create user in auth system",
+          });
+        }
+
         const hashedPassword = await hash(input.password, 10);
 
         // Insert the user into your custom users table.
         await db.insert(users).values({
-          id: user?.id,
+          id: user.id,
           userName: input.userName ?? input.email,
           email: input.email,
           companyId: input.companyId ?? null,
@@ -108,17 +188,6 @@ export const authRouter = createTRPCRouter({
           modifiedBy: ctx.session.user.id,
           passwordHistory: [hashedPassword],
         });
-
-        // insert the report ids with created user id into user_to_reports table
-        // if (input.reportIds && input.reportIds.length > 0) {
-        //   const reportLinks = input.reportIds.map((reportId) => ({
-        //     userId: user.id,
-        //     reportId,
-        //   }));
-
-        //   await db.insert(userReports).values(reportLinks);
-        // }
-
         return {
           success: true,
           user: user,
@@ -136,19 +205,13 @@ export const authRouter = createTRPCRouter({
 
   // Signin procedure
   signIn: publicProcedure
-    .input(
-      z.object({
-        email: z.string().email(),
-        password: z.string(),
-      }),
-    )
+    .input(authRouterSchema.signIn)
     .mutation(async ({ input }) => {
       const supabase = createClientServer();
-
       try {
         // First, check if the user exists in our database
         const userExists = await db
-          .select({ id: users.id })
+          .select({ id: users.id, status: users.status })
           .from(users)
           .where(eq(users.email, input.email))
           .limit(1);
@@ -158,6 +221,16 @@ export const authRouter = createTRPCRouter({
           throw new TRPCError({
             code: "UNAUTHORIZED",
             message: "Invalid login credentials",
+          });
+        }
+
+        // check if user is not active
+        const isInactive = userExists[0]?.status === "inactive";
+
+        if (isInactive) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "Account is inactive. Please contact your administrator.",
           });
         }
 
@@ -388,13 +461,7 @@ export const authRouter = createTRPCRouter({
 
   // Update user profile (protected route)
   updateProfile: protectedProcedure
-    .input(
-      z.object({
-        // Define what can be updated
-        displayName: z.string().optional(),
-        // Add other updateable fields
-      }),
-    )
+    .input(authRouterSchema.updateProfile)
     .mutation(async ({ ctx, input }) => {
       try {
         // Ensure user is authenticated
@@ -408,7 +475,7 @@ export const authRouter = createTRPCRouter({
 
         const { error } = await supabase.auth.updateUser({
           data: {
-            display_name: input.displayName,
+            userName: input.userName,
             // Map other fields as needed
           },
         });
@@ -434,11 +501,7 @@ export const authRouter = createTRPCRouter({
 
   // Send OTP to verify email
   sendOTP: publicProcedure
-    .input(
-      z.object({
-        email: z.string().email({ message: "Invalid email address" }),
-      }),
-    )
+    .input(authRouterSchema.sendOTP)
     .mutation(async ({ input }) => {
       try {
         const supabase = createClientServer();
@@ -488,12 +551,7 @@ export const authRouter = createTRPCRouter({
 
   // verify OTP
   verifyOTP: publicProcedure
-    .input(
-      z.object({
-        email: z.string().email({ message: "Invalid email address" }),
-        token: z.string().length(6),
-      }),
-    )
+    .input(authRouterSchema.verifyOTP)
     .mutation(async ({ input }) => {
       try {
         const supabase = createClientServer();
@@ -530,21 +588,7 @@ export const authRouter = createTRPCRouter({
 
   // update password only use when need to change own password
   updatePassword: protectedProcedure
-    .input(
-      z.object({
-        password: z
-          .string()
-          .min(12, { message: "Password must be between 12-20 characters" })
-          .max(20, { message: "Password must be between 12-20 characters" })
-          .regex(
-            /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};:'"\\|,.<>/?]).+$/,
-            {
-              message:
-                "Password must include at least one uppercase letter, one number, and one special character",
-            },
-          ),
-      }),
-    )
+    .input(authRouterSchema.updatePassword)
     .mutation(async ({ ctx, input }) => {
       const { id: userId, email: userEmail } = ctx.session.user;
 
@@ -650,22 +694,7 @@ export const authRouter = createTRPCRouter({
 
   // reset user password for admin and super admin only
   resetUserPassword: protectedProcedure
-    .input(
-      z.object({
-        userId: z.string().uuid(),
-        password: z
-          .string()
-          .min(12, { message: "Password must be within 12-20 characters" })
-          .max(20, { message: "Password must be within 12-20 characters" })
-          .regex(
-            /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};:'"\\|,.<>/?]).+$/,
-            {
-              message:
-                "Password must include at least one uppercase letter, one number, and one special character",
-            },
-          ),
-      }),
-    )
+    .input(authRouterSchema.resetUserPassword)
     .mutation(async ({ ctx, input }) => {
       try {
         const supabase = createAdminClient();
@@ -697,19 +726,45 @@ export const authRouter = createTRPCRouter({
         const passwordHistory = targetUser[0]?.passwordHistory ?? [];
         const targetUserEmail: string = targetUser[0]?.email ?? "";
         const modifiedBy = targetUser[0]?.modifiedBy;
+        const companyId = targetUser[0]?.companyId;
 
-        if (currentUserRole === "admin" && targetUserRole === "superAdmin") {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Admins cannot reset Super Admin passwords.",
-          });
-        }
+        if (currentUserRole === "admin") {
+          if (targetUserRole === "superAdmin") {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "Admins cannot reset Super Admin passwords.",
+            });
+          }
+          // Check if we have a valid companyId
+          if (!companyId) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Company ID is required for this operation",
+            });
+          }
+          // get company data using companyId
+          const companyData = await db
+            .select()
+            .from(companyAdmins)
+            .where(eq(companyAdmins.companyId, companyId));
 
-        if (currentUserRole === "admin" && currentUserId !== modifiedBy) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Admins cannot reset other user password",
-          });
+          if (!companyData[0]) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Admin is not associated with this company",
+            });
+          }
+
+          const isAuthorized =
+            currentUserId === modifiedBy &&
+            companyData.some((company) => company.userId === currentUserId);
+
+          if (!isAuthorized) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "You are not authorized to reset this user password",
+            });
+          }
         }
 
         // check if the new password was used before
@@ -784,7 +839,7 @@ export const authRouter = createTRPCRouter({
 
   // Signup procedure (for creating superAdmin)
   signUp: protectedProcedure
-    .input(createUserSchema)
+    .input(authRouterSchema.createUser)
     .mutation(async ({ ctx, input }) => {
       // Check if the user is superAdmin
       if (ctx.session.user.role !== "superAdmin") {
@@ -853,6 +908,85 @@ export const authRouter = createTRPCRouter({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: String(error),
+        });
+      }
+    }),
+
+  // Add this new endpoint before the last closing brace of authRouter
+  purchaseAdditionalUser: protectedProcedure
+    .input(authRouterSchema.purchaseAdditionalUser)
+    .mutation(async ({ ctx, input }) => {
+      try {
+        // Check if user has permission
+        if (ctx.session.user.role === "user") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You are not authorized to purchase additional users",
+          });
+        }
+
+        // Get company data with admin relationships
+        const company = await db.query.companies.findFirst({
+          where: and(
+            eq(companies.id, input.companyId),
+            eq(companies.status, "active"),
+          ),
+          with: {
+            admins: {
+              columns: {
+                userId: true,
+              },
+            },
+          },
+        });
+
+        if (!company) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Company not found",
+          });
+        }
+
+        // Check if user is company admin or super admin
+        if (
+          ctx.session.user.role === "admin" &&
+          !company.admins.some((admin) => admin.userId === ctx.session.user.id)
+        ) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Only company admin can purchase additional users",
+          });
+        }
+
+        // TODO: Implement your payment processing logic here
+        // For example, using Stripe to process the $25 payment
+        // const paymentResult = await processPayment(25);
+
+        // Update company's additional user purchase flag
+        await db
+          .update(companies)
+          .set({
+            hasAdditionalUserPurchase: true,
+            modifiedBy: ctx.session.user.email,
+            lastActivity: new Date(),
+          })
+          .where(eq(companies.id, input.companyId));
+
+        return {
+          success: true,
+          message:
+            "Additional user purchase successful. You can now add one more user.",
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to purchase additional user",
         });
       }
     }),

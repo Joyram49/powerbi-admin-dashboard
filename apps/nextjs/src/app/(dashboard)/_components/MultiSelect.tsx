@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Check, ChevronsUpDown, Loader2, X } from "lucide-react";
 
 import { cn } from "@acme/ui";
-import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
 import {
   Command,
@@ -51,11 +50,7 @@ export function MultiSelect({
     }
   };
 
-  const handleRemove = (
-    e: React.MouseEvent<HTMLButtonElement>,
-    value: string,
-  ) => {
-    e.stopPropagation();
+  const handleRemove = (value: string) => {
     onChange(selected.filter((item) => item !== value));
   };
 
@@ -68,109 +63,105 @@ export function MultiSelect({
     (option) => !selected.includes(option.value),
   );
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (
-        e.key === "Backspace" &&
-        selected.length > 0 &&
-        triggerRef.current === document.activeElement
-      ) {
-        onChange(selected.slice(0, -1));
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [selected, onChange]);
-
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          ref={triggerRef}
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className={cn(
-            "h-auto min-h-10 w-full justify-between border border-input bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-800 dark:text-white",
-            selected.length > 0 ? "text-start" : "",
-            className,
-          )}
-          onClick={() => setOpen(!open)}
-          disabled={disabled}
-        >
-          <div className="flex flex-wrap gap-1">
-            {selected.length > 0 ? (
-              selected.map((value) => (
-                <Badge
-                  key={value}
-                  variant="secondary"
-                  className="mb-1 mr-1 dark:bg-gray-700 dark:text-gray-100"
-                >
-                  {getLabel(value)}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="ml-1 h-4 w-4 rounded-full p-0 dark:hover:bg-gray-600"
-                    onClick={(e) => handleRemove(e, value)}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </Badge>
-              ))
-            ) : (
+    <div className="space-y-4">
+      {/* Selected items list */}
+      <div className="mt-2 space-y-2">
+        {selected.length > 0 &&
+          selected.map((value) => (
+            <div
+              key={value}
+              className="flex items-center justify-between rounded-md border border-gray-200 bg-gray-50 px-3 py-1 dark:border-gray-700 dark:bg-gray-800"
+            >
+              <span className="font-medium dark:text-white">
+                {getLabel(value)}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => handleRemove(value)}
+                className="h-7 w-7 rounded-full p-0 hover:bg-red-300/60 dark:hover:bg-red-800/40"
+              >
+                <X className="h-4 w-4 text-red-500" />
+              </Button>
+            </div>
+          ))}
+        {selected.length === 0 && (
+          <div className="text-center text-sm text-gray-500 dark:text-gray-400">
+            No items selected
+          </div>
+        )}
+      </div>
+
+      {/* Selection dropdown */}
+      <div className="pt-2">
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              ref={triggerRef}
+              variant="outline"
+              role="combobox"
+              aria-expanded={open}
+              className={cn(
+                "w-full justify-between border border-input bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-800 dark:text-white",
+                className,
+              )}
+              disabled={disabled}
+            >
               <span className="text-muted-foreground dark:text-gray-400">
                 {placeholder}
               </span>
-            )}
-          </div>
-          {loading ? (
-            <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin opacity-50" />
-          ) : (
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          )}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        className="w-full min-w-[200px] border p-0 dark:border-gray-700 dark:bg-gray-800"
-        align="start"
-      >
-        <Command className="dark:bg-gray-800">
-          <CommandInput
-            placeholder="Search..."
-            className="dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-400"
-          />
-          <CommandList className="dark:bg-gray-800">
-            <CommandEmpty className="dark:text-gray-400">
-              No results found.
-            </CommandEmpty>
-            <CommandGroup className="dark:bg-gray-800">
               {loading ? (
-                <div className="flex items-center justify-center py-6">
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground dark:text-gray-400" />
-                </div>
+                <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin opacity-50" />
               ) : (
-                availableOptions.map((option) => (
-                  <CommandItem
-                    key={option.value}
-                    onSelect={() => handleSelect(option.value)}
-                    className="cursor-pointer dark:text-white dark:hover:bg-gray-700 dark:focus:bg-gray-700"
-                  >
-                    <div className="flex w-full items-center justify-between">
-                      <span>{option.label}</span>
-                      {selected.includes(option.value) && (
-                        <Check className="h-4 w-4 text-primary dark:text-blue-400" />
-                      )}
-                    </div>
-                  </CommandItem>
-                ))
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               )}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            className="w-full min-w-[200px] border p-0 dark:border-gray-700 dark:bg-gray-800"
+            align="start"
+          >
+            <Command className="dark:bg-gray-800">
+              <CommandInput
+                placeholder="Search..."
+                className="dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-400"
+              />
+              <CommandList className="dark:bg-gray-800">
+                <CommandEmpty className="dark:text-gray-400">
+                  No results found.
+                </CommandEmpty>
+                <CommandGroup className="dark:bg-gray-800">
+                  {loading ? (
+                    <div className="flex items-center justify-center py-6">
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground dark:text-gray-400" />
+                    </div>
+                  ) : (
+                    availableOptions.map((option) => (
+                      <CommandItem
+                        key={option.value}
+                        onSelect={() => handleSelect(option.value)}
+                        className="cursor-pointer dark:bg-gray-900 dark:text-white dark:hover:bg-gray-700 dark:focus:bg-gray-700"
+                      >
+                        <div className="flex w-full items-center justify-between">
+                          <span className="font-medium">{option.label}</span>
+                          <Check className="h-4 w-4 text-primary opacity-0 dark:text-blue-400" />
+                        </div>
+                      </CommandItem>
+                    ))
+                  )}
+                  {availableOptions.length === 0 && !loading && (
+                    <div className="px-2 py-4 text-center text-sm dark:text-gray-400">
+                      No more items available to add.
+                    </div>
+                  )}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+      </div>
+    </div>
   );
 }

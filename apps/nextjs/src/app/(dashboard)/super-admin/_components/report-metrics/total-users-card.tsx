@@ -22,14 +22,17 @@ async function TotalUsersCard() {
     }
 
     return (
-      <Card className="@container/card dark:bg-slate-900">
+      <Card className="@container/card border-gray-200 dark:border-gray-800 dark:bg-slate-900">
         <CardHeader className="relative">
           <CardDescription>Total Users</CardDescription>
           <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
             {totalUsersResponse.users}
           </CardTitle>
           <div className="absolute right-4 top-4">
-            <Badge variant="outline" className="flex gap-1 rounded-lg text-xs">
+            <Badge
+              variant="outline"
+              className="flex gap-1 rounded-lg border-gray-200 text-xs dark:border-gray-800"
+            >
               <TrendingUpIcon className="size-3" />
               +12.5%
             </Badge>

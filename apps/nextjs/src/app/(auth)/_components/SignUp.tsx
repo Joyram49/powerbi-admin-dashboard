@@ -1,13 +1,15 @@
 "use client";
 
+import type { z } from "zod";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 
+import type { authRouterSchema } from "@acme/db/schema";
+import { createUserSchemaFrontend } from "@acme/db/schema";
 import { Button } from "@acme/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@acme/ui/card";
 import {
@@ -23,33 +25,6 @@ import { Progress } from "@acme/ui/progress";
 import { toast } from "@acme/ui/toast";
 
 import { api } from "~/trpc/react";
-
-// Form validation schema with improved password requirements
-const FormSchema = z.object({
-  userName: z
-    .string()
-    .min(3, { message: "Username must be at least 3 characters" }),
-  email: z
-    .string({ message: "Email is required" })
-    .email({ message: "Invalid email address" }),
-  password: z
-    .string()
-    .min(12, { message: "Password must be at least 12 characters" })
-    .max(20, { message: "Password must be less than 20 characters" })
-    .regex(/^(?=.*[A-Z])/, {
-      message: "Password must include at least one uppercase letter",
-    })
-    .regex(/^(?=.*[a-z])/, {
-      message: "Password must include at least one lowercase letter",
-    })
-    .regex(/^(?=.*\d)/, {
-      message: "Password must include at least one number",
-    })
-    .regex(/^(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?])/, {
-      message:
-        "Password must include at least one special character (!@#$%^&*()_+-=[]{}\\|;:'\",.<>/?)",
-    }),
-});
 
 // Animation variants
 const containerVariants = {
@@ -76,13 +51,7 @@ const buttonVariants = {
   hover: { scale: 1.03, transition: { duration: 0.2 } },
   tap: { scale: 0.97 },
 };
-interface requestedDataType {
-  role: "user" | "admin" | "superAdmin";
-  userName: string;
-  email: string;
-  password: string;
-  companyId?: string;
-}
+
 export function SignUpForm() {
   const [isSubmitting, _setIsSubmitting] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -91,8 +60,8 @@ export function SignUpForm() {
   useEffect(() => {
     setMounted(true);
   }, []);
-  const form = useForm<z.infer<typeof FormSchema>>({
-    resolver: zodResolver(FormSchema),
+  const form = useForm<z.infer<typeof createUserSchemaFrontend>>({
+    resolver: zodResolver(createUserSchemaFrontend),
     defaultValues: {
       userName: "",
       email: "",
@@ -137,8 +106,8 @@ export function SignUpForm() {
 
   const register = api.auth.signUp.useMutation();
 
-  function onSubmit(data: z.infer<typeof FormSchema>) {
-    const requestedData: requestedDataType = {
+  function onSubmit(data: z.infer<typeof createUserSchemaFrontend>) {
+    const requestedData: z.infer<typeof authRouterSchema.createUser> = {
       ...data,
       role: "superAdmin",
     };

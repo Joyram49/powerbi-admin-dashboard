@@ -1,11 +1,14 @@
 "use client";
 
+import type { z } from "zod";
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 
+import type { ReportWithUsers } from "@acme/db/schema";
+import { reportRouterSchema } from "@acme/db/schema";
 import { Button } from "@acme/ui/button";
 import {
   Form,
@@ -31,6 +34,7 @@ import { api } from "~/trpc/react";
 // Define types
 export interface ReportType {
   id: string;
+  reportId?: string;
   reportName: string;
   reportUrl: string;
   accessCount?: number | null;
@@ -42,74 +46,59 @@ export interface ReportType {
     companyName: string;
   } | null;
   userCounts?: number;
-  userIds?: string[];
+  usersList?: { id: string; name: string }[];
+}
+
+interface UserOption {
+  value: string;
+  label: string;
 }
 
 interface ReportFormProps {
   onClose: (shouldRefresh?: boolean) => void;
-  setDialogOpen?: (open: boolean) => void;
-  initialData?: ReportType | null;
+  initialData?: ReportWithUsers | null;
   userRole: "superAdmin" | "admin" | "user";
   companyId?: string;
 }
 
-// Define form schema
-const formSchema = z.object({
-  reportName: z.string().min(3, {
-    message: "Report name must be at least 3 characters",
-  }),
-  reportUrl: z.string().url({
-    message: "Please enter a valid URL",
-  }),
-  companyId: z.string().uuid({
-    message: "Please select a company",
-  }),
-  status: z.enum(["active", "inactive"]),
-  userIds: z.array(z.string().uuid()),
-});
-
 export default function ReportForm({
   onClose,
-  setDialogOpen,
   initialData,
   userRole,
   companyId,
 }: ReportFormProps) {
   const [loading, setLoading] = useState(false);
-
-  const [allUserOptions, setAllUserOptions] = useState<
-    { value: string; label: string }[]
-  >([]);
+  const [userOptions, setUserOptions] = useState<UserOption[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const initialFormSetRef = useRef(false);
   const utils = api.useUtils();
-
+  const router = useRouter();
   // Setup form with defaults
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<z.infer<typeof reportRouterSchema.create>>({
+    resolver: zodResolver(reportRouterSchema.create),
     defaultValues: {
       reportName: initialData?.reportName ?? "",
       reportUrl: initialData?.reportUrl ?? "",
       companyId: initialData?.company?.id ?? companyId ?? "",
       status: initialData?.status ?? "active",
-      userIds: initialData?.userIds ?? [],
+      userIds: initialData?.usersList?.map((user) => user.id) ?? [],
     },
   });
 
   // Watch for company ID changes to fetch users
   const companyIdForm = form.watch("companyId");
 
+  // Fetch users for selected company
+  const { data: usersData } = api.user.getUsersByCompanyId.useQuery(
+    { companyId: companyIdForm, limit: 100, page: 1 },
+    { enabled: !!companyIdForm },
+  );
+
   // Fetch companies data
   const { data: companiesData, isLoading: isLoadingCompanies } =
     api.company.getAllCompanies.useQuery(undefined, {
       enabled: userRole === "superAdmin",
     });
-
-  // Fetch users for selected company
-  const { data: usersData, isLoading: isLoadingUsers } =
-    api.user.getUsersByCompanyId.useQuery(
-      { companyId: companyIdForm, limit: 100, page: 1 },
-      { enabled: !!companyIdForm },
-    );
 
   // Fetch report details when editing - only if we have an ID and haven't set the form yet
   const { data: reportData, isLoading: isLoadingReport } =
@@ -118,11 +107,25 @@ export default function ReportForm({
       { enabled: !!initialData?.id && !initialFormSetRef.current },
     );
 
+  // Process users data for the MultiSelect component
+  useEffect(() => {
+    if (usersData?.users) {
+      const options = usersData.users.map((user) => ({
+        value: user.id,
+        label: `${user.userName} | ${user.email}`,
+      }));
+      setUserOptions(options);
+      setIsLoadingUsers(false);
+    }
+  }, [usersData]);
+
   // Handle success response
   const handleSuccess = async (message: string) => {
     await utils.report.getAllReports.invalidate();
     await utils.report.getAllReportsForCompany.invalidate();
     await utils.report.getAllReportsAdmin.invalidate();
+    await utils.report.getReportById.invalidate();
+    router.refresh();
     toast.success("Success", { description: message });
     setLoading(false);
     onClose(true);
@@ -148,44 +151,20 @@ export default function ReportForm({
   // Update form with detailed report data when loaded - run only once
   useEffect(() => {
     if (reportData?.report && !initialFormSetRef.current) {
-      const reportDetails = reportData.report as ReportType;
+      const reportDetails = reportData.report as ReportWithUsers;
       form.reset({
         reportName: reportDetails.reportName,
         reportUrl: reportDetails.reportUrl,
         companyId: reportDetails.company?.id ?? "",
         status: reportDetails.status ?? "active",
-        userIds: reportDetails.userIds ?? [],
+        userIds: reportDetails.usersList?.map((user) => user.id) ?? [],
       });
       initialFormSetRef.current = true;
     }
   }, [reportData, form]);
 
-  // Process users data for the MultiSelect component - only update when usersData changes
-  useEffect(() => {
-    if (usersData?.users) {
-      // Format all users
-      const formattedUsers = usersData.users.map((user) => ({
-        value: user.id,
-        label: `${user.userName} | ${user.email}`,
-      }));
-
-      setAllUserOptions(formattedUsers);
-    }
-  }, [usersData]);
-  useEffect(() => {
-    if (
-      reportData?.report.userCounts &&
-      allUserOptions.length > 0 &&
-      !form.getValues("userIds").length
-    ) {
-      form.setValue(
-        "userIds",
-        allUserOptions.map((user) => user.value),
-      );
-    }
-  }, [reportData, allUserOptions, form]);
   // Form submission handler
-  const onSubmit = (data: z.infer<typeof formSchema>) => {
+  const onSubmit = (data: z.infer<typeof reportRouterSchema.create>) => {
     setLoading(true);
 
     if (initialData?.id) {
@@ -214,7 +193,6 @@ export default function ReportForm({
         </p>
         <Button
           onClick={() => {
-            setDialogOpen?.(false);
             onClose(false);
           }}
         >
@@ -287,10 +265,6 @@ export default function ReportForm({
                 <Select
                   onValueChange={(value) => {
                     field.onChange(value);
-                    // Reset selected users when company changes
-                    if (value !== field.value) {
-                      form.setValue("userIds", []);
-                    }
                   }}
                   value={field.value}
                   disabled={!!initialData}
@@ -357,12 +331,11 @@ export default function ReportForm({
                 <FormLabel>User Access</FormLabel>
                 <FormControl>
                   <MultiSelect
-                    options={allUserOptions}
+                    options={userOptions}
                     selected={field.value}
                     onChange={field.onChange}
-                    placeholder="Select users who can access this report"
-                    loading={isLoadingUsers && !!companyIdForm}
-                    className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                    placeholder="Select users"
+                    loading={isLoadingUsers}
                   />
                 </FormControl>
                 <FormMessage />
@@ -375,7 +348,6 @@ export default function ReportForm({
               type="button"
               variant="outline"
               onClick={() => {
-                setDialogOpen?.(false);
                 onClose(false);
               }}
               className="bg-gray-100 text-gray-900 hover:bg-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"

@@ -197,3 +197,100 @@ npm run push
 2. Check that users can log in without encountering 500 errors during session creation
 
 3. Verify that session tracking continues to work properly by monitoring the console logs for [Session] prefixed messages
+
+sample result to test:
+
+```
+getAllCompanies:
+[
+   {
+      "id": "b50588f2-cd84-48f3-8727-26ed22d28f57",
+      "companyName": "q&himpex",
+      "address": "gg",
+      "phone": "000000",
+      "email": "technologiesdevcore@gmail.com",
+      "dateJoined": "2025-05-06T10:42:49.265Z",
+      "status": "active",
+      "lastActivity": "2025-05-10T09:22:52.635Z",
+      "modifiedBy": "raselhossen052@gmail.com",
+      "employeeCount": 0,
+      "reportCount": 2,
+      "admin": {
+      "id": "e65f43aa-305f-4fb0-aa5e-918b5109508d",
+      "email": "rinors@gmail.com",
+      "userName": "rinors"
+      }
+   }
+]
+
+
+getAllActiveCompanies:
+[
+   {
+    "id": "b50588f2-cd84-48f3-8727-26ed22d28f57",
+    "companyName": "q&himpex",
+    "address": "gg",
+    "phone": "000000",
+    "email": "technologiesdevcore@gmail.com",
+    "dateJoined": "2025-05-06T10:42:49.265Z",
+    "status": "active",
+    "lastActivity": "2025-05-10T09:22:52.635Z",
+    "modifiedBy": "raselhossen052@gmail.com",
+    "employeeCount": 0,
+    "reportCount": 2,
+    "admin": {
+        "id": "e65f43aa-305f-4fb0-aa5e-918b5109508d",
+        "email": "rinors@gmail.com",
+        "userName": "rinors"
+      }
+   }
+]
+
+getCompaniesByAdminId:
+[
+   {
+    "id": "ce5b2fe8-170d-4114-bc4a-4577635339fd",
+    "companyName": "auto treatment",
+    "address": "gg",
+    "phone": "022929229",
+    "email": "technologiesdevcore@gmail.com",
+    "companyAdminId": "8785e1a0-feb9-4ff9-bd0a-8072508aa642",
+    "dateJoined": "2025-05-06T10:42:22.304Z",
+    "status": "active",
+    "lastActivity": null,
+    "modifiedBy": "momsad882@gmail.com",
+    "employeeCount": 2,
+    "reportCount": 1
+   }
+]
+
+getCompanyByCompanyId:
+[
+   {
+    "id": "4e6cd650-80e3-4677-9cb8-24452230d854",
+    "companyName": "Reinger LLC",
+    "address": "3799 Prospect Street Bridgeton, NJ 08302",
+    "phone": "832-587-9481",
+    "email": "reingerllc.info@mail.com",
+    "companyAdminId": "66e638e4-0564-437c-818d-268464e1f554",
+    "dateJoined": "2025-05-01T05:50:01.889Z",
+    "status": "active",
+    "lastActivity": null,
+    "modifiedBy": "joyram2015@gmail.com"
+   }
+]
+
+updateCompany:
+ {
+    id: string;
+    companyName: string;
+    address: string | null;
+    phone: string | null;
+    email: string | null;
+    companyAdminId: string;
+    dateJoined: Date | null;
+    status: "active" | "inactive" | "pending" | "suspended" | null;
+    lastActivity: Date | null;
+    modifiedBy: string | null;
+ }
+```

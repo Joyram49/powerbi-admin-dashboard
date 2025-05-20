@@ -1,63 +1,86 @@
 "use client";
 
-import type { ColumnDef } from "@tanstack/react-table";
 import { useCallback, useState } from "react";
+import { useSearchParams } from "next/navigation";
+
+import type { CompanyUser } from "@acme/db/schema";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@acme/ui/select";
 
 import { api } from "~/trpc/react";
 import { DataTable } from "../_components/DataTable";
-import { useUserColumns } from "../super-admin/users/_components/UserColumns";
-import UserModalButton from "../super-admin/users/_components/UserModal";
-
-interface CompanyUser {
-  id: string;
-  userName: string;
-  email: string;
-  role: "user" | "admin" | "superAdmin";
-  status: "active" | "inactive" | null;
-  dateCreated: Date;
-  lastLogin: Date | null;
-  companyId: string | null;
-  modifiedBy: string | null;
-  isSuperAdmin: boolean;
-  passwordHistory: string[] | null;
-  company: {
-    companyName: string;
-  } | null;
-}
+import { DataTableSkeleton } from "../_components/DataTableSkeleton";
+import UserModal from "../super-admin/users/_components/UserModal";
+import { useUserColumns } from "./_components/AdminUserColumns";
 
 export default function AdminPage() {
+  const searchParams = useSearchParams();
+  const reportId = searchParams.get("reportId");
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
   });
   const [searchInput, setSearchInput] = useState("");
-  // TODO: Add debounce to search input in api endpoint
-  // const debouncedSearch = useDebounce(searchInput, 500);
   const [sortBy, setSortBy] = useState<"userName" | "dateCreated">(
     "dateCreated",
   );
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>("all");
 
   // Get user profile to access company ID
   const { data: profileData } = api.auth.getProfile.useQuery();
   const userId = profileData?.user?.id;
-  const { data: companies } = api.company.getCompaniesByAdminId.useQuery({
-    companyAdminId: userId ?? "",
-  });
-  const companyId = companies?.data[0]?.id;
 
-  // Fetch users for the company
-  const { data: usersData, isLoading } = api.user.getUsersByCompanyId.useQuery(
+  // Fetch companies for the admin
+  const { data: companiesData } = api.company.getCompaniesByAdminId.useQuery(
     {
-      companyId: companyId ?? "",
-      limit: pagination.limit,
-      page: pagination.page,
+      companyAdminId: userId ?? "",
     },
     {
-      enabled: !!companyId,
+      enabled: !!userId,
     },
   );
 
-  const columns = useUserColumns() as ColumnDef<CompanyUser, unknown>[];
+  // Fetch users based on selection
+  const { data: usersData, isLoading } = api.user.getUsersByAdminId.useQuery(
+    {
+      status: undefined,
+      searched: searchInput,
+      limit: pagination.limit,
+      page: pagination.page,
+      sortBy,
+    },
+    {
+      enabled: !!userId && selectedCompanyId === "all",
+    },
+  );
+
+  // Fetch users for the selected company
+  const { data: companyUsersData, isLoading: isLoadingCompanyUsers } =
+    api.user.getUsersByCompanyId.useQuery(
+      {
+        companyId: selectedCompanyId,
+        searched: searchInput,
+        limit: pagination.limit,
+        page: pagination.page,
+      },
+      {
+        enabled: !!selectedCompanyId && selectedCompanyId !== "all",
+      },
+    );
+
+  // Fetch users for the specific report
+  const { data: reportUsersData, isLoading: isLoadingReportUsers } =
+    api.user.getUsersByReportId.useQuery(
+      { reportId: reportId ?? "" },
+      { enabled: !!reportId },
+    );
+
+  const { columns, modals } = useUserColumns();
 
   const handleSearchChange = useCallback((value: string) => {
     setSearchInput(value);
@@ -78,43 +101,104 @@ export default function AdminPage() {
     }));
   }, []);
 
-  const transformedUsers =
-    usersData?.users.map((user) => ({
+  const transformedUsers = (() => {
+    if (reportId && reportUsersData?.data) {
+      return reportUsersData.data.map((user) => ({
+        ...user,
+        isSuperAdmin: user.role === "superAdmin",
+        passwordHistory: [],
+      }));
+    }
+    return (
+      selectedCompanyId === "all"
+        ? (usersData?.data ?? [])
+        : (companyUsersData?.users ?? [])
+    ).map((user) => ({
       ...user,
       isSuperAdmin: user.role === "superAdmin",
       passwordHistory: [],
-    })) ?? [];
+    }));
+  })();
+
+  const totalUsers = (() => {
+    if (reportId && reportUsersData?.data) {
+      return reportUsersData.data.length;
+    }
+    return selectedCompanyId === "all"
+      ? (usersData?.total ?? 0)
+      : (companyUsersData?.total ?? 0);
+  })();
 
   return (
-    <div className="container mx-auto w-full p-6">
-      <DataTable<CompanyUser, unknown, "userName" | "dateCreated">
-        columns={columns}
-        data={transformedUsers}
-        pagination={{
-          pageCount:
-            usersData?.total && usersData.limit
-              ? Math.ceil(usersData.total / usersData.limit)
-              : 0,
-          page: pagination.page,
-          onPageChange: (page: number) =>
-            setPagination((prev) => ({ ...prev, page })),
-          onPageSizeChange: handlePageSizeChange,
-        }}
-        sorting={{
-          sortBy,
-          onSortChange: handleSortChange,
-          sortOptions: ["userName", "dateCreated"],
-        }}
-        search={{
-          value: searchInput,
-          onChange: handleSearchChange,
-        }}
-        isLoading={isLoading}
-        placeholder="Search by user email..."
-        actionButton={<UserModalButton />}
-        pageSize={pagination.limit}
-        pageSizeOptions={[10, 20, 50, 100]}
-      />
+    <div className="container mx-auto w-full max-w-[98%] p-6">
+      {!reportId && (
+        <div className="z-10 mb-4">
+          <Select
+            value={selectedCompanyId}
+            onValueChange={setSelectedCompanyId}
+          >
+            <SelectTrigger className="w-[250px] border-slate-200 dark:border-slate-800">
+              <SelectValue placeholder="All Users" />
+            </SelectTrigger>
+            <SelectContent className="border-slate-200 dark:border-slate-700 dark:bg-slate-800">
+              <SelectItem
+                value="all"
+                className="mb-2 cursor-pointer hover:bg-slate-100 data-[state=checked]:bg-slate-600 dark:hover:bg-slate-700 dark:data-[state=checked]:bg-slate-600"
+              >
+                All Users
+              </SelectItem>
+              {companiesData?.data.map((company) => (
+                <SelectItem
+                  key={company.id}
+                  value={company.id}
+                  className="cursor-pointer hover:bg-slate-100 data-[state=checked]:bg-slate-600 dark:hover:bg-slate-700 dark:data-[state=checked]:bg-slate-600"
+                >
+                  {company.companyName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {isLoading || isLoadingCompanyUsers || isLoadingReportUsers ? (
+        <DataTableSkeleton
+          columnCount={columns.length}
+          rowCount={pagination.limit}
+          searchable={true}
+          filterable={true}
+          actionButton={true}
+        />
+      ) : (
+        <DataTable<CompanyUser, unknown, "userName" | "dateCreated">
+          columns={columns}
+          data={transformedUsers}
+          pagination={{
+            pageCount:
+              totalUsers && pagination.limit
+                ? Math.ceil(totalUsers / pagination.limit)
+                : 0,
+            page: pagination.page,
+            onPageChange: (page: number) =>
+              setPagination((prev) => ({ ...prev, page })),
+            onPageSizeChange: handlePageSizeChange,
+          }}
+          sorting={{
+            sortBy,
+            onSortChange: handleSortChange,
+            sortOptions: ["userName", "dateCreated"],
+          }}
+          search={{
+            value: searchInput,
+            onChange: handleSearchChange,
+          }}
+          placeholder="Search by user email..."
+          actionButton={!reportId && <UserModal />}
+          pageSize={pagination.limit}
+          pageSizeOptions={[10, 20, 50, 100]}
+        />
+      )}
+      {modals}
     </div>
   );
 }

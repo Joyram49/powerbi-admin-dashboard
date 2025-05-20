@@ -1,4 +1,8 @@
+import { TRPCError } from "@trpc/server";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
+
+import { companies, db } from "@acme/db";
 
 import { stripe } from "../index";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
@@ -17,15 +21,34 @@ export const stripeRouter = createTRPCRouter({
           "enterprise",
         ]),
         customerEmail: z.string().email(),
+        companyId: z.string().uuid(),
         customAmount: z.number().optional(),
         customSetupFee: z.number().optional(),
       }),
     )
     .mutation(async ({ input }) => {
-      const { tier, customerEmail, customAmount, customSetupFee } = input;
+      const { tier, customerEmail, customAmount, customSetupFee, companyId } =
+        input;
       const product = tierProducts[tier];
 
-      if (!product.name) throw new Error("Invalid product tier");
+      if (!product.name) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Invalid product tier",
+        });
+      }
+
+      // check if the company is inactive
+      const company = await db.query.companies.findFirst({
+        where: eq(companies.id, companyId),
+      });
+
+      if (company?.status === "inactive") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Company is inactive",
+        });
+      }
 
       const line_items = [];
 
@@ -58,16 +81,53 @@ export const stripeRouter = createTRPCRouter({
         );
       }
 
-      const session = await stripe.checkout.sessions.create({
-        mode: "subscription",
-        payment_method_types: ["card"],
-        line_items,
-        success_url: `${process.env.NEXT_PUBLIC_APP_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/cancel`,
-        customer_email: customerEmail,
-        metadata: {
-          tier,
-        },
+      try {
+        const session = await stripe.checkout.sessions.create({
+          mode: "subscription",
+          payment_method_types: ["card"],
+          line_items,
+          success_url: `${process.env.NEXT_PUBLIC_APP_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/cancel`,
+          customer_email: customerEmail,
+          metadata: {
+            tier: product.name,
+            companyId,
+          },
+          subscription_data: {
+            metadata: {
+              tier: product.name,
+              companyId,
+            },
+          },
+        });
+
+        return { url: session.url };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to create checkout session",
+        });
+      }
+    }),
+
+  createPortalSession: protectedProcedure
+    .input(
+      z.object({
+        customerId: z.string(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const { customerId } = input;
+
+      const session = await stripe.billingPortal.sessions.create({
+        customer: customerId,
+        return_url: `${process.env.NEXT_PUBLIC_APP_URL}/billing`,
       });
 
       return { url: session.url };

@@ -1,11 +1,12 @@
 "use client";
 
+import type * as z from "zod";
 import React, { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
-import * as z from "zod";
 
+import { authRouterSchema } from "@acme/db/schema";
 import { Alert, AlertDescription, AlertTitle } from "@acme/ui/alert";
 import { Button } from "@acme/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@acme/ui/card";
@@ -60,15 +61,7 @@ const variants = {
   },
 };
 
-// Form validation schema
-const formSchema = z.object({
-  email: z
-    .string()
-    .min(1, { message: "Email is required" })
-    .email({ message: "Invalid email address" }),
-});
-
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = z.infer<typeof authRouterSchema.sendOTP>;
 
 export function ForgotPasswordForm() {
   const [formState, setFormState] = useState({
@@ -80,7 +73,7 @@ export function ForgotPasswordForm() {
   });
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(authRouterSchema.sendOTP),
     defaultValues: { email: "" },
     mode: "onChange",
   });

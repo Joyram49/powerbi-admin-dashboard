@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-import type { ReportType } from "./_components/ReportForm";
+import type { ReportType } from "@acme/db/schema";
+
 import { useDebounce } from "~/hooks/useDebounce";
 import { api } from "~/trpc/react";
 import { DataTable } from "../../_components/DataTable";
+import { DataTableSkeleton } from "../../_components/DataTableSkeleton";
 import useReportColumns from "./_components/ReportColumns";
-import ReportModalButton from "./_components/ReportModal";
+import ReportModal from "./_components/ReportModal";
 
 export default function ReportsDashboard() {
   const searchParams = useSearchParams();
@@ -58,7 +60,7 @@ export default function ReportsDashboard() {
     );
 
   // If no companyId, use the general report API
-  const { data: reportData, isLoading: isLoadingAllReports } =
+  const { data: allReportsData, isLoading: isLoadingAllReports } =
     api.report.getAllReports.useQuery(
       {
         searched: debouncedSearch,
@@ -74,13 +76,13 @@ export default function ReportsDashboard() {
   // Determine which data to use
   const reports = companyId
     ? (companyReportData?.reports ?? [])
-    : (reportData?.data ?? []);
+    : (allReportsData?.data ?? []);
   const total = companyId
     ? (companyReportData?.total ?? 0)
-    : (reportData?.total ?? 0);
+    : (allReportsData?.total ?? 0);
   const pageLimit = companyId
     ? (companyReportData?.limit ?? pagination.limit)
-    : (reportData?.limit ?? pagination.limit);
+    : (allReportsData?.limit ?? pagination.limit);
   const isLoading = companyId ? isLoadingCompanyReports : isLoadingAllReports;
 
   const handleSearchChange = useCallback((value: string) => {
@@ -96,38 +98,44 @@ export default function ReportsDashboard() {
     });
   }, []);
 
-  const reportById = api.report.getReportById.useQuery({
-    reportId: "7f6d3fae-2494-4f4c-9e54-78d8042ed212",
-  });
-  console.log(reportById);
-
   return (
-    <div className="container mx-auto w-full p-6">
+    <div className="container mx-auto w-full max-w-[98%] p-6">
       <h1 className="mb-6 text-2xl font-bold">{pageTitle}</h1>
-      <DataTable<ReportType, unknown, "reportName" | "dateCreated">
-        columns={columns}
-        data={reports}
-        pagination={{
-          pageCount: total && pageLimit ? Math.ceil(total / pageLimit) : 0,
-          page: pagination.page,
-          onPageChange: (page) => setPagination((prev) => ({ ...prev, page })),
-          onPageSizeChange: handlePageSizeChange,
-        }}
-        sorting={{
-          sortBy,
-          onSortChange: (newSortBy) => setSortBy(newSortBy),
-          sortOptions: ["reportName", "dateCreated"],
-        }}
-        search={{
-          value: searchInput,
-          onChange: handleSearchChange,
-        }}
-        placeholder="Search report name..."
-        actionButton={<ReportModalButton companyId={companyId ?? undefined} />}
-        isLoading={isLoading}
-        pageSize={pagination.limit}
-        pageSizeOptions={[10, 20, 50, 100]}
-      />
+      {isLoading ? (
+        <DataTableSkeleton
+          columnCount={columns.length}
+          rowCount={pagination.limit}
+          searchable={true}
+          filterable={true}
+          actionButton={true}
+        />
+      ) : (
+        <DataTable<ReportType, unknown, "reportName" | "dateCreated">
+          columns={columns}
+          data={reports}
+          pagination={{
+            pageCount: total && pageLimit ? Math.ceil(total / pageLimit) : 0,
+            page: pagination.page,
+            onPageChange: (page) =>
+              setPagination((prev) => ({ ...prev, page })),
+            onPageSizeChange: handlePageSizeChange,
+          }}
+          sorting={{
+            sortBy,
+            onSortChange: (newSortBy) => setSortBy(newSortBy),
+            sortOptions: ["reportName", "dateCreated"],
+          }}
+          search={{
+            value: searchInput,
+            onChange: handleSearchChange,
+          }}
+          placeholder="Search report name..."
+          actionButton={<ReportModal companyId={companyId ?? undefined} />}
+          isLoading={isLoading}
+          pageSize={pagination.limit}
+          pageSizeOptions={[10, 20, 50, 100]}
+        />
+      )}
 
       {/* Add the Report Viewer component */}
       <ReportViewer

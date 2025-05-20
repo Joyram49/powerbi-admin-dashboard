@@ -1,12 +1,13 @@
 "use client";
 
+import type { z } from "zod";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 
+import { authRouterSchema } from "@acme/db/schema";
 import { Button } from "@acme/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@acme/ui/card";
 import {
@@ -23,21 +24,6 @@ import { toast } from "@acme/ui/toast";
 import { useSessionActivity } from "~/hooks/useSessionActivity";
 import { api } from "~/trpc/react";
 import { ROLE_ROUTES } from "~/utils/routes";
-
-// Form validation schema with updated password requirements
-const FormSchema = z.object({
-  email: z
-    .string({ message: "Email is required" })
-    .email({ message: "Invalid email address" }),
-  password: z
-    .string()
-    .min(12, { message: "Password must be between 12-20 characters" })
-    .max(20, { message: "Password must be between 12-20 characters" })
-    .regex(/^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};:'"\\|,.<>/?]).+$/, {
-      message:
-        "Password must include at least one uppercase letter, one number, and one special character",
-    }),
-});
 
 // Animation variants (kept from previous version)
 const containerVariants = {
@@ -69,8 +55,8 @@ export function SignInForm() {
   const router = useRouter();
   const { createSession } = useSessionActivity();
   const utils = api.useUtils();
-  const form = useForm<z.infer<typeof FormSchema>>({
-    resolver: zodResolver(FormSchema),
+  const form = useForm<z.infer<typeof authRouterSchema.signIn>>({
+    resolver: zodResolver(authRouterSchema.signIn),
     defaultValues: {
       email: "",
       password: "",
@@ -114,8 +100,13 @@ export function SignInForm() {
     },
   });
 
-  async function onSubmit(data: z.infer<typeof FormSchema>) {
-    await signIn.mutateAsync(data);
+  async function onSubmit(data: z.infer<typeof authRouterSchema.signIn>) {
+    try {
+      await signIn.mutateAsync(data);
+    } catch (error) {
+      // Error is already handled in the mutation's onError callback
+      console.error("Sign in error:", error);
+    }
   }
 
   return (

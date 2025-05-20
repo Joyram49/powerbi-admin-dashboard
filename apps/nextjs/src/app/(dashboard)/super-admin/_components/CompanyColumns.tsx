@@ -1,18 +1,19 @@
 "use client";
 
 import type { Column, ColumnDef, Row, Table } from "@tanstack/react-table";
-import React, { useMemo } from "react";
-import Link from "next/link";
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowUpDown } from "lucide-react";
 
+import type { CompanyWithAdmins } from "@acme/db/schema";
 import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
 import { Checkbox } from "@acme/ui/checkbox";
+import { toast } from "@acme/ui/toast";
 
-import type { Company } from "~/types/company";
 import { api } from "~/trpc/react";
 import { EntityActions } from "../../_components/EntityActions";
-import CompanyAdminForm from "./CompanyForm";
+import CompanyModal from "./CompanyModal";
 
 interface TableMeta {
   sorting?: {
@@ -23,13 +24,21 @@ interface TableMeta {
 export function useCompanyColumns() {
   // Hook calls inside the custom hook
   const utils = api.useUtils();
-  const deleteMutation = api.company.deleteCompany.useMutation();
+  const disableMutation = api.company.disableACompany.useMutation();
+  const enableMutation = api.company.enableACompany.useMutation();
+  const router = useRouter();
+
+  // State for edit modal
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [companyToEdit, setCompanyToEdit] = useState<CompanyWithAdmins | null>(
+    null,
+  );
 
   return useMemo(() => {
-    const columns: ColumnDef<Company>[] = [
+    const columns: ColumnDef<CompanyWithAdmins>[] = [
       {
         id: "select",
-        header: ({ table }: { table: Table<Company> }) => (
+        header: ({ table }: { table: Table<CompanyWithAdmins> }) => (
           <Checkbox
             checked={
               table.getIsAllPageRowsSelected() ||
@@ -39,15 +48,15 @@ export function useCompanyColumns() {
               table.toggleAllPageRowsSelected(!!value)
             }
             aria-label="Select all"
-            className="border border-slate-800 checked:border-blue-500 checked:bg-white dark:border-slate-50 dark:checked:bg-slate-800"
+            className="border border-slate-200 checked:border-blue-500 checked:bg-white dark:border-slate-700 dark:checked:bg-slate-800"
           />
         ),
-        cell: ({ row }: { row: Row<Company> }) => (
+        cell: ({ row }: { row: Row<CompanyWithAdmins> }) => (
           <Checkbox
             checked={row.getIsSelected()}
             onCheckedChange={(value) => row.toggleSelected(!!value)}
             aria-label="Select row"
-            className="border border-slate-800 checked:border-blue-500 checked:bg-white dark:border-slate-50 dark:checked:bg-slate-800"
+            className="border border-slate-200 checked:border-blue-500 checked:bg-white dark:border-slate-700 dark:checked:bg-slate-800"
           />
         ),
         enableSorting: false,
@@ -60,8 +69,7 @@ export function useCompanyColumns() {
           const { id } = row.original;
           return (
             <div className="text-left">
-              <span className="hidden xl:inline">{id}</span>
-              <span className="xl:hidden">{id.slice(0, 10)}...</span>
+              <span>{id.slice(0, 10)}...</span>
             </div>
           );
         },
@@ -72,100 +80,92 @@ export function useCompanyColumns() {
           column,
           table,
         }: {
-          column: Column<Company>;
-          table: Table<Company>;
+          column: Column<CompanyWithAdmins>;
+          table: Table<CompanyWithAdmins>;
         }) => {
           const { sorting } = table.options.meta as TableMeta;
           return (
-            <Button
-              variant="ghost"
-              onClick={() => {
-                if (sorting?.onSortChange) {
-                  sorting.onSortChange("companyName");
-                } else {
-                  column.toggleSorting(column.getIsSorted() === "asc");
-                }
-              }}
-              className="text-center font-medium"
-            >
-              Company Name
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
+            <div className="flex justify-center">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  if (sorting?.onSortChange) {
+                    sorting.onSortChange("companyName");
+                  } else {
+                    column.toggleSorting(column.getIsSorted() === "asc");
+                  }
+                }}
+                className="text-center font-medium dark:hover:bg-gray-900"
+              >
+                Company Name
+                <ArrowUpDown className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
           );
         },
         cell: ({ row }) => (
-          <div className="text-center font-semibold">
-            {row.original.companyName}
+          <div className="flex justify-center">
+            <div className="text-center font-semibold">
+              {row.original.companyName}
+            </div>
           </div>
         ),
       },
       {
         accessorKey: "companyAdmin",
-        header: () => <div className="text-center font-medium">Admin</div>,
+        header: () => <div className="text-left font-medium">Admins</div>,
         cell: ({ row }) => {
-          const admin = row.original.admin;
+          const admins = row.original.admins;
           return (
-            <div className="text-center">
-              {admin.userName || "Admin not found"}
-            </div>
+            <Button
+              variant="link"
+              className="border border-slate-200 bg-gray-100 text-left hover:border-primary/90 dark:border-slate-700 dark:bg-gray-800 dark:hover:bg-gray-700"
+              onClick={() => {
+                router.push(
+                  `/super-admin/users?companyId=${row.original.id}&userType=admin`,
+                );
+              }}
+            >
+              {admins.length || 0}
+            </Button>
           );
         },
       },
       {
-        accessorKey: "companyAddress",
-        header: () => <div className="text-center font-medium">Address</div>,
-        cell: ({ row }) => (
-          <div className="text-center">{row.original.address}</div>
-        ),
-      },
-      {
-        accessorKey: "phone",
-        header: () => <div className="text-center font-medium">Phone</div>,
-        cell: ({ row }) => (
-          <div className="text-center">{row.original.phone}</div>
-        ),
-      },
-      {
         accessorKey: "email",
-        header: () => <div className="text-center font-medium">Email</div>,
+        header: () => <div className="text-left font-medium">Email</div>,
         cell: ({ row }) => (
-          <div className="text-center">{row.original.email}</div>
+          <div className="text-left">{row.original.email}</div>
         ),
       },
       {
         accessorKey: "employeeCount",
-        header: () => (
-          <div className="text-center font-medium"># employees</div>
-        ),
+        header: () => <div className="text-left font-medium"># Employees</div>,
         cell: ({ row }) => (
-          <Link
-            href={`/super-admin/users?companyId=${row.original.id}`}
-            className="flex justify-center"
+          <Button
+            variant="link"
+            className="border border-slate-200 bg-gray-100 text-left hover:border-primary/90 dark:border-slate-700 dark:bg-gray-800 dark:hover:bg-gray-700"
+            onClick={() => {
+              router.push(`/super-admin/users?companyId=${row.original.id}`);
+            }}
           >
-            <Button
-              variant="link"
-              className="bg-gray-100 text-center dark:bg-gray-800"
-            >
-              {row.original.employeeCount}
-            </Button>
-          </Link>
+            {row.original.employeeCount}
+          </Button>
         ),
       },
       {
         accessorKey: "reportCount",
-        header: () => <div className="text-center font-medium"># Reports</div>,
+        header: () => <div className="text-left font-medium"># Reports</div>,
         cell: ({ row }) => (
-          <Link
-            href={`/super-admin/reports?companyId=${row.original.id}`}
-            className="flex justify-center"
+          <Button
+            variant="link"
+            className="border border-slate-200 bg-gray-100 text-left hover:border-primary/90 dark:border-slate-700 dark:bg-gray-800 dark:hover:bg-gray-700"
+            onClick={() => {
+              router.push(`/super-admin/reports?companyId=${row.original.id}`);
+            }}
           >
-            <Button
-              variant="link"
-              className="bg-gray-100 text-center dark:bg-gray-800"
-            >
-              {row.original.reportCount}
-            </Button>
-          </Link>
+            {row.original.reportCount}
+          </Button>
         ),
       },
       {
@@ -174,31 +174,31 @@ export function useCompanyColumns() {
           column,
           table,
         }: {
-          column: Column<Company>;
-          table: Table<Company>;
+          column: Column<CompanyWithAdmins>;
+          table: Table<CompanyWithAdmins>;
         }) => {
           const { sorting } = table.options.meta as TableMeta;
           return (
-            <Button
-              variant="ghost"
-              className="text-center font-medium"
-              onClick={() => {
-                // If sorting is available, use it
-                if (sorting?.onSortChange) {
-                  sorting.onSortChange("dateJoined");
-                } else {
-                  // Fallback to the default column sorting
-                  column.toggleSorting(column.getIsSorted() === "asc");
-                }
-              }}
-            >
-              Created At
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
+            <div className="flex justify-center">
+              <Button
+                variant="ghost"
+                className="text-center font-medium dark:hover:bg-gray-900"
+                onClick={() => {
+                  if (sorting?.onSortChange) {
+                    sorting.onSortChange("dateJoined");
+                  } else {
+                    column.toggleSorting(column.getIsSorted() === "asc");
+                  }
+                }}
+              >
+                Created At
+                <ArrowUpDown className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
           );
         },
         cell: ({ row }) => (
-          <div className="text-center">
+          <div className="flex justify-center">
             {row.original.dateJoined
               ? new Date(row.original.dateJoined).toLocaleDateString()
               : "N/A"}
@@ -221,24 +221,27 @@ export function useCompanyColumns() {
       {
         accessorKey: "status",
         header: ({ column }) => (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            className="text-center font-medium"
-          >
-            Status
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
+          <div className="flex justify-center">
+            <Button
+              variant="ghost"
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
+              className="text-center font-medium dark:hover:bg-gray-900"
+            >
+              Status
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
         ),
         cell: ({ row }) => {
           const status = row.original.status;
           return (
-            <Badge
-              variant={status === "active" ? "success" : "destructive"}
-              className="justify-center"
-            >
-              {(status as string) || "N/A"}
-            </Badge>
+            <div className="flex justify-center">
+              <Badge variant={status === "active" ? "success" : "destructive"}>
+                {(status as string) || "N/A"}
+              </Badge>
+            </div>
           );
         },
       },
@@ -247,39 +250,87 @@ export function useCompanyColumns() {
         cell: ({ row }) => {
           const company = row.original;
           return (
-            <EntityActions<Company>
-              entity={company}
-              entityName="Company"
-              entityDisplayField="companyName"
-              copyActions={[
-                { label: "Copy Company ID", field: "id" },
-                {
-                  label: "Copy Company Admin ID",
-                  field: (entity) => entity.admin.id,
-                },
-              ]}
-              editAction={{
-                // eslint-disable-next-line @typescript-eslint/no-empty-function
-                onEdit: () => {},
-                editForm: (
-                  // eslint-disable-next-line @typescript-eslint/no-empty-function
-                  <CompanyAdminForm initialData={company} onClose={() => {}} />
-                ),
-              }}
-              deleteAction={{
-                onDelete: async () => {
-                  await deleteMutation.mutateAsync({ companyId: company.id });
-                  await utils.company.getAllCompanies.invalidate();
-                },
-              }}
-            />
+            <div className="flex items-center">
+              <EntityActions<CompanyWithAdmins>
+                entity={company}
+                entityName="Company"
+                entityDisplayField="companyName"
+                editAction={{
+                  onEdit: () => {
+                    setCompanyToEdit(company);
+                    setIsEditModalOpen(true);
+                  },
+                }}
+                customActions={[
+                  {
+                    label:
+                      company.status === "active"
+                        ? "Disable Company"
+                        : "Enable Company",
+                    onClick: () => {
+                      void (async () => {
+                        try {
+                          if (company.status === "active") {
+                            await disableMutation.mutateAsync({
+                              companyId: company.id,
+                            });
+                          } else {
+                            await enableMutation.mutateAsync({
+                              companyId: company.id,
+                            });
+                          }
+                          await utils.company.getAllCompanies.invalidate();
+                          toast.success(
+                            `Company ${company.status === "active" ? "disabled" : "enabled"} successfully`,
+                          );
+                        } catch (error) {
+                          toast.error(
+                            error instanceof Error
+                              ? error.message
+                              : "Failed to update company status",
+                          );
+                        }
+                      })();
+                    },
+                    variant:
+                      company.status === "active" ? "destructive" : "default",
+                    className:
+                      company.status === "active"
+                        ? "text-red-600 bg-red-100 border border-red-600 hover:!bg-red-200 dark:text-red-400 dark:bg-red-950 dark:border-red-400 dark:hover:!bg-red-900 dark:hover:text-white"
+                        : "text-emerald-600 bg-emerald-100 border border-emerald-600 hover:!bg-emerald-200 dark:text-emerald-400 dark:bg-emerald-950 dark:border-emerald-400 dark:hover:!bg-emerald-900 dark:hover:text-white",
+                  },
+                ]}
+                copyActions={[{ label: "Copy Company ID", field: "id" }]}
+              />
+              {/* Edit Modal - Rendered conditionally when edit is clicked */}
+              {isEditModalOpen && companyToEdit?.id === company.id && (
+                <CompanyModal
+                  type="edit"
+                  companyId={company.id}
+                  isOpen={isEditModalOpen}
+                  setIsOpen={setIsEditModalOpen}
+                  onClose={() => {
+                    setIsEditModalOpen(false);
+                    setCompanyToEdit(null);
+                  }}
+                  triggerButton={false}
+                />
+              )}
+            </div>
           );
         },
       },
     ];
 
     return columns;
-  }, [deleteMutation, utils]);
+  }, [
+    utils,
+    isEditModalOpen,
+    companyToEdit,
+    router,
+    disableMutation,
+    enableMutation,
+  ]);
 }
 
 export default useCompanyColumns;

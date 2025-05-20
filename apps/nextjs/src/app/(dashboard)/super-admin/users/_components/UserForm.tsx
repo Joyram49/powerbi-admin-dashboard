@@ -192,12 +192,7 @@ interface UserFormProps {
   companyId?: string;
 }
 
-export function UserForm({
-  onClose,
-  setDialogOpen,
-  initialData,
-  companyId,
-}: UserFormProps) {
+export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [formSubmitError, setFormSubmitError] = useState<string | null>(null);
@@ -213,7 +208,7 @@ export function UserForm({
       ? api.company.getCompaniesByAdminId.useQuery({
           companyAdminId: currentUserId ?? "",
         })
-      : api.company.getAllCompanies.useQuery();
+      : api.company.getAllCompanies.useQuery({ limit: 20 });
 
   // Create and update mutations
   const createUserMutation = api.auth.createUser.useMutation({
@@ -225,6 +220,7 @@ export function UserForm({
       await utils.user.getAdminUsers.invalidate();
       await utils.user.getAllGeneralUser.invalidate();
       await utils.user.getUsersByCompanyId.invalidate();
+      await utils.user.getUsersByAdminId.invalidate();
       if (onClose) onClose();
     },
     onError: (error) => {
@@ -233,7 +229,7 @@ export function UserForm({
       toast.error("Failed to add user", {
         description: error.message || "An error occurred",
       });
-      setIsSubmitting(false);
+      // setIsSubmitting(false);
     },
   });
 
@@ -246,6 +242,10 @@ export function UserForm({
       await utils.user.getAdminUsers.invalidate();
       await utils.user.getAllGeneralUser.invalidate();
       await utils.user.getUsersByCompanyId.invalidate();
+      await utils.user.getUsersByReportId.invalidate();
+      if (initialData?.role === "admin") {
+        await utils.user.getUsersByAdminId.invalidate();
+      }
       if (onClose) onClose();
     },
     onError: (error) => {
@@ -277,20 +277,37 @@ export function UserForm({
 
   // Reset form when initial data changes
   useEffect(() => {
-    const role = initialData?.role ?? "user";
-    form.reset({
-      id: initialData?.id ?? "",
-      userName: initialData?.userName ?? "",
-      email: initialData?.email ?? "",
-      role: initialData?.role,
-      companyId: role === "user" ? (initialData?.companyId ?? "") : undefined,
-      password: "",
-      confirmPassword: "",
-      sendWelcomeEmail: true,
-      status: initialData?.status ?? "active",
-    });
+    if (initialData) {
+      const role = initialData.role;
+      form.reset({
+        id: initialData.id,
+        userName: initialData.userName,
+        email: initialData.email,
+        role: initialData.role,
+        companyId:
+          role === "user"
+            ? (initialData.companyId ?? companyId ?? "")
+            : undefined,
+        password: "",
+        confirmPassword: "",
+        sendWelcomeEmail: true,
+        status: initialData.status ?? "active",
+      });
+    } else {
+      form.reset({
+        id: "",
+        userName: "",
+        email: "",
+        role: "user",
+        companyId: companyId ?? "",
+        password: "",
+        confirmPassword: "",
+        sendWelcomeEmail: true,
+        status: "active",
+      });
+    }
     setFormSubmitError(null);
-  }, [initialData, form, currentUserId]);
+  }, [initialData, form, companyId]);
 
   // Validate password meets all requirements
   const validatePassword = (password: string): boolean => {
@@ -329,6 +346,7 @@ export function UserForm({
         companyId: values.companyId,
         userName: values.userName,
         password: values.password,
+        prevCompanyId: initialData?.companyId ?? undefined,
       };
 
       console.log("Updating user:", updateData);
@@ -585,11 +603,13 @@ export function UserForm({
                       }
                     }}
                     value={field.value}
-                    disabled={!!initialData?.id} // Only disable in update mode
+                    disabled={isUpdateMode} // Only disable in update mode
                   >
                     <FormControl>
                       <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">
-                        <SelectValue placeholder="Select user role" />
+                        <SelectValue placeholder="Select user role">
+                          <span className="capitalize">{field.value}</span>
+                        </SelectValue>
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent className="bg-white dark:border-gray-700 dark:bg-gray-800">
@@ -717,7 +737,6 @@ export function UserForm({
               type="button"
               variant="outline"
               onClick={() => {
-                setDialogOpen?.(false);
                 onClose?.();
               }}
               className="border-gray-300 bg-gray-100 text-gray-900 hover:bg-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"

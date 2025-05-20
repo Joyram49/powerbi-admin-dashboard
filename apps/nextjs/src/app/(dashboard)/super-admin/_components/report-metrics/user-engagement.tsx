@@ -28,14 +28,17 @@ async function UserEngagementCard() {
     const displayTime = formatDuration(engagementSeconds);
 
     return (
-      <Card className="@container/card dark:bg-slate-900">
+      <Card className="@container/card border-gray-200 dark:border-gray-800 dark:bg-slate-900">
         <CardHeader className="relative">
           <CardDescription>User Engagement</CardDescription>
           <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
             {displayTime}
           </CardTitle>
           <div className="absolute right-4 top-4">
-            <Badge variant="outline" className="flex gap-1 rounded-lg text-xs">
+            <Badge
+              variant="outline"
+              className="flex gap-1 rounded-lg border-gray-200 text-xs dark:border-gray-800"
+            >
               <ClockIcon className="size-3" />
               Active
             </Badge>

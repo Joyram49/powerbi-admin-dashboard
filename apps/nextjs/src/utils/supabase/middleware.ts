@@ -42,6 +42,12 @@ export async function updateSession(request: NextRequest) {
 
   // Scenario 1: Allow access to explicit public routes
   if (PUBLIC_ROUTES.includes(pathName)) {
+    // If user is logged in and trying to access login page, redirect to role-based route
+    if (pathName === LOGIN && user && userRole) {
+      const url = request.nextUrl.clone();
+      url.pathname = ROLE_ROUTES[userRole as keyof typeof ROLE_ROUTES] || LOGIN;
+      return NextResponse.redirect(url);
+    }
     return supabaseResponse;
   }
 
@@ -66,7 +72,19 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Scenario 5: Redirect to login if not authenticated and trying to access private routes
+  // Scenario 5: Check if the current path is a role-based route
+  const isRoleBasedRoute = Object.values(
+    ROLE_ROUTES as { [K in keyof typeof ROLE_ROUTES]: string },
+  ).some((route) => pathName.startsWith(route));
+
+  // If it's a role-based route and user is not authenticated, redirect to login
+  if (isRoleBasedRoute && !user) {
+    const url = request.nextUrl.clone();
+    url.pathname = LOGIN;
+    return NextResponse.redirect(url);
+  }
+
+  // Scenario 6: Redirect to login if not authenticated and trying to access private routes
   const isPrivateRoute = PRIVATE_ROUTES.some((route) =>
     pathName.startsWith(route),
   );
@@ -76,7 +94,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Scenario 6: Prevent access to routes not matching user's role
+  // Scenario 7: Prevent access to routes not matching user's role
   if (user && userRole) {
     const isPrivateRoute = PRIVATE_ROUTES.some((route) =>
       pathName.startsWith(route),

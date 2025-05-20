@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   CheckCircle,
   ChevronLeft,
@@ -11,17 +11,15 @@ import {
   User,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
-import * as z from "zod";
 
+import type {
+  Admins,
+  CompanyFormValues,
+  CompanyWithAdmins,
+} from "@acme/db/schema";
+import { createCompanySchema, updateCompanySchema } from "@acme/db/schema";
 import { Button } from "@acme/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@acme/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@acme/ui/dialog";
 import {
   Form,
   FormControl,
@@ -32,62 +30,12 @@ import {
   FormMessage,
 } from "@acme/ui/form";
 import { Input } from "@acme/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@acme/ui/select";
 import { Separator } from "@acme/ui/separator";
 import { toast } from "@acme/ui/toast";
 
-import type { Company } from "~/types/company";
 import { api } from "~/trpc/react";
-
-const PHONE_NUMBER_REGEX =
-  /^(?:(?:\+|00)?\d{1,4}[-.\s]?)?(?:\(?\d{1,4}\)?[-.\s]?)?[\d\s-]{6,20}$/;
-
-// Form validation schemas
-const companyFormSchema = z.object({
-  companyName: z.string().min(3, "Company name must be at least 3 characters"),
-  address: z.string(),
-  phone: z
-    .string()
-    .optional()
-    .refine(
-      (val) =>
-        val === undefined || val.trim() === "" || PHONE_NUMBER_REGEX.test(val),
-      "Invalid phone number format",
-    ),
-  email: z.string().email("Valid email is required"),
-  adminId: z
-    .string()
-    .min(1, "Please select an existing admin or create a new one"),
-});
-
-const adminFormSchema = z
-  .object({
-    userName: z
-      .string()
-      .min(2, "Username is required")
-      .refine((val) => !val.includes(" "), "Username cannot contain spaces"),
-    email: z.string().email("Valid email is required"),
-    password: z
-      .string()
-      .min(12, "Password must be at least 12 characters")
-      .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-      .regex(/[a-z]/, "Password must contain at least one lowercase letter")
-      .regex(/[0-9]/, "Password must contain at least one number"),
-    confirmPassword: z
-      .string()
-      .min(12, "Password must be at least 12 characters"),
-    role: z.literal("admin"),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords do not match",
-    path: ["confirmPassword"],
-  });
+import { MultiSelect } from "../../_components/MultiSelect";
+import AdminCreationDialog from "./CompanyAdminForm";
 
 // Animation variants
 const containerVariants = {
@@ -115,71 +63,75 @@ const buttonVariants = {
   tap: { scale: 0.97 },
 };
 
-interface User {
-  id: string;
-  userName: string;
-  email: string;
-  role: string;
-  status?: "active" | "inactive" | null;
-}
-
 interface CompanyFormProps {
   onClose: (shouldRefresh?: boolean) => void;
   setDialogOpen?: (open: boolean) => void;
-  initialData?: Company | null;
+  initialData?: CompanyWithAdmins;
 }
 
-const CompanyAdminForm = ({
-  onClose,
-  setDialogOpen,
-  initialData,
-}: CompanyFormProps) => {
+const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
   const [showAdminForm, setShowAdminForm] = useState(false);
   const [companyFormSubmitted, setCompanyFormSubmitted] = useState(false);
-  const [adminFormSubmitted, setAdminFormSubmitted] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [formStep, setFormStep] = useState(0);
-  const [existingAdmins, setExistingAdmins] = useState<User[]>([]);
+  const [selectedAdmins, setSelectedAdmins] = useState<Admins[]>([]);
 
-  const { data: admins } = api.user.getAdminUsers.useQuery();
+  const { data: admins, isLoading: adminsLoading } =
+    api.user.getAdminUsers.useQuery(
+      {
+        limit: 100,
+      },
+      {
+        enabled: true,
+        refetchOnWindowFocus: false,
+      },
+    );
+
   const utils = api.useUtils();
 
+  // Company form
+  const companyForm = useForm<CompanyFormValues>({
+    resolver: zodResolver(
+      initialData ? updateCompanySchema : createCompanySchema,
+    ),
+    defaultValues: initialData
+      ? {
+          companyId: initialData.id,
+          companyName: initialData.companyName,
+          address: initialData.address ?? "",
+          phone: initialData.phone ?? "",
+          email: initialData.email ?? "",
+          adminIds: initialData.admins.map((admin) => admin.id),
+        }
+      : {
+          companyName: "",
+          address: "",
+          phone: "",
+          email: "",
+          adminIds: [],
+        },
+    mode: "onChange",
+  });
+
+  // Reset form when initialData changes
   useEffect(() => {
-    if (admins) {
-      setExistingAdmins(admins.data);
+    if (initialData) {
+      companyForm.reset({
+        companyId: initialData.id,
+        companyName: initialData.companyName,
+        address: initialData.address ?? "",
+        phone: initialData.phone ?? "",
+        email: initialData.email ?? "",
+        adminIds: initialData.admins.map((admin) => admin.id),
+      });
+      setSelectedAdmins([...initialData.admins]);
     }
-  }, [admins]);
+  }, [initialData, companyForm]);
 
   // Handle hydration issues with theme
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  // Company form
-  const companyForm = useForm({
-    resolver: zodResolver(companyFormSchema),
-    defaultValues: {
-      companyName: initialData?.companyName ?? "",
-      address: initialData?.address ?? "",
-      phone: initialData?.phone ?? "",
-      email: initialData?.email ?? "",
-      adminId: initialData?.admin.id ?? "",
-    },
-    mode: "onChange",
-  });
-
-  // Admin form
-  const adminForm = useForm({
-    resolver: zodResolver(adminFormSchema),
-    defaultValues: {
-      userName: "",
-      email: "",
-      password: "",
-      confirmPassword: "",
-      role: "admin" as const,
-    },
-    mode: "onChange",
-  });
 
   // Update company mutation
   const updateCompanyMutation = api.company.updateCompany.useMutation({
@@ -200,55 +152,12 @@ const CompanyAdminForm = ({
     },
   });
 
-  // Create admin user mutation
-  const createAdminMutation = api.auth.createUser.useMutation({
-    onSuccess: async (adminUser) => {
-      toast.success("Administrator Created", {
-        description: "New administrator has been successfully created.",
-      });
-
-      // Reset admin form and close the admin dialog
-      setAdminFormSubmitted(false);
-      adminForm.reset();
-      setShowAdminForm(false);
-
-      // Add the new admin to the existing admins list and update the form
-      if (adminUser.user) {
-        // Add the new admin to the existingAdmins list so it shows in the dropdown
-        const newAdmin = {
-          id: adminUser.user.id,
-          userName:
-            (adminUser.user.user_metadata as { userName?: string }).userName ??
-            adminUser.user.email ??
-            "",
-          email: adminUser.user.email ?? "",
-          role: "admin",
-        };
-        setExistingAdmins((prev) => [...prev, newAdmin]);
-
-        // Update the form value with the new admin ID
-        companyForm.setValue("adminId", adminUser.user.id);
-        // Trigger validation to clear any error messages
-        await companyForm.trigger("adminId");
-      }
-
-      // Refresh admin users list in the background
-      await utils.user.getAdminUsers.invalidate();
-    },
-    onError: (error) => {
-      setAdminFormSubmitted(false);
-      toast.error("Administrator Creation Failed", {
-        description: error.message || "Unable to create company administrator",
-      });
-    },
-  });
-
   // Create company mutation
   const createCompanyMutation = api.company.create.useMutation({
     onSuccess: async (data) => {
       setCompanyFormSubmitted(false);
       toast.success("Company Added", {
-        description: `${data.company?.companyName} has been successfully created.`,
+        description: `${data.company.companyName} has been successfully created.`,
       });
       companyForm.reset();
       setFormStep(0);
@@ -263,11 +172,12 @@ const CompanyAdminForm = ({
     },
   });
 
-  const onSubmitCompany = (values: z.infer<typeof companyFormSchema>) => {
+  const onSubmitCompany = (values: CompanyFormValues) => {
     setCompanyFormSubmitted(true);
 
     try {
       if (initialData) {
+        console.log("formData", values);
         // Update existing company
         updateCompanyMutation.mutate({
           companyId: initialData.id,
@@ -275,10 +185,11 @@ const CompanyAdminForm = ({
           address: values.address,
           phone: values.phone,
           email: values.email,
+          adminIds: values.adminIds,
         });
       } else {
         // For new company, we need admin information
-        if (!values.adminId) {
+        if (!selectedAdmins.length) {
           toast.error("Admin Selection Required", {
             description: "Please select an administrator for this company",
           });
@@ -286,13 +197,15 @@ const CompanyAdminForm = ({
           return;
         }
 
+        const selectedAdminIds = selectedAdmins.map((admin) => admin.id);
+
         // Create company with selected admin
         createCompanyMutation.mutate({
           companyName: values.companyName,
           address: values.address,
           phone: values.phone,
           email: values.email,
-          companyAdminId: values.adminId,
+          adminIds: selectedAdminIds,
         });
       }
     } catch (error) {
@@ -303,18 +216,6 @@ const CompanyAdminForm = ({
         }`,
       });
     }
-  };
-
-  const onSubmitAdmin = (values: z.infer<typeof adminFormSchema>) => {
-    setAdminFormSubmitted(true);
-
-    // Create a new admin user
-    createAdminMutation.mutate({
-      userName: values.userName,
-      email: values.email,
-      password: values.password,
-      role: "admin",
-    });
   };
 
   const handleNextStep = async () => {
@@ -328,6 +229,15 @@ const CompanyAdminForm = ({
     if (isValid) {
       setFormStep(1);
     }
+  };
+
+  const handleAdminCreated = async (admin: Admins) => {
+    setSelectedAdmins([...selectedAdmins, admin]);
+    companyForm.setValue("adminIds", [
+      ...selectedAdmins.map((a) => a.id),
+      admin.id,
+    ]);
+    await companyForm.trigger("adminIds");
   };
 
   if (!mounted) return null;
@@ -347,12 +257,12 @@ const CompanyAdminForm = ({
                   ? "Edit Company"
                   : formStep === 0
                     ? "Add New Company"
-                    : "Contact Details"}
+                    : "Company Administrator"}
               </CardTitle>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                 {formStep === 0
                   ? "Enter company information"
-                  : "Complete contact information"}
+                  : "Select the company Administrator. you can select multiple administrators but first one must be the primary administrator."}
               </p>
             </motion.div>
 
@@ -497,52 +407,41 @@ const CompanyAdminForm = ({
                   <motion.div variants={itemVariants}>
                     <FormField
                       control={companyForm.control}
-                      name="adminId"
+                      name="adminIds"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-sm font-medium dark:text-gray-300">
                             Company Administrator
                           </FormLabel>
-                          {existingAdmins.length > 0 ? (
-                            <Select
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                              value={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white">
-                                  <SelectValue placeholder="Select an administrator" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent className="bg-white dark:border-gray-700 dark:bg-gray-800">
-                                {existingAdmins.map((admin: User) => (
-                                  <SelectItem
-                                    key={admin.id}
-                                    value={admin.id}
-                                    className="dark:text-white dark:hover:bg-gray-700 dark:focus:bg-gray-700"
-                                  >
-                                    {admin.userName}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <div className="rounded-md border bg-white p-3 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
-                              No existing company administrators found. Please
-                              create a new one.
-                            </div>
-                          )}
+                          <MultiSelect
+                            options={
+                              admins?.data.map((admin) => ({
+                                value: admin.id,
+                                label: `${admin.userName} - ${admin.email}`,
+                              })) ?? []
+                            }
+                            selected={selectedAdmins.map((a) => a.id)}
+                            onChange={(ids) => {
+                              const newSelected = (admins?.data ?? []).filter(
+                                (a) => ids.includes(a.id),
+                              );
+                              setSelectedAdmins(newSelected);
+                              field.onChange(ids);
+                            }}
+                            placeholder="Select administrator(s)"
+                            loading={adminsLoading}
+                            disabled={adminsLoading}
+                          />
                           <FormDescription className="text-xs text-gray-500 dark:text-gray-400">
-                            Select existing admin or create a new one
+                            Search and select one or more administrators. The
+                            first one will be the primary administrator.
                           </FormDescription>
                           <FormMessage className="text-xs dark:text-red-400" />
                         </FormItem>
                       )}
                     />
                   </motion.div>
-
                   <Separator className="my-2 dark:bg-gray-800" />
-
                   <motion.div
                     className="flex flex-wrap justify-between gap-3 pt-2"
                     variants={itemVariants}
@@ -562,7 +461,6 @@ const CompanyAdminForm = ({
                         Add new admin
                       </Button>
                     </motion.div>
-
                     <div className="flex gap-2">
                       <motion.div
                         variants={buttonVariants}
@@ -579,7 +477,6 @@ const CompanyAdminForm = ({
                           Back
                         </Button>
                       </motion.div>
-
                       <motion.div
                         variants={buttonVariants}
                         whileHover="hover"
@@ -616,177 +513,13 @@ const CompanyAdminForm = ({
         </CardContent>
       </Card>
 
-      {/* Admin Creation Dialog */}
-      <AnimatePresence>
-        {showAdminForm && (
-          <Dialog open={showAdminForm} onOpenChange={setShowAdminForm}>
-            <DialogContent className="dark:border-gray-800 dark:bg-gray-900 sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle className="text-xl dark:text-white">
-                  New Administrator
-                </DialogTitle>
-                <DialogDescription className="text-gray-500 dark:text-gray-400">
-                  Create a new administrator account
-                </DialogDescription>
-              </DialogHeader>
-
-              <Form {...adminForm}>
-                <motion.form
-                  onSubmit={adminForm.handleSubmit(onSubmitAdmin)}
-                  className="space-y-4"
-                  variants={containerVariants}
-                  initial="hidden"
-                  animate="visible"
-                >
-                  <motion.div variants={itemVariants}>
-                    <FormField
-                      control={adminForm.control}
-                      name="userName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm font-medium dark:text-gray-300">
-                            Username
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="Create username"
-                              {...field}
-                              className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                            />
-                          </FormControl>
-                          <FormMessage className="text-xs dark:text-red-400" />
-                        </FormItem>
-                      )}
-                    />
-                  </motion.div>
-
-                  <motion.div variants={itemVariants}>
-                    <FormField
-                      control={adminForm.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm font-medium dark:text-gray-300">
-                            Email
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="Enter email address"
-                              type="email"
-                              {...field}
-                              className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                            />
-                          </FormControl>
-                          <FormMessage className="text-xs dark:text-red-400" />
-                        </FormItem>
-                      )}
-                    />
-                  </motion.div>
-
-                  <motion.div
-                    variants={itemVariants}
-                    className="grid grid-cols-1 gap-4 sm:grid-cols-2"
-                  >
-                    <FormField
-                      control={adminForm.control}
-                      name="password"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm font-medium dark:text-gray-300">
-                            Password
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              type="password"
-                              placeholder="Enter your password..."
-                              {...field}
-                              className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                            />
-                          </FormControl>
-                          <FormDescription className="text-xs text-gray-500 dark:text-gray-400">
-                            Min 12 chars with uppercase, lowercase & number
-                          </FormDescription>
-                          <FormMessage className="text-xs dark:text-red-400" />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={adminForm.control}
-                      name="confirmPassword"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm font-medium dark:text-gray-300">
-                            Confirm Password
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              type="password"
-                              placeholder="Confirm your password..."
-                              {...field}
-                              className="bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                            />
-                          </FormControl>
-                          <FormMessage className="text-xs dark:text-red-400" />
-                        </FormItem>
-                      )}
-                    />
-                  </motion.div>
-
-                  <motion.div
-                    className="flex justify-end gap-2 pt-4"
-                    variants={itemVariants}
-                  >
-                    <motion.div
-                      variants={buttonVariants}
-                      whileHover="hover"
-                      whileTap="tap"
-                    >
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          setDialogOpen?.(false);
-                          onClose(false);
-                        }}
-                        className="bg-gray-100 text-gray-900 hover:bg-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
-                      >
-                        Cancel
-                      </Button>
-                    </motion.div>
-
-                    <motion.div
-                      variants={buttonVariants}
-                      whileHover="hover"
-                      whileTap="tap"
-                    >
-                      <Button
-                        type="submit"
-                        className="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
-                        disabled={adminFormSubmitted}
-                      >
-                        {adminFormSubmitted ? (
-                          <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="flex items-center"
-                          >
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Creating...
-                          </motion.div>
-                        ) : (
-                          "Create Admin"
-                        )}
-                      </Button>
-                    </motion.div>
-                  </motion.div>
-                </motion.form>
-              </Form>
-            </DialogContent>
-          </Dialog>
-        )}
-      </AnimatePresence>
+      <AdminCreationDialog
+        open={showAdminForm}
+        onOpenChange={setShowAdminForm}
+        onAdminCreated={handleAdminCreated}
+      />
     </div>
   );
 };
 
-export default CompanyAdminForm;
+export default CompanyForm;

@@ -1,38 +1,42 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ExternalLinkIcon } from "lucide-react";
 
+import type { ReportType } from "@acme/db/schema";
 import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
 
 import ReportViewer from "~/app/(dashboard)/_components/ReportViewer";
-
-interface ReportType {
-  reportId: string;
-  reportName: string;
-  reportUrl: string;
-  dateCreated: Date | null;
-  lastModifiedAt: Date | null;
-  status: "active" | "inactive" | null;
-  accessCount: number | null;
-  userCount: number;
-  company: {
-    id: string;
-    companyName: string;
-  } | null;
-}
+import { api } from "~/trpc/react";
 
 export default function useUserReportColumns() {
+  const utils = api.useUtils();
+  const incrementViewsMutation = api.report.incrementReportView.useMutation();
+
   // State for report viewer
   const [selectedReport, setSelectedReport] = useState<ReportType | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const openReportDialog = (report: ReportType) => {
-    setSelectedReport(report);
-    setIsDialogOpen(true);
-  };
+  const openReportDialog = useCallback(
+    async (report: ReportType) => {
+      try {
+        await incrementViewsMutation.mutateAsync({
+          reportId: report.id,
+        });
+        await utils.report.getAllReportsUser.invalidate();
+
+        setSelectedReport(report);
+        setIsDialogOpen(true);
+      } catch (error) {
+        console.error("Failed to increment report views:", error);
+        setSelectedReport(report);
+        setIsDialogOpen(true);
+      }
+    },
+    [incrementViewsMutation, utils.report],
+  );
 
   const closeReportDialog = () => {
     setIsDialogOpen(false);
@@ -46,11 +50,11 @@ export default function useUserReportColumns() {
         accessorKey: "reportId",
         header: () => <div className="text-left font-medium">Report ID</div>,
         cell: ({ row }) => {
-          const { reportId } = row.original;
+          const { id } = row.original;
           return (
             <div className="text-left">
-              <span className="hidden xl:inline">{reportId}</span>
-              <span className="xl:hidden">{reportId.slice(0, 10)}...</span>
+              <span className="hidden xl:inline">{id}</span>
+              <span className="xl:hidden">{id.slice(0, 10)}...</span>
             </div>
           );
         },
@@ -77,9 +81,11 @@ export default function useUserReportColumns() {
       },
       {
         accessorKey: "accessCount",
-        header: () => <div className="text-center font-medium"># Accesses</div>,
+        header: () => (
+          <div className="text-center font-medium"># Report Views</div>
+        ),
         cell: ({ row }) => (
-          <div className="text-center">{row.original.accessCount ?? 0}</div>
+          <div className="text-center">{row.original.accessCount || 0}</div>
         ),
       },
       {
@@ -119,7 +125,7 @@ export default function useUserReportColumns() {
               onClick={() =>
                 openReportDialog({
                   ...row.original,
-                  id: row.original.reportId, // Map reportId to id for ReportViewer
+                  id: row.original.id, // Map reportId to id for ReportViewer
                 } as unknown as ReportType)
               }
               className="mx-auto flex cursor-pointer items-center space-x-1 border border-primary/90 bg-primary/10 px-2 py-1 text-primary hover:bg-primary/20"
@@ -133,7 +139,7 @@ export default function useUserReportColumns() {
     ];
 
     return columns;
-  }, []);
+  }, [openReportDialog]);
 
   return {
     columns,

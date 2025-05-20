@@ -3,21 +3,15 @@ import { TRPCError } from "@trpc/server";
 import { and, asc, count, desc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { companies, db, reports, userReports } from "@acme/db";
+import { companies, companyAdmins, db, reports, userReports } from "@acme/db";
+import { reportRouterSchema } from "@acme/db/schema";
 
 import { createTRPCRouter, protectedProcedure } from "../trpc";
-
-const createReportSchema = z.object({
-  reportName: z.string().min(3),
-  reportUrl: z.string().url(),
-  companyId: z.string().uuid(),
-  userIds: z.array(z.string().uuid()),
-});
 
 export const reportRouter = createTRPCRouter({
   // this is the route for the super admin to create a report
   create: protectedProcedure
-    .input(createReportSchema)
+    .input(reportRouterSchema.create)
     .mutation(async ({ ctx, input }) => {
       if (ctx.session.user.role !== "superAdmin") {
         throw new TRPCError({
@@ -72,20 +66,7 @@ export const reportRouter = createTRPCRouter({
 
   // this is the route for the super admin to get all reports
   getAllReports: protectedProcedure
-    .input(
-      z
-        .object({
-          searched: z.string().toLowerCase().optional().default(""),
-          limit: z.number().optional().default(10),
-          page: z.number().optional().default(1),
-          sortBy: z
-            .enum(["reportName", "dateCreated"])
-            .optional()
-            .default("dateCreated"),
-          status: z.enum(["active", "inactive"]).optional(),
-        })
-        .optional(),
-    )
+    .input(reportRouterSchema.getAllReports)
     .query(async ({ ctx, input }) => {
       if (ctx.session.user.role !== "superAdmin") {
         throw new TRPCError({
@@ -123,7 +104,6 @@ export const reportRouter = createTRPCRouter({
           columns: {
             companyId: false,
           },
-          where: and(...whereConditions),
           with: {
             company: {
               columns: {
@@ -138,6 +118,7 @@ export const reportRouter = createTRPCRouter({
                 "user_counts",
               ),
           },
+          where: and(...whereConditions),
           orderBy: orderByCondition,
           limit,
           offset: (page - 1) * limit,
@@ -164,19 +145,7 @@ export const reportRouter = createTRPCRouter({
 
   // this is the route for the admin to get all reports
   getAllReportsAdmin: protectedProcedure
-    .input(
-      z
-        .object({
-          searched: z.string().toLowerCase().optional().default(""),
-          limit: z.number().optional().default(10),
-          page: z.number().optional().default(1),
-          sortBy: z
-            .enum(["reportName", "dateCreated"])
-            .optional()
-            .default("dateCreated"),
-        })
-        .optional(),
-    )
+    .input(reportRouterSchema.getAllReportsAdmin)
     .query(async ({ ctx, input }) => {
       if (ctx.session.user.role !== "admin") {
         throw new TRPCError({
@@ -195,14 +164,14 @@ export const reportRouter = createTRPCRouter({
 
       try {
         // Fetch all company IDs where the logged-in user is an admin
-        const adminCompanies = await db.query.companies.findMany({
-          where: eq(companies.companyAdminId, companyAdminId),
+        const adminCompanies = await db.query.companyAdmins.findMany({
+          where: eq(companyAdmins.userId, companyAdminId),
           columns: {
-            id: true,
+            companyId: true,
           },
         });
 
-        const companyIds = adminCompanies.map((company) => company.id);
+        const companyIds = adminCompanies.map((company) => company.companyId);
 
         if (companyIds.length === 0) {
           return {
@@ -276,15 +245,7 @@ export const reportRouter = createTRPCRouter({
 
   // this is the route for the user to get all reports
   getAllReportsUser: protectedProcedure
-    .input(
-      z
-        .object({
-          searched: z.string().optional().default(""),
-          limit: z.number().optional().default(10),
-          page: z.number().optional().default(1),
-        })
-        .optional(),
-    )
+    .input(reportRouterSchema.getAllReportsUser)
     .query(async ({ ctx, input }) => {
       if (ctx.session.user.role !== "user") {
         throw new TRPCError({
@@ -315,7 +276,7 @@ export const reportRouter = createTRPCRouter({
 
         const reportsWithUserCounts = await db
           .select({
-            reportId: reports.id,
+            id: reports.id,
             reportName: reports.reportName,
             dateCreated: reports.dateCreated,
             modifiedBy: reports.modifiedBy,
@@ -323,7 +284,7 @@ export const reportRouter = createTRPCRouter({
             status: reports.status,
             reportUrl: reports.reportUrl,
             accessCount: reports.accessCount,
-            userCount: db.$count(
+            userCounts: db.$count(
               userReports,
               eq(userReports.reportId, reports.id),
             ),
@@ -367,63 +328,72 @@ export const reportRouter = createTRPCRouter({
 
   // this is the route for the super admin to get all reports for a company by company id
   getAllReportsForCompany: protectedProcedure
-    .input(
-      z.object({
-        companyId: z.string().uuid(),
-        searched: z.string().toLowerCase().optional().default(""),
-        limit: z.number().optional().default(10),
-        page: z.number().optional().default(1),
-      }),
-    )
+    .input(reportRouterSchema.getAllReportsForCompany)
     .query(async ({ ctx, input }) => {
       if (ctx.session.user.role === "user") {
         throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "You are not authorized to get all reports for a company",
+          code: "FORBIDDEN",
+          message: "You are not authorized to view company reports",
         });
       }
 
-      const { companyId, searched, limit, page } = input;
+      const { companyId, limit = 10, page = 1, searched = "" } = input;
 
       try {
+        // Build where conditions
+        const whereConditions = [eq(reports.companyId, companyId)];
+
+        if (searched) {
+          whereConditions.push(ilike(reports.reportName, `%${searched}%`));
+        }
+
         const totalReports = await db.$count(
           reports,
-          and(
-            eq(reports.companyId, companyId),
-            ilike(reports.reportName, `%${searched}%`),
-          ),
+          whereConditions.length > 1
+            ? and(...whereConditions)
+            : whereConditions[0],
         );
-        const allReports = await db.query.reports.findMany({
-          where: and(
-            eq(reports.companyId, companyId),
-            ilike(reports.reportName, `%${searched}%`),
-          ),
-          with: {
+
+        const reportsWithUserCounts = await db
+          .select({
+            id: reports.id,
+            reportName: reports.reportName,
+            dateCreated: reports.dateCreated,
+            modifiedBy: reports.modifiedBy,
+            lastModifiedAt: reports.lastModifiedAt,
+            status: reports.status,
+            reportUrl: reports.reportUrl,
+            accessCount: reports.accessCount,
+            userCounts: db.$count(
+              userReports,
+              eq(userReports.reportId, reports.id),
+            ),
             company: {
-              columns: {
-                id: true,
-                companyName: true,
-              },
+              id: companies.id,
+              companyName: companies.companyName,
             },
-          },
-          extras: {
-            userCounts:
-              sql<number>`(SELECT COUNT(*)::int FROM "user_to_reports" WHERE "user_to_reports"."report_id" = reports.id)`.as(
-                "user_counts",
-              ),
-          },
-          orderBy: desc(reports.dateCreated),
-          limit,
-          offset: (page - 1) * limit,
-        });
+          })
+          .from(reports)
+          .innerJoin(companies, eq(reports.companyId, companies.id))
+          .leftJoin(userReports, eq(userReports.reportId, reports.id))
+          .where(
+            whereConditions.length > 1
+              ? and(...whereConditions)
+              : whereConditions[0],
+          )
+          .groupBy(reports.id, companies.id)
+          .orderBy(desc(reports.dateCreated))
+          .limit(limit)
+          .offset((page - 1) * limit)
+          .execute();
 
         return {
           success: true,
-          message: "all reports fetched successfully",
+          message: "Company reports fetched successfully",
+          total: totalReports,
           limit,
           page,
-          total: totalReports,
-          reports: allReports,
+          reports: reportsWithUserCounts,
         };
       } catch (error) {
         if (error instanceof TRPCError) {
@@ -438,7 +408,7 @@ export const reportRouter = createTRPCRouter({
 
   // this is the route for all type of users to get report by report id
   getReportById: protectedProcedure
-    .input(z.object({ reportId: z.string().uuid() }))
+    .input(reportRouterSchema.getReportById)
     .query(async ({ ctx, input }) => {
       const { reportId } = input;
       const { id: userId, role: userRole } = ctx.session.user;
@@ -505,20 +475,30 @@ export const reportRouter = createTRPCRouter({
           });
         }
 
-        // Just fetch the user IDs related to this report
-        const userIds = await db
-          .select({
-            userId: userReports.userId,
-          })
-          .from(userReports)
-          .where(eq(userReports.reportId, reportId));
+        // Fetch users related to this report with their names
+        const usersWithNames = await db.query.userReports.findMany({
+          where: eq(userReports.reportId, reportId),
+          with: {
+            user: {
+              columns: {
+                id: true,
+                userName: true,
+                email: true,
+              },
+            },
+          },
+        });
 
         return {
           success: true,
           message: "Report fetched successfully",
           report: {
             ...report,
-            usersList: userIds.map((item) => item.userId),
+            usersList: usersWithNames.map((item) => ({
+              id: item.user.id,
+              email: item.user.email,
+              userName: item.user.userName || item.user.email,
+            })),
           },
         };
       } catch (error) {
@@ -603,9 +583,93 @@ export const reportRouter = createTRPCRouter({
       }
     }),
 
+  // this is the route for the admin to update the user of a report
+  updateUserOfReportByAdmin: protectedProcedure
+    .input(
+      z.object({
+        reportId: z.string().uuid(),
+        userIds: z.array(z.string().uuid()),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.session.user.role !== "admin") {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You are not authorized to update the user of a report",
+        });
+      }
+
+      const { reportId, userIds } = input;
+
+      try {
+        await db.delete(userReports).where(eq(userReports.reportId, reportId));
+
+        await db.insert(userReports).values(
+          userIds.map((userId) => ({
+            userId,
+            reportId,
+          })),
+        );
+
+        return { success: true, message: "User updated successfully" };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: String(error),
+        });
+      }
+    }),
+
+  // this is the route for the admin and user to increment report view by report id
+  incrementReportView: protectedProcedure
+    .input(reportRouterSchema.incrementReportView)
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.session.user.role === "superAdmin") {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You are not authorized to increment report view",
+        });
+      }
+
+      const { reportId } = input;
+      try {
+        const currentReport = await db.query.reports.findFirst({
+          where: eq(reports.id, reportId),
+          columns: { accessCount: true },
+        });
+
+        if (!currentReport) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Report not found",
+          });
+        }
+
+        await db
+          .update(reports)
+          .set({ accessCount: currentReport.accessCount + 1 })
+          .where(eq(reports.id, reportId));
+        return {
+          success: true,
+          message: "Report view incremented successfully",
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: String(error),
+        });
+      }
+    }),
+
   // this is the route for the super admin to delete a report
   deleteReport: protectedProcedure
-    .input(z.object({ reportId: z.string().uuid() }))
+    .input(reportRouterSchema.deleteReport)
     .mutation(async ({ ctx, input }) => {
       if (ctx.session.user.role !== "superAdmin") {
         throw new TRPCError({

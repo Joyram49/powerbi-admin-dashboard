@@ -2,25 +2,13 @@
 
 import { useCallback, useState } from "react";
 
+import type { ReportType } from "@acme/db/schema";
+
 import { useDebounce } from "~/hooks/useDebounce";
 import { api } from "~/trpc/react";
 import { DataTable } from "../_components/DataTable";
+import { DataTableSkeleton } from "../_components/DataTableSkeleton";
 import useUserReportColumns from "./_components/ReportColumns";
-
-interface ReportType {
-  reportId: string;
-  reportName: string;
-  reportUrl: string;
-  dateCreated: Date | null;
-  lastModifiedAt: Date | null;
-  status: "active" | "inactive" | null;
-  accessCount: number | null;
-  userCount: number;
-  company: {
-    id: string;
-    companyName: string;
-  } | null;
-}
 
 export default function UserReportsPage() {
   const [pagination, setPagination] = useState({
@@ -65,40 +53,51 @@ export default function UserReportsPage() {
   }, []);
 
   return (
-    <div className="container mx-auto py-10">
+    <div className="container mx-auto max-w-[98%] py-10">
       <h1 className="mb-8 text-3xl font-bold">My Reports</h1>
-      <DataTable<ReportType, unknown, "reportName" | "dateCreated">
-        columns={columns}
-        data={reports}
-        pagination={{
-          pageCount: Math.ceil((reportData?.total ?? 0) / pagination.limit),
-          page: pagination.page,
-          onPageChange: (page) => setPagination((prev) => ({ ...prev, page })),
-          onPageSizeChange: handlePageSizeChange,
-        }}
-        sorting={{
-          sortBy: undefined,
-          onSortChange: (_sortField) => {
-            // Sorting disabled for users
-            return;
-          },
-          sortOptions: ["reportName", "dateCreated"],
-        }}
-        search={{
-          value: searchInput,
-          onChange: handleSearchChange,
-        }}
-        isLoading={isLoading}
-        placeholder="Search reports..."
-        pageSize={pagination.limit}
-      />
+      {isLoading ? (
+        <DataTableSkeleton
+          columnCount={columns.length}
+          rowCount={pagination.limit}
+          searchable={true}
+          filterable={false}
+          actionButton={false}
+        />
+      ) : (
+        <DataTable<ReportType, unknown, "reportName" | "dateCreated">
+          columns={columns}
+          data={reports}
+          pagination={{
+            pageCount: Math.ceil((reportData?.total ?? 0) / pagination.limit),
+            page: pagination.page,
+            onPageChange: (page) =>
+              setPagination((prev) => ({ ...prev, page })),
+            onPageSizeChange: handlePageSizeChange,
+          }}
+          sorting={{
+            sortBy: undefined,
+            onSortChange: (_sortField) => {
+              // Sorting disabled for users
+              return;
+            },
+            sortOptions: ["reportName", "dateCreated"],
+          }}
+          search={{
+            value: searchInput,
+            onChange: handleSearchChange,
+          }}
+          isLoading={isLoading}
+          placeholder="Search reports..."
+          pageSize={pagination.limit}
+        />
+      )}
       {isDialogOpen && selectedReport && (
         <ReportViewer
           isOpen={isDialogOpen}
           onClose={closeReportDialog}
           report={{
             ...selectedReport,
-            id: selectedReport.reportId,
+            id: selectedReport.id,
           }}
         />
       )}
