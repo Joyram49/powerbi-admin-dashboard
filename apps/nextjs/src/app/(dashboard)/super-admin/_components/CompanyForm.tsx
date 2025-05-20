@@ -4,29 +4,22 @@ import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import {
-  Check,
   CheckCircle,
   ChevronLeft,
   ChevronRight,
-  ChevronsUpDown,
   Loader2,
   User,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
-import * as z from "zod";
 
-import { cn } from "@acme/ui";
+import type {
+  Admins,
+  CompanyFormValues,
+  CompanyWithAdmins,
+} from "@acme/db/schema";
+import { createCompanySchema, updateCompanySchema } from "@acme/db/schema";
 import { Button } from "@acme/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@acme/ui/card";
-import { Combobox } from "@acme/ui/combobox";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@acme/ui/command";
 import {
   Form,
   FormControl,
@@ -37,7 +30,6 @@ import {
   FormMessage,
 } from "@acme/ui/form";
 import { Input } from "@acme/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@acme/ui/popover";
 import { Separator } from "@acme/ui/separator";
 import { toast } from "@acme/ui/toast";
 
@@ -82,13 +74,12 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
   const [companyFormSubmitted, setCompanyFormSubmitted] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [formStep, setFormStep] = useState(0);
-  const [selectedAdminId, setSelectedAdminId] = useState<string>("");
+  const [selectedAdmins, setSelectedAdmins] = useState<Admins[]>([]);
 
   const { data: admins, isLoading: adminsLoading } =
     api.user.getAdminUsers.useQuery(
       {
         limit: 100,
-        searched: "",
       },
       {
         enabled: true,
@@ -194,7 +185,7 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
           address: values.address,
           phone: values.phone,
           email: values.email,
-          companyAdminId: values.adminId,
+          adminIds: values.adminIds,
         });
       } else {
         // For new company, we need admin information
@@ -251,16 +242,6 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
 
   if (!mounted) return null;
 
-  // Ensure we have a valid array of admin items for the Combobox
-  const adminItems =
-    admins?.data && Array.isArray(admins.data)
-      ? admins.data.map((admin) => ({
-          value: admin.id,
-          label: admin.userName || "Unnamed Admin",
-          description: admin.email,
-        }))
-      : [];
-  console.log(adminItems);
   return (
     <div className="mx-auto max-w-4xl p-2 sm:p-4 md:p-6">
       <Card className="overflow-hidden border bg-gray-100 dark:border-gray-800 dark:bg-gray-900">
@@ -428,68 +409,29 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
                       control={companyForm.control}
                       name="adminIds"
                       render={({ field }) => (
-                        <FormItem className="flex flex-col">
+                        <FormItem>
                           <FormLabel className="text-sm font-medium dark:text-gray-300">
                             Company Administrator
                           </FormLabel>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <FormControl>
-                                <Button
-                                  variant="outline"
-                                  role="combobox"
-                                  className={cn(
-                                    "w-full justify-between border-gray-700 bg-gray-800 text-white hover:bg-gray-700",
-                                    !field.value && "text-muted-foreground",
-                                  )}
-                                  disabled={adminsLoading}
-                                >
-                                  {field.value
-                                    ? adminItems.find(
-                                        (admin) => admin.value === field.value,
-                                      )?.label
-                                    : "Select an administrator"}
-                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                              </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-full border-gray-600 bg-gray-800 p-0">
-                              <Command className="w-full border-gray-600 bg-gray-800">
-                                <CommandInput
-                                  placeholder="Search administrators..."
-                                  className="h-9 border-gray-600"
-                                />
-                                <CommandList className="max-h-[200px] overflow-y-auto bg-gray-800">
-                                  <CommandEmpty className="text-gray-400">
-                                    No administrators found.
-                                  </CommandEmpty>
-                                  <CommandGroup className="border-gray-700">
-                                    {adminItems.map((admin) => (
-                                      <CommandItem
-                                        value={admin.label}
-                                        key={admin.value}
-                                        onSelect={() => {
-                                          field.onChange(admin.value);
-                                          setSelectedAdminId(admin.value);
-                                        }}
-                                        className="cursor-pointer text-white data-[selected=true]:bg-gray-900 data-[selected=true]:text-white dark:hover:bg-gray-900 dark:focus:bg-gray-700"
-                                      >
-                                        {admin.label}
-                                        <Check
-                                          className={cn(
-                                            "ml-auto h-4 w-4",
-                                            admin.value === field.value
-                                              ? "text-blue-500 opacity-100"
-                                              : "opacity-0",
-                                          )}
-                                        />
-                                      </CommandItem>
-                                    ))}
-                                  </CommandGroup>
-                                </CommandList>
-                              </Command>
-                            </PopoverContent>
-                          </Popover>
+                          <MultiSelect
+                            options={
+                              admins?.data.map((admin) => ({
+                                value: admin.id,
+                                label: `${admin.userName} - ${admin.email}`,
+                              })) ?? []
+                            }
+                            selected={selectedAdmins.map((a) => a.id)}
+                            onChange={(ids) => {
+                              const newSelected = (admins?.data ?? []).filter(
+                                (a) => ids.includes(a.id),
+                              );
+                              setSelectedAdmins(newSelected);
+                              field.onChange(ids);
+                            }}
+                            placeholder="Select administrator(s)"
+                            loading={adminsLoading}
+                            disabled={adminsLoading}
+                          />
                           <FormDescription className="text-xs text-gray-500 dark:text-gray-400">
                             Search and select one or more administrators. The
                             first one will be the primary administrator.

@@ -22,7 +22,9 @@ export default function useUserReportColumns() {
   const openReportDialog = useCallback(
     async (report: ReportType) => {
       try {
-        await incrementViewsMutation.mutateAsync({ reportId: report.reportId });
+        await incrementViewsMutation.mutateAsync({
+          reportId: report.id,
+        });
         await utils.report.getAllReportsUser.invalidate();
 
         setSelectedReport(report);

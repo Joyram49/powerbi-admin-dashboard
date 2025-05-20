@@ -35,7 +35,10 @@ async function UserEngagementCard() {
             {displayTime}
           </CardTitle>
           <div className="absolute right-4 top-4">
-            <Badge variant="outline" className="flex border-gray-200 dark:border-gray-800 gap-1 rounded-lg text-xs">
+            <Badge
+              variant="outline"
+              className="flex gap-1 rounded-lg border-gray-200 text-xs dark:border-gray-800"
+            >
               <ClockIcon className="size-3" />
               Active
             </Badge>

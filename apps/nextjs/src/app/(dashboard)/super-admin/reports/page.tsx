@@ -8,6 +8,7 @@ import type { ReportType } from "@acme/db/schema";
 import { useDebounce } from "~/hooks/useDebounce";
 import { api } from "~/trpc/react";
 import { DataTable } from "../../_components/DataTable";
+import { DataTableSkeleton } from "../../_components/DataTableSkeleton";
 import useReportColumns from "./_components/ReportColumns";
 import ReportModal from "./_components/ReportModal";
 
@@ -100,30 +101,41 @@ export default function ReportsDashboard() {
   return (
     <div className="container mx-auto w-full max-w-[98%] p-6">
       <h1 className="mb-6 text-2xl font-bold">{pageTitle}</h1>
-      <DataTable<ReportType, unknown, "reportName" | "dateCreated">
-        columns={columns}
-        data={reports}
-        pagination={{
-          pageCount: total && pageLimit ? Math.ceil(total / pageLimit) : 0,
-          page: pagination.page,
-          onPageChange: (page) => setPagination((prev) => ({ ...prev, page })),
-          onPageSizeChange: handlePageSizeChange,
-        }}
-        sorting={{
-          sortBy,
-          onSortChange: (newSortBy) => setSortBy(newSortBy),
-          sortOptions: ["reportName", "dateCreated"],
-        }}
-        search={{
-          value: searchInput,
-          onChange: handleSearchChange,
-        }}
-        placeholder="Search report name..."
-        actionButton={<ReportModal companyId={companyId ?? undefined} />}
-        isLoading={isLoading}
-        pageSize={pagination.limit}
-        pageSizeOptions={[10, 20, 50, 100]}
-      />
+      {isLoading ? (
+        <DataTableSkeleton
+          columnCount={columns.length}
+          rowCount={pagination.limit}
+          searchable={true}
+          filterable={true}
+          actionButton={true}
+        />
+      ) : (
+        <DataTable<ReportType, unknown, "reportName" | "dateCreated">
+          columns={columns}
+          data={reports}
+          pagination={{
+            pageCount: total && pageLimit ? Math.ceil(total / pageLimit) : 0,
+            page: pagination.page,
+            onPageChange: (page) =>
+              setPagination((prev) => ({ ...prev, page })),
+            onPageSizeChange: handlePageSizeChange,
+          }}
+          sorting={{
+            sortBy,
+            onSortChange: (newSortBy) => setSortBy(newSortBy),
+            sortOptions: ["reportName", "dateCreated"],
+          }}
+          search={{
+            value: searchInput,
+            onChange: handleSearchChange,
+          }}
+          placeholder="Search report name..."
+          actionButton={<ReportModal companyId={companyId ?? undefined} />}
+          isLoading={isLoading}
+          pageSize={pagination.limit}
+          pageSizeOptions={[10, 20, 50, 100]}
+        />
+      )}
 
       {/* Add the Report Viewer component */}
       <ReportViewer

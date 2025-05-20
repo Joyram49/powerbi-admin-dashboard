@@ -9,6 +9,7 @@ import {
   companyAdmins,
   companyRouterSchema,
   db,
+  users,
 } from "@acme/db";
 
 import { createTRPCRouter, protectedProcedure } from "../trpc";
@@ -49,11 +50,17 @@ export const companyRouter = createTRPCRouter({
         // Add company admin relationships
         await Promise.allSettled(
           input.adminIds.map((adminId) =>
-            db.insert(companyAdmins).values({
-              companyId: createdCompany.id,
-              userId: adminId,
-              modifiedBy: ctx.session.user.email,
-            }),
+            Promise.all([
+              db.insert(companyAdmins).values({
+                companyId: createdCompany.id,
+                userId: adminId,
+                modifiedBy: ctx.session.user.email,
+              }),
+              db
+                .update(users)
+                .set({ companyId: createdCompany.id })
+                .where(eq(users.id, adminId)),
+            ]),
           ),
         );
 
@@ -537,25 +544,37 @@ export const companyRouter = createTRPCRouter({
 
           // Remove old admin relationships
           if (adminsToRemove.length > 0) {
-            await db
-              .delete(companyAdmins)
-              .where(
-                and(
-                  eq(companyAdmins.companyId, companyId),
-                  inArray(companyAdmins.userId, adminsToRemove),
+            await Promise.all([
+              db
+                .delete(companyAdmins)
+                .where(
+                  and(
+                    eq(companyAdmins.companyId, companyId),
+                    inArray(companyAdmins.userId, adminsToRemove),
+                  ),
                 ),
-              );
+              db
+                .update(users)
+                .set({ companyId: null })
+                .where(inArray(users.id, adminsToRemove)),
+            ]);
           }
 
           // Add new admin relationships
           if (adminsToAdd.length > 0) {
             await Promise.all(
               adminsToAdd.map((userId) =>
-                db.insert(companyAdmins).values({
-                  companyId,
-                  userId,
-                  modifiedBy: ctx.session.user.email,
-                }),
+                Promise.all([
+                  db.insert(companyAdmins).values({
+                    companyId,
+                    userId,
+                    modifiedBy: ctx.session.user.email,
+                  }),
+                  db
+                    .update(users)
+                    .set({ companyId })
+                    .where(eq(users.id, userId)),
+                ]),
               ),
             );
           }

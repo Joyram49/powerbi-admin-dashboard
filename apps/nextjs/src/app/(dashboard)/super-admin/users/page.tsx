@@ -8,6 +8,7 @@ import { Button } from "@acme/ui/button";
 import { useDebounce } from "~/hooks/useDebounce";
 import { api } from "~/trpc/react";
 import { DataTable } from "../../_components/DataTable";
+import { DataTableSkeleton } from "../../_components/DataTableSkeleton";
 import useUserColumns from "./_components/UserColumns";
 import UserModal from "./_components/UserModal";
 
@@ -237,33 +238,44 @@ export default function UsersPage() {
         </div>
       )}
 
-      <DataTable<User, unknown, "userName" | "dateCreated">
-        columns={columns}
-        data={userData}
-        pagination={{
-          pageCount:
-            totalItems && pageLimit ? Math.ceil(totalItems / pageLimit) : 0,
-          page: pagination.page,
-          onPageChange: (page) => setPagination((prev) => ({ ...prev, page })),
-          onPageSizeChange: handlePageSizeChange,
-        }}
-        sorting={{
-          sortBy,
-          onSortChange: handleSortChange,
-          sortOptions: ["userName", "dateCreated"],
-        }}
-        search={{
-          value: searchInput,
-          onChange: handleSearchChange,
-        }}
-        isLoading={isLoading}
-        placeholder="Search by user email..."
-        actionButton={
-          !reportId && <UserModal companyId={companyId ?? undefined} />
-        }
-        pageSize={pagination.limit}
-        pageSizeOptions={[10, 20, 50, 100]}
-      />
+      {isLoading ? (
+        <DataTableSkeleton
+          columnCount={columns.length}
+          rowCount={pagination.limit}
+          searchable={true}
+          filterable={true}
+          actionButton={!reportId}
+        />
+      ) : (
+        <DataTable<User, unknown, "userName" | "dateCreated">
+          columns={columns}
+          data={userData}
+          pagination={{
+            pageCount:
+              totalItems && pageLimit ? Math.ceil(totalItems / pageLimit) : 0,
+            page: pagination.page,
+            onPageChange: (page) =>
+              setPagination((prev) => ({ ...prev, page })),
+            onPageSizeChange: handlePageSizeChange,
+          }}
+          sorting={{
+            sortBy,
+            onSortChange: handleSortChange,
+            sortOptions: ["userName", "dateCreated"],
+          }}
+          search={{
+            value: searchInput,
+            onChange: handleSearchChange,
+          }}
+          isLoading={isLoading}
+          placeholder="Search by user email..."
+          actionButton={
+            !reportId && <UserModal companyId={companyId ?? undefined} />
+          }
+          pageSize={pagination.limit}
+          pageSizeOptions={[10, 20, 50, 100]}
+        />
+      )}
     </div>
   );
 }

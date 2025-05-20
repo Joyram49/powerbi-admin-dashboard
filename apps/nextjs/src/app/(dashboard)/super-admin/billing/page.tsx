@@ -102,7 +102,7 @@ export default function BillingPage() {
       | "enterprise",
   ) => {
     if (!email) {
-      alert("Please enter your email");
+      toast.error("Please enter your email");
       return;
     }
 
@@ -118,7 +118,7 @@ export default function BillingPage() {
 
   const handleManageSubscription = (_formData: FormData) => {
     if (!subscriptionState.data?.stripeCustomerId) {
-      alert("No active subscription found. Please subscribe to a plan first.");
+      toast.error("No active subscription found. Please subscribe to a plan first.");
       return;
     }
 
@@ -309,11 +309,7 @@ export default function BillingPage() {
                   className="w-full rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 py-3 font-semibold text-white transition-all duration-300 hover:from-blue-700 hover:to-blue-800 dark:from-blue-500 dark:to-blue-600 dark:hover:from-blue-600 dark:hover:to-blue-700"
                   onClick={() =>
                     handleSubscribe(
-                      tier.id as
-                        | "data_foundation"
-                        | "insight_accelerator"
-                        | "strategic_navigator"
-                        | "enterprise",
+                      tier.id,
                     )
                   }
                   disabled={loading !== null}

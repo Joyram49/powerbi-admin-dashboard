@@ -18,7 +18,6 @@ import {
   DropdownMenuTrigger,
 } from "@acme/ui/dropdown-menu";
 import { Input } from "@acme/ui/input";
-import { Skeleton } from "@acme/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -28,6 +27,7 @@ import {
   TableRow,
 } from "@acme/ui/table";
 
+import { DataTableSkeleton } from "./DataTableSkeleton";
 import { Pagination } from "./Pagination";
 
 // Generic data table props that can work with any data type
@@ -107,6 +107,18 @@ export function DataTable<TData, TValue, TSortField extends string>({
   });
 
   const selectedRowsCount = Object.keys(rowSelection).length;
+
+  if (isLoading) {
+    return (
+      <DataTableSkeleton
+        columnCount={columns.length}
+        rowCount={pageSize}
+        searchable={!!search}
+        filterable={true}
+        actionButton={!!actionButton}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -198,20 +210,7 @@ export function DataTable<TData, TValue, TSortField extends string>({
             ))}
           </TableHeader>
           <TableBody className="bg-gray-50 dark:bg-slate-800">
-            {isLoading ? (
-              Array.from({ length: pageSize }).map((_, index) => (
-                <TableRow key={index}>
-                  {columns.map((_, colIndex) => (
-                    <TableCell
-                      key={colIndex}
-                      className="border-slate-200 dark:border-slate-700"
-                    >
-                      <Skeleton className="h-6 w-full animate-pulse bg-slate-400" />
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : table.getRowModel().rows.length ? (
+            {table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}

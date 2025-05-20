@@ -1,10 +1,8 @@
 "use client";
 
-import type { ColumnDef } from "@tanstack/react-table";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 import type { CompanyUser } from "@acme/db/schema";
-
 import {
   Select,
   SelectContent,
@@ -15,6 +13,7 @@ import {
 
 import { api } from "~/trpc/react";
 import { DataTable } from "../_components/DataTable";
+import { DataTableSkeleton } from "../_components/DataTableSkeleton";
 import UserModal from "../super-admin/users/_components/UserModal";
 import { useUserColumns } from "./_components/AdminUserColumns";
 
@@ -71,7 +70,7 @@ export default function AdminPage() {
       },
     );
 
-  const { columns, modals } = useUserColumns();
+  const { columns } = useUserColumns();
 
   const handleSearchChange = useCallback((value: string) => {
     setSearchInput(value);
@@ -134,39 +133,46 @@ export default function AdminPage() {
         </Select>
       </div>
 
-      <DataTable<CompanyUser, unknown, "userName" | "dateCreated">
-        columns={columns}
-        data={transformedUsers}
-        pagination={{
-          pageCount:
-            totalUsers && pagination.limit
-              ? Math.ceil(totalUsers / pagination.limit)
-              : 0,
-          page: pagination.page,
-          onPageChange: (page: number) =>
-            setPagination((prev) => ({ ...prev, page })),
-          onPageSizeChange: handlePageSizeChange,
-        }}
-        sorting={{
-          sortBy,
-          onSortChange: handleSortChange,
-          sortOptions: ["userName", "dateCreated"],
-        }}
-        search={{
-          value: searchInput,
-          onChange: handleSearchChange,
-        }}
-        isLoading={
-          selectedCompanyId === "all" ? isLoading : isLoadingCompanyUsers
-        }
-        placeholder="Search by user email..."
-        actionButton={<UserModal />}
-        pageSize={pagination.limit}
-        pageSizeOptions={[10, 20, 50, 100]}
-      />
-
-      {/* Render modals */}
-      {modals}
+      {isLoading || isLoadingCompanyUsers ? (
+        <DataTableSkeleton
+          columnCount={columns.length}
+          rowCount={pagination.limit}
+          searchable={true}
+          filterable={true}
+          actionButton={true}
+        />
+      ) : (
+        <DataTable<CompanyUser, unknown, "userName" | "dateCreated">
+          columns={columns}
+          data={transformedUsers}
+          pagination={{
+            pageCount:
+              totalUsers && pagination.limit
+                ? Math.ceil(totalUsers / pagination.limit)
+                : 0,
+            page: pagination.page,
+            onPageChange: (page: number) =>
+              setPagination((prev) => ({ ...prev, page })),
+            onPageSizeChange: handlePageSizeChange,
+          }}
+          sorting={{
+            sortBy,
+            onSortChange: handleSortChange,
+            sortOptions: ["userName", "dateCreated"],
+          }}
+          search={{
+            value: searchInput,
+            onChange: handleSearchChange,
+          }}
+          isLoading={
+            selectedCompanyId === "all" ? isLoading : isLoadingCompanyUsers
+          }
+          placeholder="Search by user email..."
+          actionButton={<UserModal />}
+          pageSize={pagination.limit}
+          pageSizeOptions={[10, 20, 50, 100]}
+        />
+      )}
     </div>
   );
 }

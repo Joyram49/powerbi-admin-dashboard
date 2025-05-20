@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Ban, Edit, MoreHorizontal, Trash2 } from "lucide-react";
+import { Edit, MoreHorizontal, Trash2 } from "lucide-react";
 
 import { Button } from "@acme/ui/button";
 import {
@@ -126,15 +126,6 @@ export function EntityActions<T>({
     }
   };
 
-  const handleDisableClick = () => {
-    setIsDropdownOpen(false);
-    if (disableAction?.onDisable) {
-      setTimeout(() => {
-        setIsDisableDialogOpen(true);
-      }, 100);
-    }
-  };
-
   const handleDisable = async () => {
     if (!disableAction) return;
 
@@ -230,17 +221,6 @@ export function EntityActions<T>({
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Delete | {entityDisplayName}
-            </DropdownMenuItem>
-          )}
-
-          {/* Disable action */}
-          {disableAction && (
-            <DropdownMenuItem
-              onClick={handleDisableClick}
-              className="cursor-pointer text-red-500 hover:!bg-red-50 dark:text-red-600 dark:hover:!bg-red-900 dark:hover:text-white"
-            >
-              <Ban className="mr-2 h-4 w-4" />
-              Disable | {entityDisplayName}
             </DropdownMenuItem>
           )}
         </DropdownMenuContent>

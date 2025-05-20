@@ -5,7 +5,6 @@ import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { ArrowUpDown, UserPlus } from "lucide-react";
 
-import type { CompanyUser } from "@acme/db/schema";
 import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
 import { Checkbox } from "@acme/ui/checkbox";
@@ -15,7 +14,7 @@ import { EntityActions } from "~/app/(dashboard)/_components/EntityActions";
 import { api } from "~/trpc/react";
 import UserModal from "../../super-admin/users/_components/UserModal";
 
-interface CompanyUser {
+interface CompanyUserType {
   id: string;
   userName: string;
   email: string;
@@ -54,11 +53,10 @@ export function useUserColumns() {
   const currentUserId = profileData?.user?.id;
 
   const columns = useMemo(() => {
-    const columns: ColumnDef<CompanyUser>[] = [
+    const columns: ColumnDef<CompanyUserType>[] = [
       {
         id: "select",
-        header: ({ table }: { table: Table<CompanyUser> }) => (
-        header: ({ table }: { table: Table<CompanyUser> }) => (
+        header: ({ table }: { table: Table<CompanyUserType> }) => (
           <Checkbox
             checked={
               table.getIsAllPageRowsSelected() ||
@@ -71,8 +69,7 @@ export function useUserColumns() {
             className="border border-slate-800 checked:border-blue-500 checked:bg-white dark:border-slate-50 dark:checked:bg-slate-800"
           />
         ),
-        cell: ({ row }: { row: Row<CompanyUser> }) => (
-        cell: ({ row }: { row: Row<CompanyUser> }) => (
+        cell: ({ row }: { row: Row<CompanyUserType> }) => (
           <Checkbox
             checked={row.getIsSelected()}
             onCheckedChange={(value) => row.toggleSelected(!!value)}
@@ -89,10 +86,8 @@ export function useUserColumns() {
           column,
           table,
         }: {
-          column: Column<CompanyUser>;
-          table: Table<CompanyUser>;
-          column: Column<CompanyUser>;
-          table: Table<CompanyUser>;
+          column: Column<CompanyUserType>;
+          table: Table<CompanyUserType>;
         }) => {
           const { sorting } = table.options.meta as TableMeta;
           return (
@@ -112,14 +107,14 @@ export function useUserColumns() {
             </Button>
           );
         },
-        cell: ({ row }) => (
+        cell: ({ row }: { row: Row<CompanyUserType> }) => (
           <div>{row.original.userName || "Not specified"}</div>
         ),
       },
       {
         accessorKey: "id",
         header: () => <div className="text-left font-medium">ID</div>,
-        cell: ({ row }) => {
+        cell: ({ row }: { row: Row<CompanyUserType> }) => {
           const { id } = row.original;
           return (
             <div className="text-left">
@@ -132,11 +127,14 @@ export function useUserColumns() {
       {
         accessorKey: "email",
         header: () => <div className="text-left font-medium">Email</div>,
+        cell: ({ row }: { row: Row<CompanyUserType> }) => (
+          <div>{row.original.email}</div>
+        ),
       },
       {
         accessorKey: "role",
         header: () => <div className="text-center font-medium">Role</div>,
-        cell: ({ row }) => {
+        cell: ({ row }: { row: Row<CompanyUserType> }) => {
           const role = row.getValue("role");
           return (
             <Badge
@@ -157,7 +155,7 @@ export function useUserColumns() {
       {
         accessorKey: "status",
         header: () => <div className="text-center font-medium">Status</div>,
-        cell: ({ row }) => {
+        cell: ({ row }: { row: Row<CompanyUserType> }) => {
           const status = row.getValue("status");
           return (
             <Badge
@@ -172,7 +170,7 @@ export function useUserColumns() {
       {
         accessorKey: "company.companyName",
         header: () => <div className="text-left font-medium">Company</div>,
-        cell: ({ row }) => (
+        cell: ({ row }: { row: Row<CompanyUserType> }) => (
           <div>{row.original.company?.companyName ?? "Not assigned"}</div>
         ),
       },
@@ -182,10 +180,8 @@ export function useUserColumns() {
           column,
           table,
         }: {
-          column: Column<CompanyUser>;
-          table: Table<CompanyUser>;
-          column: Column<CompanyUser>;
-          table: Table<CompanyUser>;
+          column: Column<CompanyUserType>;
+          table: Table<CompanyUserType>;
         }) => {
           const { sorting } = table.options.meta as TableMeta;
           return (
@@ -205,14 +201,14 @@ export function useUserColumns() {
             </Button>
           );
         },
-        cell: ({ row }) => {
+        cell: ({ row }: { row: Row<CompanyUserType> }) => {
           return format(new Date(row.original.dateCreated), "MMM dd, yyyy");
         },
       },
       {
         accessorKey: "lastLogin",
         header: () => <div className="text-center font-medium">Last Login</div>,
-        cell: ({ row }) => {
+        cell: ({ row }: { row: Row<CompanyUserType> }) => {
           return row.original.lastLogin
             ? format(new Date(row.original.lastLogin), "MMM dd, yyyy")
             : "Never";
@@ -220,11 +216,11 @@ export function useUserColumns() {
       },
       {
         id: "actions",
-        cell: ({ row }) => {
+        cell: ({ row }: { row: Row<CompanyUserType> }) => {
           const user = row.original;
 
           return (
-            <EntityActions<CompanyUser>
+            <EntityActions<CompanyUserType>
               entity={user}
               entityName="User"
               entityDisplayField="userName"

@@ -20,7 +20,10 @@ function ActiveAccountsCard() {
           0
         </CardTitle>
         <div className="absolute right-4 top-4">
-          <Badge variant="outline" className="flex gap-1 rounded-lg text-xs border-gray-200 dark:border-gray-800">
+          <Badge
+            variant="outline"
+            className="flex gap-1 rounded-lg border-gray-200 text-xs dark:border-gray-800"
+          >
             <TrendingUpIcon className="size-3" />
             Live
           </Badge>

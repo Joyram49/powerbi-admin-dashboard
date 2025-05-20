@@ -9,12 +9,6 @@ import type { ReportType } from "@acme/db/schema";
 import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
 import { Checkbox } from "@acme/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@acme/ui/dialog";
 
 import { EntityActions } from "~/app/(dashboard)/_components/EntityActions";
 import ReportViewer from "~/app/(dashboard)/_components/ReportViewer";
@@ -104,25 +98,29 @@ export function useReportColumns() {
           const { sorting } = table.options.meta as TableMeta;
 
           return (
-            <Button
-              variant="ghost"
-              onClick={() => {
-                if (sorting?.onSortChange) {
-                  sorting.onSortChange("reportName");
-                } else {
-                  column.toggleSorting(column.getIsSorted() === "asc");
-                }
-              }}
-              className="text-center font-medium"
-            >
-              Report Name
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
+            <div className="flex justify-center">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  if (sorting?.onSortChange) {
+                    sorting.onSortChange("reportName");
+                  } else {
+                    column.toggleSorting(column.getIsSorted() === "asc");
+                  }
+                }}
+                className="text-center font-medium dark:hover:bg-gray-900"
+              >
+                Report Name
+                <ArrowUpDown className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
           );
         },
         cell: ({ row }) => (
-          <div className="text-center font-semibold">
-            {row.original.reportName}
+          <div className="flex justify-center">
+            <div className="text-center font-semibold">
+              {row.original.reportName}
+            </div>
           </div>
         ),
       },
@@ -145,9 +143,9 @@ export function useReportColumns() {
       },
       {
         accessorKey: "company",
-        header: () => <div className="text-center font-medium">Company</div>,
+        header: () => <div className="text-left font-medium">Company</div>,
         cell: ({ row }) => (
-          <div className="text-center">
+          <div className="text-left">
             {row.original.company?.companyName ?? "N/A"}
           </div>
         ),
@@ -188,26 +186,26 @@ export function useReportColumns() {
         }) => {
           const { sorting } = table.options.meta as TableMeta;
           return (
-            <Button
-              variant="ghost"
-              className="text-center font-medium"
-              onClick={() => {
-                // If sorting is available, use it
-                if (sorting?.onSortChange) {
-                  sorting.onSortChange("dateCreated");
-                } else {
-                  // Fallback to the default column sorting
-                  column.toggleSorting(column.getIsSorted() === "asc");
-                }
-              }}
-            >
-              Created At
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
+            <div className="flex justify-center">
+              <Button
+                variant="ghost"
+                className="text-center font-medium dark:hover:bg-gray-900"
+                onClick={() => {
+                  if (sorting?.onSortChange) {
+                    sorting.onSortChange("dateCreated");
+                  } else {
+                    column.toggleSorting(column.getIsSorted() === "asc");
+                  }
+                }}
+              >
+                Created At
+                <ArrowUpDown className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
           );
         },
         cell: ({ row }) => (
-          <div className="text-center">
+          <div className="flex justify-center">
             {row.original.dateCreated
               ? new Date(row.original.dateCreated).toLocaleDateString()
               : "N/A"}
@@ -217,10 +215,10 @@ export function useReportColumns() {
       {
         accessorKey: "lastModifiedAt",
         header: () => (
-          <div className="text-center font-medium">Last Modified</div>
+          <div className="text-left font-medium">Last Modified</div>
         ),
         cell: ({ row }) => (
-          <div className="text-center">
+          <div className="text-left">
             {row.original.lastModifiedAt
               ? new Date(row.original.lastModifiedAt).toLocaleDateString()
               : "N/A"}
@@ -230,25 +228,27 @@ export function useReportColumns() {
       {
         accessorKey: "status",
         header: ({ column }) => (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            className="text-center font-medium"
-          >
-            Status
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
+          <div className="flex justify-center">
+            <Button
+              variant="ghost"
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
+              className="text-center font-medium dark:hover:bg-gray-900"
+            >
+              Status
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
         ),
         cell: ({ row }) => {
           const status = row.original.status;
-          console.log(row.original);
           return (
-            <Badge
-              variant={status === "active" ? "success" : "destructive"}
-              className="justify-center"
-            >
-              {(status as string) || "N/A"}
-            </Badge>
+            <div className="flex justify-center">
+              <Badge variant={status === "active" ? "success" : "destructive"}>
+                {(status as string) || "N/A"}
+              </Badge>
+            </div>
           );
         },
       },

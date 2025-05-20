@@ -2,7 +2,6 @@
 
 import type { Column, ColumnDef, Row, Table } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { ArrowUpDown, UserPlus } from "lucide-react";
 
@@ -36,7 +35,6 @@ export function useUserColumns() {
 
   const { data: profileData } = api.auth.getProfile.useQuery();
   const currentUserId = profileData?.user?.id;
-  const router = useRouter();
   return useMemo(() => {
     const columns: ColumnDef<User>[] = [
       {
@@ -85,7 +83,7 @@ export function useUserColumns() {
                   column.toggleSorting(column.getIsSorted() === "asc");
                 }
               }}
-              className="text-left font-medium"
+              className="text-left font-medium dark:hover:bg-gray-900"
             >
               Name
               <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -101,7 +99,7 @@ export function useUserColumns() {
         header: () => <div className="text-left font-medium">ID</div>,
         cell: ({ row }) => {
           const { id } = row.original;
-          console.log("row.original", row.original.company);
+          console.log("row.original", row.original);
           return (
             <div className="text-left">
               <span className="hidden xl:inline">{id}</span>
@@ -116,7 +114,7 @@ export function useUserColumns() {
       },
       {
         accessorKey: "role",
-        header: () => <div className="text-center font-medium">Role</div>,
+        header: () => <div className="text-left font-medium">Role</div>,
         cell: ({ row }) => {
           const role = row.getValue("role");
           return (
@@ -128,7 +126,7 @@ export function useUserColumns() {
                     ? "destructive"
                     : "outline"
               }
-              className={`justify-center border-primary ${
+              className={`border-primary ${
                 role === "admin" ? "bg-primary text-white" : ""
               }`}
             >
@@ -139,16 +137,28 @@ export function useUserColumns() {
       },
       {
         accessorKey: "status",
-        header: () => <div className="text-center font-medium">Status</div>,
-        cell: ({ row }) => {
-          const status = row.getValue("status");
-          return (
-            <Badge
-              variant={status === "active" ? "success" : "destructive"}
-              className="justify-center"
+        header: ({ column }) => (
+          <div className="flex justify-center">
+            <Button
+              variant="ghost"
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
+              className="text-center font-medium dark:hover:bg-gray-900"
             >
-              {(status as string) || "N/A"}
-            </Badge>
+              Status
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
+        ),
+        cell: ({ row }) => {
+          const status = row.original.status;
+          return (
+            <div className="flex justify-center">
+              <Badge variant={status === "active" ? "success" : "destructive"}>
+                {(status as string) || "N/A"}
+              </Badge>
+            </div>
           );
         },
       },
@@ -170,35 +180,44 @@ export function useUserColumns() {
         }) => {
           const { sorting } = table.options.meta as TableMeta;
           return (
-            <Button
-              variant="ghost"
-              onClick={() => {
-                if (sorting?.onSortChange) {
-                  sorting.onSortChange("dateCreated");
-                } else {
-                  column.toggleSorting(column.getIsSorted() === "asc");
-                }
-              }}
-              className="text-center font-medium"
-            >
-              Created At
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
+            <div className="flex justify-center">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  if (sorting?.onSortChange) {
+                    sorting.onSortChange("dateCreated");
+                  } else {
+                    column.toggleSorting(column.getIsSorted() === "asc");
+                  }
+                }}
+                className="text-center font-medium dark:hover:bg-gray-900"
+              >
+                Created At
+                <ArrowUpDown className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
           );
         },
         cell: ({ row }) => {
           const dateCreated = row.original.dateCreated;
-
-          return format(new Date(dateCreated), "MMM dd, yyyy");
+          return (
+            <div className="flex justify-center">
+              {format(new Date(dateCreated), "MMM dd, yyyy")}
+            </div>
+          );
         },
       },
       {
         accessorKey: "lastLogin",
-        header: () => <div className="text-center font-medium">Last Login</div>,
+        header: () => <div className="text-left font-medium">Last Login</div>,
         cell: ({ row }) => {
-          return row.original.lastLogin
-            ? format(new Date(row.original.lastLogin), "MMM dd, yyyy")
-            : "Never";
+          return (
+            <div className="text-left">
+              {row.original.lastLogin
+                ? format(new Date(row.original.lastLogin), "MMM dd, yyyy")
+                : "Never"}
+            </div>
+          );
         },
       },
       {
