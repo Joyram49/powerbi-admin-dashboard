@@ -2,14 +2,7 @@ import { headers } from "next/headers";
 import { eq } from "drizzle-orm";
 
 import { stripe } from "@acme/api";
-import {
-  billings,
-  companies,
-  db,
-  paymentMethods,
-  subscriptions,
-  users,
-} from "@acme/db";
+import { billings, db, paymentMethods, subscriptions, users } from "@acme/db";
 
 import { env } from "~/env";
 
@@ -108,17 +101,65 @@ export async function POST(req: Request) {
             break;
           }
 
-          // Create billing record
+          // Check if billing record already exists
+          const existingBilling = await db.query.billings.findFirst({
+            where: eq(billings.stripeInvoiceId, invoice.id),
+          });
+
+          if (existingBilling) {
+            // Update existing record
+            await db
+              .update(billings)
+              .set({
+                status: "paid",
+                amount: (invoice.amount_paid / 100).toString(),
+                paymentStatus: "paid",
+                updatedAt: new Date(),
+              })
+              .where(eq(billings.stripeInvoiceId, invoice.id));
+          } else {
+            // Create new billing record
+            await db.insert(billings).values({
+              stripeInvoiceId: invoice.id,
+              companyId,
+              stripeCustomerId: invoice.customer as string,
+              billingDate: new Date(invoice.created * 1000),
+              status: "paid",
+              amount: (invoice.amount_paid / 100).toString(),
+              plan: productName,
+              pdfLink: invoice.invoice_pdf,
+              paymentStatus: "paid",
+            });
+          }
+        }
+        break;
+      }
+
+      case "invoice.payment_failed": {
+        const invoice = event.data.object;
+
+        if (invoice.subscription && invoice.customer) {
+          const subscription = await stripe.subscriptions.retrieve(
+            invoice.subscription as string,
+          );
+
+          const companyId = subscription.metadata.companyId;
+          if (!companyId) {
+            console.error("No company ID found in subscription metadata");
+            break;
+          }
+
+          // Create billing record for failed payment
           await db.insert(billings).values({
             stripeInvoiceId: invoice.id,
             companyId,
             stripeCustomerId: invoice.customer as string,
             billingDate: new Date(invoice.created * 1000),
-            status: "paid",
-            amount: (invoice.amount_paid / 100).toString(),
-            plan: productName,
+            status: "failed",
+            amount: (invoice.amount_due / 100).toString(),
+            plan: subscription.metadata.tier ?? "Unknown Plan",
             pdfLink: invoice.invoice_pdf,
-            paymentStatus: "paid",
+            paymentStatus: "failed",
           });
         }
         break;
@@ -136,13 +177,6 @@ export async function POST(req: Request) {
             console.error("No company ID found in subscription metadata");
             break;
           }
-
-          await db
-            .update(companies)
-            .set({
-              hasAdditionalUserPurchase: false,
-            })
-            .where(eq(companies.id, companyId));
 
           await db
             .update(users)
@@ -171,29 +205,109 @@ export async function POST(req: Request) {
         const productId = subscription.items.data[0]?.plan.product;
         const product = await stripe.products.retrieve(productId as string);
 
-        console.log("subscription", subscription);
-
         if (subscription.customer) {
           const portalUrl = await getStripePortalUrl(
             subscription.customer as string,
           );
+          const companyId = subscription.metadata.companyId;
 
-          await db
-            .update(subscriptions)
-            .set({
-              status: subscription.status,
-              currentPeriodEnd: new Date(
-                subscription.current_period_end * 1000,
-              ),
-              amount: (
-                subscription.items.data[0]?.price?.unit_amount ?? 0 / 100
-              ).toString(),
-              plan: product.name,
-              userLimit: getPlanUserLimit(product.name),
-              updatedAt: new Date(),
-              stripePortalUrl: portalUrl,
-            })
-            .where(eq(subscriptions.stripeSubscriptionId, subscription.id));
+          if (!companyId) {
+            console.error("No company ID found in subscription metadata");
+            break;
+          }
+
+          // Get the previous subscription data to check if plan changed
+          const previousSubscription = await db.query.subscriptions.findFirst({
+            where: eq(subscriptions.stripeSubscriptionId, subscription.id),
+          });
+
+          switch (subscription.status) {
+            case "past_due":
+              // First payment failure - update status but keep subscription
+              // Stripe will automatically retry 3 more times over ~15 days
+              await db
+                .update(subscriptions)
+                .set({
+                  status: subscription.status,
+                  currentPeriodEnd: new Date(
+                    subscription.current_period_end * 1000,
+                  ),
+                  amount: (
+                    subscription.items.data[0]?.price?.unit_amount ?? 0 / 100
+                  ).toString(),
+                  plan: product.name,
+                  userLimit: getPlanUserLimit(product.name),
+                  updatedAt: new Date(),
+                  stripePortalUrl: portalUrl,
+                })
+                .where(eq(subscriptions.stripeSubscriptionId, subscription.id));
+
+              // You might want to notify the company about the payment issue
+              // and that they have ~15 days to resolve it
+              break;
+
+            case "unpaid":
+              // All payment retries failed (after ~15 days of attempts)
+              // Delete subscription and deactivate company
+              await db
+                .delete(subscriptions)
+                .where(eq(subscriptions.stripeSubscriptionId, subscription.id));
+
+              // Deactivate company and users
+              await db
+                .update(users)
+                .set({
+                  status: "inactive",
+                })
+                .where(eq(users.companyId, companyId));
+              break;
+
+            case "active":
+            case "trialing": {
+              // Check if plan has changed
+              const isPlanChanged = previousSubscription?.plan !== product.name;
+
+              // Update subscription with new details
+              await db
+                .update(subscriptions)
+                .set({
+                  status: subscription.status,
+                  currentPeriodEnd: new Date(
+                    subscription.current_period_end * 1000,
+                  ),
+                  amount: (
+                    subscription.items.data[0]?.price?.unit_amount ?? 0 / 100
+                  ).toString(),
+                  plan: product.name,
+                  userLimit: getPlanUserLimit(product.name),
+                  updatedAt: new Date(),
+                  stripePortalUrl: portalUrl,
+                })
+                .where(eq(subscriptions.stripeSubscriptionId, subscription.id));
+
+              if (isPlanChanged) {
+                console.log(
+                  `Plan changed for company ${companyId} from ${previousSubscription?.plan} to ${product.name}`,
+                );
+              }
+              break;
+            }
+
+            case "canceled":
+              // Voluntary cancellation - delete subscription
+              await db
+                .delete(subscriptions)
+                .where(eq(subscriptions.stripeSubscriptionId, subscription.id));
+
+              // Deactivate company and users
+              await db
+                .update(users)
+                .set({
+                  status: "inactive",
+                })
+                .where(eq(users.companyId, companyId));
+              break;
+          }
         }
         break;
       }

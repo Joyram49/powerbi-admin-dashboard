@@ -1,7 +1,7 @@
 import type { AdminUserAttributes } from "@supabase/supabase-js";
 import type { SQL } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, ilike, inArray, ne } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, ne, or, sql } from "drizzle-orm";
 
 import {
   companies,
@@ -637,13 +637,52 @@ export const userRouter = createTRPCRouter({
         // check if the companyId has active subscription or not
         if (input.companyId) {
           const companySubscription = await db.query.subscriptions.findFirst({
-            where: eq(subscriptions.companyId, input.companyId),
+            where: and(
+              eq(subscriptions.companyId, input.companyId),
+              or(
+                eq(subscriptions.status, "active"),
+                eq(subscriptions.status, "trialing"),
+              ),
+            ),
           });
 
-          if (!companySubscription || companySubscription.status !== "active") {
+          if (!companySubscription) {
             throw new TRPCError({
               code: "BAD_REQUEST",
-              message: "Cannot update user: Company has no active subscription",
+              message:
+                "SUBSCRIPTION_REQUIRED: Company has no active subscription. Please purchase a subscription plan to add users.",
+            });
+          }
+
+          // Get current active users count for the new company
+          const activeUsersCount = await db
+            .select({ count: sql<number>`count(*)` })
+            .from(users)
+            .where(
+              and(
+                eq(users.companyId, input.companyId),
+                eq(users.status, "active"),
+              ),
+            );
+
+          const currentActiveCount = Number(activeUsersCount[0]?.count ?? 0);
+          const userLimit = companySubscription.userLimit;
+          const overageUser = companySubscription.overageUser;
+          const totalUser = userLimit + overageUser;
+
+          // Check user limit in these scenarios:
+          // 1. Moving to a new company
+          // 2. Reactivating a user in the same company
+          // 3. Moving to a new company AND reactivating
+          if (
+            (input.prevCompanyId !== input.companyId ||
+              (input.status === "active" && input.prevStatus === "inactive")) &&
+            currentActiveCount >= totalUser
+          ) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "USER_LIMIT_EXCEEDED: Company has reached the user limit. Please purchase additional user access for $25 per user.",
             });
           }
         }
@@ -653,6 +692,27 @@ export const userRouter = createTRPCRouter({
           await db
             .delete(userReports)
             .where(eq(userReports.userId, input.userId));
+
+          // Update employee counts for both companies
+          if (input.prevCompanyId) {
+            // Decrement previous company's count
+            await db
+              .update(companies)
+              .set({
+                numOfEmployees: sql`${companies.numOfEmployees} - 1`,
+              })
+              .where(eq(companies.id, input.prevCompanyId));
+          }
+
+          if (input.companyId) {
+            // Increment new company's count
+            await db
+              .update(companies)
+              .set({
+                numOfEmployees: sql`${companies.numOfEmployees} + 1`,
+              })
+              .where(eq(companies.id, input.companyId));
+          }
         }
 
         // Update Supabase Auth
@@ -744,8 +804,26 @@ export const userRouter = createTRPCRouter({
           });
         }
 
-        // delete users from supbase database user table
+        // Get the user's company before deleting
+        const userToDelete = await db.query.users.findFirst({
+          where: eq(users.id, input.userId),
+          columns: {
+            companyId: true,
+          },
+        });
+
+        // Delete user from database
         await db.delete(users).where(eq(users.id, input.userId));
+
+        // Decrement the company's employee count if the user was associated with a company
+        if (userToDelete?.companyId) {
+          await db
+            .update(companies)
+            .set({
+              numOfEmployees: sql`${companies.numOfEmployees} - 1`,
+            })
+            .where(eq(companies.id, userToDelete.companyId));
+        }
 
         return {
           success: true,

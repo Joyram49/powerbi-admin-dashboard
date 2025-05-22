@@ -34,6 +34,7 @@ export const subscriptions = pgTable("subscription", {
   billingInterval: billingIntervalEnum("billing_interval").notNull(),
   status: varchar("status", { length: 255 }).notNull(),
   userLimit: integer("user_limit").notNull(),
+  overageUser: integer("overage_user").notNull().default(0),
   currentPeriodEnd: timestamp("current_period_end", {
     withTimezone: true,
   }).notNull(),

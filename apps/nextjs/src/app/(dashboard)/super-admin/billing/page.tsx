@@ -50,12 +50,14 @@ export default function BillingPage() {
     error: queryError,
   } = api.subscription.getCurrentUserCompanySubscription.useQuery(
     {
-      companyId: "4e6cd650-80e3-4677-9cb8-24452230d854",
+      companyId: "46105855-ac4d-43b3-baab-650af0b024b4",
     },
     {
       retry: false,
     },
   );
+
+  console.log(subscriptionResponse);
 
   useEffect(() => {
     if (isSuccess && subscriptionResponse.data) {
