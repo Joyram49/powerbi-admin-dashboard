@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { z } from "zod";
 
 import { db, subscriptions } from "@acme/db";
@@ -7,45 +7,6 @@ import { db, subscriptions } from "@acme/db";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 
 export const subscriptionRouter = createTRPCRouter({
-  // Create a new subscription
-  //   createSubscription: protectedProcedure
-  //     .input(
-  //       z.object({
-  //         stripeSubscriptionId: z.string(),
-  //         companyId: z.string().uuid(),
-  //         stripeCustomerId: z.string().optional(),
-  //         plan: z.string(),
-  //         amount: z.number(),
-  //         billingInterval: z.enum(["monthly", "yearly", "weekly", "daily"]),
-  //         status: z.string(),
-  //         userLimit: z.number(),
-  //         currentPeriodEnd: z.date(),
-  //         stripePortalUrl: z.string().optional(),
-  //       }),
-  //     )
-  //     .mutation(async ({ input }) => {
-  //       try {
-  //         const [subscription] = await db
-  //           .insert(subscriptions)
-  //           .values({
-  //             ...input,
-  //             amount: input.amount,
-  //             userLimit: input.userLimit,
-  //           })
-  //           .returning();
-  //         return subscription;
-  //       } catch (error) {
-  //         throw new TRPCError({
-  //           code: "INTERNAL_SERVER_ERROR",
-  //           message:
-  //             error instanceof Error
-  //               ? error.message
-  //               : "Failed to create subscription",
-  //           cause: error,
-  //         });
-  //       }
-  //     }),
-
   // Get subscription by company ID
   getCompanySubscription: protectedProcedure
     .input(z.object({ companyId: z.string().uuid() }))
@@ -216,11 +177,16 @@ export const subscriptionRouter = createTRPCRouter({
     .query(async ({ input }) => {
       const { companyId } = input;
 
+      console.log(">>> companyId", companyId);
+
       try {
         const subscription = await db.query.subscriptions.findFirst({
           where: and(
             eq(subscriptions.companyId, companyId),
-            eq(subscriptions.status, "active"),
+            or(
+              eq(subscriptions.status, "active"),
+              eq(subscriptions.status, "trialing"),
+            ),
           ),
         });
 

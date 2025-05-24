@@ -7,7 +7,6 @@ import { companyAdminHistory } from "./company-admin-history";
 import { loginAttempts } from "./login-attempts";
 import { mouseActivities } from "./mouse-activity";
 import { paymentMethods } from "./payment-method";
-import { posts } from "./post";
 import { reports } from "./report";
 import { reportMetrics } from "./report-metrics";
 import { subscriptions } from "./subscription";
@@ -22,7 +21,6 @@ export * from "./company-admin-history";
 export * from "./login-attempts";
 export * from "./mouse-activity";
 export * from "./payment-method";
-export * from "./post";
 export * from "./report";
 export * from "./report-metrics";
 export * from "./subscription";
@@ -36,7 +34,6 @@ export const userRelations = relations(users, ({ one, many }) => ({
     fields: [users.companyId],
     references: [companies.id],
   }),
-  posts: many(posts), // A user can have multiple posts
   userReports: many(userReports),
   adminCompanies: many(companyAdmins), // New relation for admin companies
 }));
@@ -59,14 +56,6 @@ export const companyAdminRelations = relations(companyAdmins, ({ one }) => ({
   }),
   user: one(users, {
     fields: [companyAdmins.userId],
-    references: [users.id],
-  }),
-}));
-
-// Post relations
-export const postRelations = relations(posts, ({ one }) => ({
-  user: one(users, {
-    fields: [posts.userId],
     references: [users.id],
   }),
 }));

@@ -412,6 +412,55 @@ export const companyRouter = createTRPCRouter({
       }
     }),
 
+  // get all the admins of a company
+  getAllAdminsOfACompany: protectedProcedure
+    .input(companyRouterSchema.getById)
+    .query(async ({ ctx, input }) => {
+      const { companyId } = input;
+
+      if (ctx.session.user.role === "user") {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You are not authorized to view companies",
+        });
+      }
+
+      try {
+        const admins = await db.query.companyAdmins.findMany({
+          where: eq(companyAdmins.companyId, companyId),
+          with: {
+            user: true,
+          },
+        });
+
+        const transformedAdmins = admins.map((admin) => ({
+          id: admin.user.id,
+          userName: admin.user.userName,
+          email: admin.user.email,
+          role: admin.user.role,
+          status: admin.user.status,
+          dateCreated: admin.user.dateCreated,
+          companyId: admin.user.companyId,
+          lastLogin: admin.user.lastLogin,
+          modifiedBy: admin.user.modifiedBy,
+        }));
+
+        return {
+          success: true,
+          message: "Admins fetched successfully",
+          data: transformedAdmins,
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: String(error),
+        });
+      }
+    }),
+
   // Get company by ID
   getCompanyByCompanyId: protectedProcedure
     .input(companyRouterSchema.getById)

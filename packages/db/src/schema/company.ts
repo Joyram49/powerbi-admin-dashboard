@@ -1,5 +1,4 @@
 import {
-  boolean,
   integer,
   pgEnum,
   pgTable,
@@ -17,6 +16,13 @@ export const companyStatus = pgEnum("company_status", [
   "suspended",
 ]);
 
+export const subscriptionTier = pgEnum("subscription_tier", [
+  "data_foundation",
+  "insight_accelerator",
+  "strategic_navigator",
+  "enterprise",
+]);
+
 export const companies = pgTable("company", {
   id: uuid("id").notNull().primaryKey().defaultRandom(),
   companyName: varchar("company_name", { length: 255 }).notNull(),
@@ -28,9 +34,7 @@ export const companies = pgTable("company", {
   lastActivity: timestamp("last_activity", { withTimezone: true }),
   modifiedBy: varchar("modified_by", { length: 255 }),
   numOfEmployees: integer("num_of_employees").notNull().default(0),
-  hasAdditionalUserPurchase: boolean("has_additional_user_purchase")
-    .notNull()
-    .default(false),
+  preferredSubscriptionPlan: subscriptionTier("preferred_subscription_plan"),
 });
 
 // Base company schema without adminIds
@@ -40,7 +44,7 @@ export const baseCompanySchema = createInsertSchema(companies).omit({
   lastActivity: true,
   modifiedBy: true,
   numOfEmployees: true,
-  hasAdditionalUserPurchase: true,
+  preferredSubscriptionPlan: true,
 });
 
 const PHONE_NUMBER_REGEX =
@@ -189,7 +193,7 @@ export interface CompanyWithAdmins {
   employeeCount: number;
   reportCount: number;
   numOfEmployees: number;
-  hasAdditionalUserPurchase: boolean;
+  preferredSubscriptionPlan: string | null;
   admins: {
     id: string;
     userName: string;
@@ -204,5 +208,6 @@ export interface CompanyFormValues {
   phone?: string;
   email: string;
   adminIds: string[];
-  companyId?: string; // Optional for update operations
+  companyId?: string;
+  preferredSubscriptionPlan?: string;
 }

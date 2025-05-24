@@ -149,6 +149,7 @@ export const updateUserSchema = z
     modifiedBy: z.string().uuid(),
     role: z.enum(["user", "admin", "superAdmin"]),
     status: z.enum(["active", "inactive"]).optional(),
+    prevStatus: z.enum(["active", "inactive"]).optional(),
     companyId: z.string().uuid().optional(),
     prevCompanyId: z.string().uuid().optional(),
     userName: z.string().optional().or(z.literal("")),
