@@ -4,20 +4,18 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Loader2 } from "lucide-react";
 
+
+
 import type { Subscription } from "@acme/db";
 import { Alert, AlertDescription, AlertTitle } from "@acme/ui/alert";
 import { Button } from "@acme/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@acme/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@acme/ui/card";
 import { toast } from "@acme/ui/toast";
 
+
+
 import { api } from "~/trpc/react";
+
 
 interface SubscriptionState {
   data: Subscription | null;
@@ -50,7 +48,7 @@ export default function BillingPage() {
     error: queryError,
   } = api.subscription.getCurrentUserCompanySubscription.useQuery(
     {
-      companyId: "46105855-ac4d-43b3-baab-650af0b024b4",
+      companyId: "d336f3dc-551f-4f5f-ba4d-4d1034f1c892",
     },
     {
       retry: false,
@@ -113,7 +111,7 @@ export default function BillingPage() {
     createCheckout.mutate({
       tier,
       customerEmail: email,
-      companyId: "46105855-ac4d-43b3-baab-650af0b024b4",
+      companyId: "d336f3dc-551f-4f5f-ba4d-4d1034f1c892",
       ...(tier === "enterprise" ? { customAmount, customSetupFee } : {}),
     });
   };

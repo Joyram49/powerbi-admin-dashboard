@@ -277,7 +277,10 @@ export const userRouter = createTRPCRouter({
 
       try {
         // Build where conditions
-        const whereConditions = [eq(users.companyId, companyId)];
+        const whereConditions = [
+          eq(users.companyId, companyId),
+          eq(users.role, "user"), // Only show users with role "user"
+        ];
 
         if (searched) {
           whereConditions.push(ilike(users.email, `%${searched}%`));

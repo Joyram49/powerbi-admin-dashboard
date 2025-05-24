@@ -88,6 +88,13 @@ export default function ReportForm({
   // Watch for company ID changes to fetch users
   const companyIdForm = form.watch("companyId");
 
+  // Reset user access when company changes
+  useEffect(() => {
+    if (companyIdForm) {
+      form.setValue("userIds", []);
+    }
+  }, [companyIdForm, form]);
+
   // Fetch users for selected company
   const { data: usersData } = api.user.getUsersByCompanyId.useQuery(
     { companyId: companyIdForm, limit: 100, page: 1 },

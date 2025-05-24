@@ -142,8 +142,13 @@ export const companyRouter = createTRPCRouter({
           },
           extras: {
             employeeCount: sql<number>`(
-            SELECT COUNT(*)::int FROM "user" WHERE "user"."company_id" = companies.id
-          )`.as("employee_count"),
+              SELECT COUNT(*)::int FROM "user" u 
+              WHERE u."company_id" = companies.id 
+              AND NOT EXISTS (
+                SELECT 1 FROM "company_admin" ca 
+                WHERE ca."user_id" = u.id
+              )
+            )`.as("employee_count"),
             reportCount:
               sql<number>`(SELECT COUNT(*)::int FROM "report" WHERE "report"."company_id" = companies.id)`.as(
                 "report_count",
