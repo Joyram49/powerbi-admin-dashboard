@@ -4,18 +4,20 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Loader2 } from "lucide-react";
 
-
-
 import type { Subscription } from "@acme/db";
 import { Alert, AlertDescription, AlertTitle } from "@acme/ui/alert";
 import { Button } from "@acme/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@acme/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@acme/ui/card";
 import { toast } from "@acme/ui/toast";
 
-
-
 import { api } from "~/trpc/react";
-
 
 interface SubscriptionState {
   data: Subscription | null;
@@ -241,26 +243,88 @@ export default function BillingPage() {
     {
       id: "data_foundation" as const,
       name: "Data Foundation",
-      description: "Essential data management and analytics",
-      price: "$200/month + $500 setup fee",
+      description:
+        "For professionals looking for the first step in business data analytics.",
+      price: "$200/mo\n$2000 1-Time Setup Fee\n2 Powerview Licenses",
+      features: [
+        "Foundation Powerview™ Slides",
+        "Job Management Report",
+        "Jobs Report",
+        "Area Review/Compare",
+        "Org Aging",
+        "Group Onboarding",
+        "Email Support: 48hr response",
+        "Deal Refreshed Daily",
+        "Side Edit Credits",
+      ],
+      addOns: [
+        "Enterprise Slides (Contact Us)",
+        "Licenses (Side)",
+        "Custom Slides (Contact Us)",
+      ],
     },
     {
       id: "insight_accelerator" as const,
       name: "Insight Accelerator",
-      description: "Advanced analytics and reporting",
-      price: "$300/month + $800 setup fee",
+      description:
+        "For movers looking for more advanced insights to justify the next business step.",
+      price: "$300/mo\n$3500 1-Time Setup Fee\n6 Powerview Licenses",
+      features: [
+        "5 Insight Powerview™ Slides",
+        "Pro Production",
+        "Pro Production Merits",
+        "Production by Sold",
+        "Team Training Session",
+        "Deal Review Insights",
+        "Optional Email Support",
+        "Side Edit Credits",
+      ],
+      addOns: [
+        "Enterprise Slides ($60/mo)",
+        "Licenses ($150/mo)",
+        "Custom Slides (Contact Us)",
+      ],
     },
     {
       id: "strategic_navigator" as const,
       name: "Strategic Navigator",
-      description: "Full analytics suite with strategic insights",
-      price: "$600/month + $1,500 setup fee",
+      description:
+        "For growing businesses that want to empower their colleagues.",
+      price: "$600/mo\n$5000 1-Time Setup Fee\n10 Powerview Licenses",
+      features: [
+        "6 Strategic Powerview™ Slides",
+        "Pro Insights",
+        "Time Frames",
+        "Net Agents – Reports",
+        "Team Training – Reports",
+        "Enterprise Insights",
+        "Detailed Drill Through Feature",
+        "Optional Email Support",
+        "Email Spam Training Credit",
+      ],
+      addOns: [
+        "Enterprise Slides ($60/mo)",
+        "Licenses ($150/mo)",
+        "Custom Slides (Contact Us)",
+      ],
     },
     {
       id: "enterprise" as const,
       name: "Enterprise",
-      description: "Custom solutions for large organizations",
-      price: "Custom pricing",
+      description: "For businesses and franchises with more complex needs.",
+      price: "Contact us for Pricing\nUnlimited Powerview Licenses",
+      features: [
+        "8+ Enterprise Powerview™ Slides",
+        "All Strategic Navigator Features",
+        "Job Management Report",
+        "Web App",
+        "JMR Conditional Formatting",
+        "Priority Photo Support",
+        "Weekly Recap Email",
+        "Automated Action Manager",
+        "Monthly Side Edit Credits",
+      ],
+      addOns: ["Enterprise Slides (Contact Us)", "Custom Slides (Contact Us)"],
     },
   ];
 
@@ -305,6 +369,26 @@ export default function BillingPage() {
                 <p className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-2xl font-bold text-transparent dark:from-blue-400 dark:to-purple-400">
                   {tier.price}
                 </p>
+                <div className="mt-4">
+                  <h4 className="mb-1 font-semibold text-gray-800 dark:text-gray-200">
+                    Features
+                  </h4>
+                  <ul className="list-inside list-disc text-sm text-gray-700 dark:text-gray-300">
+                    {tier.features.map((feature, idx) => (
+                      <li key={idx}>{feature}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="mt-3">
+                  <h4 className="mb-1 font-semibold text-gray-800 dark:text-gray-200">
+                    Add Ons
+                  </h4>
+                  <ul className="list-inside list-disc text-sm text-gray-700 dark:text-gray-300">
+                    {tier.addOns.map((addOn, idx) => (
+                      <li key={idx}>{addOn}</li>
+                    ))}
+                  </ul>
+                </div>
               </CardContent>
               <CardFooter className="p-6">
                 <Button

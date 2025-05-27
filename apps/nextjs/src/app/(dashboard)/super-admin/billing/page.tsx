@@ -4,18 +4,21 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Loader2 } from "lucide-react";
 
-
-
 import type { Subscription } from "@acme/db";
+import { cn } from "@acme/ui";
 import { Alert, AlertDescription, AlertTitle } from "@acme/ui/alert";
 import { Button } from "@acme/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@acme/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@acme/ui/card";
 import { toast } from "@acme/ui/toast";
 
-
-
 import { api } from "~/trpc/react";
-
 
 interface SubscriptionState {
   data: Subscription | null;
@@ -241,28 +244,92 @@ export default function BillingPage() {
     {
       id: "data_foundation" as const,
       name: "Data Foundation",
-      description: "Essential data management and analytics",
-      price: "$200/month + $500 setup fee",
+      description:
+        "For professionals looking for the first step in business data analytics.",
+      price: "$200/mo\n$2000 1-Time Setup Fee\n2 Powerview Licenses",
+      features: [
+        "Foundation Powerview™ Slides",
+        "Job Management Report",
+        "Jobs Report",
+        "Area Review/Compare",
+        "Org Aging",
+        "Group Onboarding",
+        "Email Support: 48hr response",
+        "Deal Refreshed Daily",
+        "Side Edit Credits",
+      ],
+      addOns: [
+        "Enterprise Slides (Contact Us)",
+        "Licenses (Side)",
+        "Custom Slides (Contact Us)",
+      ],
     },
     {
       id: "insight_accelerator" as const,
       name: "Insight Accelerator",
-      description: "Advanced analytics and reporting",
-      price: "$300/month + $800 setup fee",
+      description:
+        "For movers looking for more advanced insights to justify the next business step.",
+      price: "$300/mo\n$3500 1-Time Setup Fee\n6 Powerview Licenses",
+      features: [
+        "5 Insight Powerview™ Slides",
+        "Pro Production",
+        "Pro Production Merits",
+        "Production by Sold",
+        "Team Training Session",
+        "Deal Review Insights",
+        "Optional Email Support",
+        "Side Edit Credits",
+      ],
+      addOns: [
+        "Enterprise Slides ($60/mo)",
+        "Licenses ($150/mo)",
+        "Custom Slides (Contact Us)",
+      ],
     },
     {
       id: "strategic_navigator" as const,
       name: "Strategic Navigator",
-      description: "Full analytics suite with strategic insights",
-      price: "$600/month + $1,500 setup fee",
+      description:
+        "For growing businesses that want to empower their colleagues.",
+      price: "$600/mo\n$5000 1-Time Setup Fee\n10 Powerview Licenses",
+      features: [
+        "6 Strategic Powerview™ Slides",
+        "Pro Insights",
+        "Time Frames",
+        "Net Agents – Reports",
+        "Team Training – Reports",
+        "Enterprise Insights",
+        "Detailed Drill Through Feature",
+        "Optional Email Support",
+        "Email Spam Training Credit",
+      ],
+      addOns: [
+        "Enterprise Slides ($60/mo)",
+        "Licenses ($150/mo)",
+        "Custom Slides (Contact Us)",
+      ],
     },
     {
       id: "enterprise" as const,
       name: "Enterprise",
-      description: "Custom solutions for large organizations",
-      price: "Custom pricing",
+      description: "For businesses and franchises with more complex needs.",
+      price: "Contact us for Pricing\nUnlimited Powerview Licenses",
+      features: [
+        "8+ Enterprise Powerview™ Slides",
+        "All Strategic Navigator Features",
+        "Job Management Report",
+        "Web App",
+        "JMR Conditional Formatting",
+        "Priority Photo Support",
+        "Weekly Recap Email",
+        "Automated Action Manager",
+        "Monthly Side Edit Credits",
+      ],
+      addOns: ["Enterprise Slides (Contact Us)", "Custom Slides (Contact Us)"],
     },
   ];
+
+  const [activeHover, setActiveHover] = useState(false);
 
   return (
     <div className="container mx-auto px-4 py-16">
@@ -287,63 +354,100 @@ export default function BillingPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
-        {tiers.map((tier) => (
-          <div
-            key={tier.id}
-            className="group relative rounded-lg from-blue-500 via-purple-500 to-pink-500 p-[2px] transition-all duration-500 hover:bg-gradient-to-l"
-          >
-            <Card className="relative flex h-full flex-col rounded-lg border-none bg-white transition-all duration-300 hover:shadow-lg dark:bg-gray-800">
-              <CardHeader className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900">
-                <CardTitle className="bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-2xl font-bold text-transparent dark:from-gray-100 dark:to-gray-300">
-                  {tier.name}
-                </CardTitle>
-                <CardDescription className="mt-2 text-gray-600 dark:text-gray-300">
-                  {tier.description}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex-grow py-6">
-                <p className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-2xl font-bold text-transparent dark:from-blue-400 dark:to-purple-400">
-                  {tier.price}
-                </p>
-              </CardContent>
-              <CardFooter className="p-6">
-                <Button
-                  className="w-full rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 py-3 font-semibold text-white transition-all duration-300 hover:from-blue-700 hover:to-blue-800 dark:from-blue-500 dark:to-blue-600 dark:hover:from-blue-600 dark:hover:to-blue-700"
-                  onClick={() => handleSubscribe(tier.id)}
-                  disabled={loading !== null}
-                >
-                  {loading === tier.id ? (
-                    <span className="flex items-center justify-center">
-                      <svg
-                        className="-ml-1 mr-3 h-5 w-5 animate-spin text-white"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                      Processing...
-                    </span>
-                  ) : (
-                    "Subscribe"
-                  )}
-                </Button>
-              </CardFooter>
-            </Card>
-          </div>
-        ))}
+        {tiers.map((tier) => {
+          const isActive =
+            subscriptionState.data?.plan.toLowerCase() ===
+            tier.name.toLowerCase();
+          const isHovered = isActive && activeHover;
+          return (
+            <div
+              key={tier.id}
+              onMouseEnter={() => isActive && setActiveHover(true)}
+              onMouseLeave={() => isActive && setActiveHover(false)}
+              className={cn(
+                "group relative rounded-lg p-[2px] transition-all duration-500",
+                isActive
+                  ? isHovered
+                    ? "bg-gradient-to-r from-blue-500 via-pink-500 to-purple-500"
+                    : "bg-gradient-to-l from-blue-500 via-purple-500 to-pink-500"
+                  : "from-blue-500 via-purple-500 to-pink-500 hover:bg-gradient-to-l",
+              )}
+            >
+              <Card className="relative flex h-full flex-col rounded-lg border-none bg-white transition-all duration-300 hover:shadow-lg dark:bg-gray-800">
+                <CardHeader className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900">
+                  <CardTitle className="bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-2xl font-bold text-transparent dark:from-gray-100 dark:to-gray-300">
+                    {tier.name}
+                  </CardTitle>
+                  <CardDescription className="mt-2 text-gray-600 dark:text-gray-300">
+                    {tier.description}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex-grow py-6">
+                  <p className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-2xl font-bold text-transparent dark:from-blue-400 dark:to-purple-400">
+                    {tier.price}
+                  </p>
+                  <div className="mt-4">
+                    <h4 className="mb-1 font-semibold text-gray-800 dark:text-gray-200">
+                      Features
+                    </h4>
+                    <ul className="list-inside list-disc text-sm text-gray-700 dark:text-gray-300">
+                      {tier.features.map((feature, idx) => (
+                        <li key={idx}>{feature}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="mt-3">
+                    <h4 className="mb-1 font-semibold text-gray-800 dark:text-gray-200">
+                      Add Ons
+                    </h4>
+                    <ul className="list-inside list-disc text-sm text-gray-700 dark:text-gray-300">
+                      {tier.addOns.map((addOn, idx) => (
+                        <li key={idx}>{addOn}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </CardContent>
+                <CardFooter className="p-6">
+                  <Button
+                    className="w-full rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 py-3 font-semibold text-white transition-all duration-300 hover:from-blue-700 hover:to-blue-800 dark:from-blue-500 dark:to-blue-600 dark:hover:from-blue-600 dark:hover:to-blue-700"
+                    onClick={() => handleSubscribe(tier.id)}
+                    disabled={loading !== null || isActive}
+                  >
+                    {loading === tier.id ? (
+                      <span className="flex items-center justify-center">
+                        <svg
+                          className="-ml-1 mr-3 h-5 w-5 animate-spin text-white"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        Processing...
+                      </span>
+                    ) : isActive ? (
+                      "Subscribed"
+                    ) : (
+                      "Subscribe"
+                    )}
+                  </Button>
+                </CardFooter>
+              </Card>
+            </div>
+          );
+        })}
       </div>
 
       {/* Enterprise custom pricing section */}

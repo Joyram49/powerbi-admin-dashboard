@@ -306,26 +306,7 @@ export default function ManageBillingPage() {
               />
             </div>
 
-            {/* Sales Overview Chart */}
-            <div className="col-span-4 md:col-span-2">
-              <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-                <SalesOverviewChart data={salesData} />
-              </div>
-            </div>
-
-            {/* Funds In Account */}
-            <div className="col-span-4 sm:col-span-2">
-              <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-                <FundsInAccount amount={totalRevenue} percentage={75} />
-              </div>
-            </div>
-
-            {/* Monthly Earnings */}
-            <div className="col-span-4 sm:col-span-2">
-              <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-                <MonthlyEarnings data={earningsData} percentageChange={5} />
-              </div>
-            </div>
+            
 
             {/* Transactions Table */}
             <div className="col-span-4">
