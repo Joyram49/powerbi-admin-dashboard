@@ -7,11 +7,18 @@ interface KpiCardProps {
   value: string | number;
   subtitle?: string;
   icon?: React.ReactNode;
+  className?: string;
 }
 
-export function KpiCard({ title, value, subtitle, icon }: KpiCardProps) {
+export function KpiCard({
+  title,
+  value,
+  subtitle,
+  icon,
+  className,
+}: KpiCardProps) {
   return (
-    <Card>
+    <Card className={className}>
       <CardHeader className="flex flex-col gap-1">
         <div className="flex items-center gap-2">
           {icon}

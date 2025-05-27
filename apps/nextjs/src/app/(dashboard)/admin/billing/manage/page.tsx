@@ -4,24 +4,16 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { Loader2 } from "lucide-react";
 
-import { Button } from "@acme/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@acme/ui/select";
 import { toast } from "@acme/ui/toast";
 
+import { BillingTable } from "~/app/(dashboard)/super-admin/billing/_components/BillingTable";
+import { FundsInAccount } from "~/app/(dashboard)/super-admin/billing/_components/FundsInAccount";
+import { KpiCard } from "~/app/(dashboard)/super-admin/billing/_components/KpiCard";
+import { MonthlyEarnings } from "~/app/(dashboard)/super-admin/billing/_components/MonthlyEarnings";
+import { SalesOverviewChart } from "~/app/(dashboard)/super-admin/billing/_components/SalesOverviewChart";
+import { TransactionFilter } from "~/app/(dashboard)/super-admin/billing/_components/TransactionFilter";
+import { TransactionsTable } from "~/app/(dashboard)/super-admin/billing/_components/TransactionsTable";
 import { api } from "~/trpc/react";
-import { BillingTable } from "../_components/BillingTable";
-import { FundsInAccount } from "../_components/FundsInAccount";
-import { KpiCard } from "../_components/KpiCard";
-import { MonthlyEarnings } from "../_components/MonthlyEarnings";
-import { SalesOverviewChart } from "../_components/SalesOverviewChart";
-import { TransactionFilter } from "../_components/TransactionFilter";
-import { TransactionsTable } from "../_components/TransactionsTable";
 
 export default function ManageBillingPage() {
   const [dateRange] = useState<{
@@ -31,23 +23,27 @@ export default function ManageBillingPage() {
     startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)),
     endDate: new Date(),
   });
-  const [selectedCompanyId, setSelectedCompanyId] = useState<
-    string | undefined
-  >(undefined);
 
-  // Fetch all companies
-  const { data: companiesData, isLoading: companiesLoading } =
-    api.company.getAllCompanies.useQuery(
+  // Get current user session
+  const { data: profile } = api.auth.getProfile.useQuery(undefined, {
+    enabled: true, // Always fetch profile as it's needed for company data
+  });
+
+  // Fetch admin's company
+  const { data: adminCompanies, isLoading: adminCompaniesLoading } =
+    api.company.getCompaniesByAdminId.useQuery(
       {
-        limit: 100, // Fetch more companies since this is a dropdown
-        sortBy: "companyName",
+        companyAdminId: profile?.user?.id ?? "",
+        limit: 1,
+        page: 1,
+        sortBy: "dateJoined",
       },
       {
-        enabled: true, // Always fetch companies as they're needed for the dropdown
+        enabled: !!profile?.user?.id,
       },
     );
 
-  const companies = companiesData?.data ?? [];
+  const companyId = adminCompanies?.data[0]?.id;
 
   // Fetch all billings for the company
   const {
@@ -56,10 +52,10 @@ export default function ManageBillingPage() {
     error: billingsError,
   } = api.billing.getCompanyBillings.useQuery(
     {
-      companyId: selectedCompanyId ?? "",
+      companyId: companyId ?? "",
     },
     {
-      enabled: !!selectedCompanyId && selectedCompanyId !== "",
+      enabled: !!companyId && !!profile?.user?.id,
     },
   );
 
@@ -67,14 +63,14 @@ export default function ManageBillingPage() {
   const { data: dateRangeBillings, error: dateRangeError } =
     api.billing.getBillingsByDateRange.useQuery(
       {
-        companyId: selectedCompanyId ?? "",
+        companyId: companyId ?? "",
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
       },
       {
         enabled:
-          !!selectedCompanyId &&
-          selectedCompanyId !== "" &&
+          !!companyId &&
+          !!profile?.user?.id &&
           !!dateRange.startDate &&
           !!dateRange.endDate,
       },
@@ -84,11 +80,11 @@ export default function ManageBillingPage() {
   const { data: statusBillings, error: statusError } =
     api.billing.getBillingsByStatus.useQuery(
       {
-        companyId: selectedCompanyId ?? "",
+        companyId: companyId ?? "",
         status: "outstanding",
       },
       {
-        enabled: !!selectedCompanyId && selectedCompanyId !== "",
+        enabled: !!companyId && !!profile?.user?.id,
       },
     );
 
@@ -99,10 +95,10 @@ export default function ManageBillingPage() {
     error: subscriptionError,
   } = api.subscription.getCurrentUserCompanySubscription.useQuery(
     {
-      companyId: selectedCompanyId ?? "",
+      companyId: companyId ?? "",
     },
     {
-      enabled: !!selectedCompanyId && selectedCompanyId !== "",
+      enabled: !!companyId && !!profile?.user?.id,
     },
   );
 
@@ -173,7 +169,7 @@ export default function ManageBillingPage() {
     }
   };
 
-  if (billingsLoading || subscriptionLoading) {
+  if (adminCompaniesLoading || billingsLoading || subscriptionLoading) {
     return (
       <div className="flex h-96 items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-gray-500 dark:text-slate-400" />
@@ -188,26 +184,18 @@ export default function ManageBillingPage() {
           Error loading billing data
         </div>
         <div className="text-sm text-gray-500 dark:text-gray-400">
-          {billingsError?.message ||
-            dateRangeError?.message ||
-            statusError?.message ||
-            subscriptionError?.message ||
-            "Please try selecting a different company or try again later"}
+          {billingsError?.message ??
+            dateRangeError?.message ??
+            statusError?.message ??
+            subscriptionError?.message ??
+            "Please try again later"}
         </div>
-        <Button
-          variant="outline"
-          onClick={() => {
-            setSelectedCompanyId(undefined);
-          }}
-        >
-          Clear Selection
-        </Button>
       </div>
     );
   }
 
   const hasNoData =
-    !selectedCompanyId || (!billings?.length && !subscriptionData?.data);
+    !companyId || (!billings?.length && !subscriptionData?.data);
 
   return (
     <div className="mt-5 min-h-screen w-full bg-gray-50/50 p-4 dark:bg-slate-900/50 sm:p-6">
@@ -215,64 +203,14 @@ export default function ManageBillingPage() {
         <h1 className="mb-6 text-2xl font-bold text-gray-900 dark:text-slate-50 sm:mb-8 sm:text-3xl">
           Manage Billing
         </h1>
-        <div className="mb-4">
-          <Select
-            value={selectedCompanyId}
-            onValueChange={(value) => {
-              console.log("Selected company:", value); // Debug log
-              if (value === "") {
-                setSelectedCompanyId(undefined);
-              } else {
-                setSelectedCompanyId(value);
-              }
-            }}
-            disabled={companiesLoading}
-          >
-            <SelectTrigger className="w-full border-gray-200 bg-white text-gray-900 ring-offset-white focus:ring-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-50 dark:ring-offset-gray-800 dark:focus:ring-gray-600">
-              {companiesLoading ? (
-                <div className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Loading companies...</span>
-                </div>
-              ) : (
-                <SelectValue placeholder="Select a company" />
-              )}
-            </SelectTrigger>
-            <SelectContent className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-              {companies.length > 0 ? (
-                companies.map((company) => (
-                  <SelectItem
-                    key={company.id}
-                    value={company.id}
-                    className="text-gray-900 focus:bg-gray-100 focus:text-gray-900 dark:text-slate-50 dark:focus:bg-gray-700 dark:focus:text-slate-50"
-                  >
-                    {company.companyName}
-                  </SelectItem>
-                ))
-              ) : (
-                <SelectItem
-                  value="no-companies"
-                  disabled
-                  className="text-gray-500 dark:text-gray-400"
-                >
-                  No companies available
-                </SelectItem>
-              )}
-            </SelectContent>
-          </Select>
-        </div>
 
         {hasNoData ? (
           <div className="flex h-96 flex-col items-center justify-center gap-4">
             <div className="text-lg font-semibold text-gray-900 dark:text-slate-50">
-              {!selectedCompanyId
-                ? "Please select a company"
-                : "No Billing Data Available"}
+              No Billing Data Available
             </div>
             <div className="text-sm text-gray-500 dark:text-gray-400">
-              {!selectedCompanyId
-                ? "Select a company to view its billing information"
-                : "This company has no billing history or active subscription"}
+              Your company has no billing history or active subscription
             </div>
           </div>
         ) : (

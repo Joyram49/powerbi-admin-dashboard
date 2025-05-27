@@ -27,7 +27,7 @@ export function BillingTable({ invoices, onDownload }: BillingTableProps) {
   return (
     <Table>
       <TableHeader>
-        <TableRow>
+        <TableRow className="hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-900">
           <TableHead>Invoice</TableHead>
           <TableHead>Date</TableHead>
           <TableHead>Status</TableHead>
@@ -38,7 +38,10 @@ export function BillingTable({ invoices, onDownload }: BillingTableProps) {
       </TableHeader>
       <TableBody>
         {invoices.map((inv) => (
-          <TableRow key={inv.id}>
+          <TableRow
+            key={inv.id}
+            className="hover:bg-gray-100 dark:hover:bg-gray-900 dark:border-gray-700"
+          >
             <TableCell>{inv.id}</TableCell>
             <TableCell>{inv.date}</TableCell>
             <TableCell>{inv.status}</TableCell>
@@ -49,7 +52,7 @@ export function BillingTable({ invoices, onDownload }: BillingTableProps) {
             <TableCell>
               <Button
                 size="sm"
-                variant="outline"
+                className="text-white"
                 onClick={() => onDownload?.(inv.id)}
               >
                 Download

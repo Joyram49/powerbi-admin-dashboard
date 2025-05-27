@@ -12,7 +12,7 @@ export function DownloadButton({
   label = "Download",
 }: DownloadButtonProps) {
   return (
-    <Button onClick={onClick} size="sm" variant="default">
+    <Button onClick={onClick} size="sm" variant="default" className="text-white">
       {label}
     </Button>
   );

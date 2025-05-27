@@ -10,7 +10,7 @@ interface FundsInAccountProps {
 
 export function FundsInAccount({ amount, percentage }: FundsInAccountProps) {
   return (
-    <Card>
+    <Card className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
       <CardHeader>
         <CardTitle>Funds in Account</CardTitle>
       </CardHeader>

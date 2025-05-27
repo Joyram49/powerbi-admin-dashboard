@@ -3,6 +3,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -23,7 +24,7 @@ interface SalesOverviewChartProps {
 
 export function SalesOverviewChart({ data }: SalesOverviewChartProps) {
   return (
-    <Card>
+    <Card className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
       <CardHeader>
         <CardTitle>Sales Overview</CardTitle>
       </CardHeader>
@@ -31,13 +32,18 @@ export function SalesOverviewChart({ data }: SalesOverviewChartProps) {
         <div className="h-[300px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                className="stroke-gray-300 dark:stroke-gray-700 dark:hover:!bg-gray-800"
+                horizontalFill={["rgba(75, 85, 99, 0.1) ", "transparent"]}
+              />
               <XAxis
                 dataKey="date"
                 stroke="#888888"
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
+                className="text-gray-500 dark:text-gray-400"
               />
               <YAxis
                 stroke="#888888"
@@ -45,43 +51,14 @@ export function SalesOverviewChart({ data }: SalesOverviewChartProps) {
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={(value) => `$${value}`}
+                className="text-gray-500 dark:text-gray-400"
               />
-              <Tooltip
-                content={({ active, payload }) => {
-                  if (active && payload?.length && payload[0]) {
-                    const data = payload[0] as {
-                      payload: ChartDataPoint;
-                      value: number;
-                    };
-                    return (
-                      <div className="rounded-lg border bg-background p-2 shadow-sm">
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="flex flex-col">
-                            <span className="text-[0.70rem] uppercase text-muted-foreground">
-                              Date
-                            </span>
-                            <span className="font-bold text-muted-foreground">
-                              {data.payload.date}
-                            </span>
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-[0.70rem] uppercase text-muted-foreground">
-                              Amount
-                            </span>
-                            <span className="font-bold">${data.value}</span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
+              <Legend />
               <Bar
                 dataKey="amount"
-                fill="currentColor"
+                fill="#3b82f6"
                 radius={[4, 4, 0, 0]}
-                className="fill-primary"
+                barSize={24}
               />
             </BarChart>
           </ResponsiveContainer>
