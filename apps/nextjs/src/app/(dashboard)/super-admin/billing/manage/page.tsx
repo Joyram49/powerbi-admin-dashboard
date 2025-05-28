@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { Loader2 } from "lucide-react";
 
@@ -16,10 +16,7 @@ import { toast } from "@acme/ui/toast";
 
 import { api } from "~/trpc/react";
 import { BillingTable } from "../_components/BillingTable";
-import { FundsInAccount } from "../_components/FundsInAccount";
 import { KpiCard } from "../_components/KpiCard";
-import { MonthlyEarnings } from "../_components/MonthlyEarnings";
-import { SalesOverviewChart } from "../_components/SalesOverviewChart";
 import { TransactionFilter } from "../_components/TransactionFilter";
 import { TransactionsTable } from "../_components/TransactionsTable";
 
@@ -34,6 +31,8 @@ export default function ManageBillingPage() {
   const [selectedCompanyId, setSelectedCompanyId] = useState<
     string | undefined
   >(undefined);
+  const [dateFilter, setDateFilter] = useState("all");
+  const [companyFilter, setCompanyFilter] = useState("");
 
   // Fetch all companies
   const { data: companiesData, isLoading: companiesLoading } =
@@ -72,11 +71,7 @@ export default function ManageBillingPage() {
         endDate: dateRange.endDate,
       },
       {
-        enabled:
-          !!selectedCompanyId &&
-          selectedCompanyId !== "" &&
-          !!dateRange.startDate &&
-          !!dateRange.endDate,
+        enabled: !!selectedCompanyId && selectedCompanyId !== "",
       },
     );
 
@@ -124,17 +119,17 @@ export default function ManageBillingPage() {
     dateRangeBillings?.filter((b) => b.status === "new").length ?? 0;
 
   // Prepare data for charts and tables with null checks
-  const salesData =
-    dateRangeBillings?.map((billing) => ({
-      date: format(new Date(billing.billingDate), "MMM dd"),
-      amount: Number(billing.amount),
-    })) ?? [];
+  // const salesData =
+  //   dateRangeBillings?.map((billing) => ({
+  //     date: format(new Date(billing.billingDate), "MMM dd"),
+  //     amount: Number(billing.amount),
+  //   })) ?? [];
 
-  const earningsData =
-    dateRangeBillings?.map((billing) => ({
-      date: format(new Date(billing.billingDate), "MMM dd"),
-      amount: Number(billing.amount),
-    })) ?? [];
+  // const earningsData =
+  //   dateRangeBillings?.map((billing) => ({
+  //     date: format(new Date(billing.billingDate), "MMM dd"),
+  //     amount: Number(billing.amount),
+  //   })) ?? [];
 
   // Transactions for table (filter as needed)
   const transactions =
@@ -160,7 +155,9 @@ export default function ManageBillingPage() {
       amount: Number(b.amount),
       plan: b.plan,
       paymentStatus: b.paymentStatus,
-      pdfLink: b.pdfLink,
+      companyName:
+        companies.find((c) => c.id === selectedCompanyId)?.companyName ?? "",
+      pdfUrl: b.pdfLink ?? "",
     })) ?? [];
 
   // Download handler for individual invoices
@@ -170,6 +167,63 @@ export default function ManageBillingPage() {
       window.open(billing.pdfLink, "_blank");
     } else {
       toast.error("No PDF available for this invoice");
+    }
+  };
+
+  // Filter invoices based on date and company
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter((invoice) => {
+      const matchesCompany = invoice.companyName
+        .toLowerCase()
+        .includes(companyFilter.toLowerCase());
+
+      const invoiceDate = new Date(invoice.date);
+      const now = new Date();
+      const daysDiff = Math.floor(
+        (now.getTime() - invoiceDate.getTime()) / (1000 * 60 * 60 * 24),
+      );
+
+      const matchesDate =
+        dateFilter === "all" ||
+        (dateFilter === "30" && daysDiff <= 30) ||
+        (dateFilter === "90" && daysDiff <= 90);
+
+      return matchesCompany && matchesDate;
+    });
+  }, [invoices, companyFilter, dateFilter]);
+
+  // Handle bulk download
+  const handleBulkDownload = async (ids: string[]) => {
+    try {
+      // Get all valid PDF links
+      const pdfLinks = ids
+        .map((id) => billings?.find((b) => b.id === id)?.pdfLink)
+        .filter((link): link is string => !!link);
+
+      if (pdfLinks.length === 0) {
+        toast.error("No PDFs available for selected invoices");
+        return;
+      }
+
+      // Create a download queue
+      const downloadQueue = async () => {
+        for (const link of pdfLinks) {
+          // Create a temporary link element
+          const linkElement = document.createElement("a");
+          linkElement.href = link;
+          linkElement.target = "_blank";
+          linkElement.click();
+
+          // Wait for 1 second before next download
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      };
+
+      // Start the download queue
+      await downloadQueue();
+    } catch (error) {
+      toast.error("Error downloading invoices");
+      console.error("Bulk download error:", error);
     }
   };
 
@@ -188,10 +242,10 @@ export default function ManageBillingPage() {
           Error loading billing data
         </div>
         <div className="text-sm text-gray-500 dark:text-gray-400">
-          {billingsError?.message ||
-            dateRangeError?.message ||
-            statusError?.message ||
-            subscriptionError?.message ||
+          {billingsError?.message ??
+            dateRangeError?.message ??
+            statusError?.message ??
+            subscriptionError?.message ??
             "Please try selecting a different company or try again later"}
         </div>
         <Button
@@ -219,7 +273,6 @@ export default function ManageBillingPage() {
           <Select
             value={selectedCompanyId}
             onValueChange={(value) => {
-              console.log("Selected company:", value); // Debug log
               if (value === "") {
                 setSelectedCompanyId(undefined);
               } else {
@@ -306,8 +359,6 @@ export default function ManageBillingPage() {
               />
             </div>
 
-            
-
             {/* Transactions Table */}
             <div className="col-span-4">
               <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
@@ -338,7 +389,13 @@ export default function ManageBillingPage() {
                     Billing History
                   </span>
                 </div>
-                <BillingTable invoices={invoices} onDownload={handleDownload} />
+                <BillingTable
+                  invoices={filteredInvoices}
+                  onDownload={handleDownload}
+                  onBulkDownload={handleBulkDownload}
+                  onCompanyFilter={setCompanyFilter}
+                  onDateFilter={setDateFilter}
+                />
               </div>
             </div>
           </div>
