@@ -3,8 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Loader2 } from "lucide-react";
+import { useSession } from "next-auth/react";
 
 import type { Subscription } from "@acme/db";
+import { companies } from "@acme/db";
+import { cn } from "@acme/ui";
 import { Alert, AlertDescription, AlertTitle } from "@acme/ui/alert";
 import { Button } from "@acme/ui/button";
 import {
@@ -15,6 +18,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@acme/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@acme/ui/select";
 import { toast } from "@acme/ui/toast";
 
 import { api } from "~/trpc/react";
@@ -28,6 +38,7 @@ interface SubscriptionState {
 export default function BillingPage() {
   const [loading, setLoading] = useState<string | null>(null);
   const [email, setEmail] = useState("");
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>();
   const [subscriptionState, setSubscriptionState] = useState<SubscriptionState>(
     {
       data: null,
@@ -39,8 +50,24 @@ export default function BillingPage() {
   // Enterprise tier custom amounts (only for testing)
   const [customAmount, setCustomAmount] = useState(1000 * 100); // $1000 in cents
   const [customSetupFee, setCustomSetupFee] = useState(5000 * 100); // $5000 in cents
-
   const router = useRouter();
+  const { data: profile } = api.auth.getProfile.useQuery();
+  // Get companies for the current user
+  const { data: companiesData, isLoading: companiesLoading } =
+    api.company.getCompaniesByAdminId.useQuery(
+      {
+        companyAdminId: profile?.user?.id ?? "", // Use the current user's ID
+        limit: 100, // Get all companies for the dropdown
+        page: 1,
+        sortBy: "companyName",
+      },
+      {
+        retry: false,
+        enabled: !!profile?.user?.id, // Only run the query when we have a user ID
+      },
+    );
+
+  console.log("Companies Data:", companiesData);
 
   // Get current subscription
   const {
@@ -50,14 +77,13 @@ export default function BillingPage() {
     error: queryError,
   } = api.subscription.getCurrentUserCompanySubscription.useQuery(
     {
-      companyId: "d336f3dc-551f-4f5f-ba4d-4d1034f1c892",
+      companyId: selectedCompanyId ?? "d336f3dc-551f-4f5f-ba4d-4d1034f1c892",
     },
     {
       retry: false,
+      enabled: !!selectedCompanyId,
     },
   );
-
-  console.log(subscriptionResponse);
 
   useEffect(() => {
     if (isSuccess && subscriptionResponse.data) {
@@ -108,12 +134,17 @@ export default function BillingPage() {
       return;
     }
 
+    if (!selectedCompanyId) {
+      toast.error("Please select a company");
+      return;
+    }
+
     setLoading(tier);
 
     createCheckout.mutate({
       tier,
       customerEmail: email,
-      companyId: "d336f3dc-551f-4f5f-ba4d-4d1034f1c892",
+      companyId: selectedCompanyId,
       ...(tier === "enterprise" ? { customAmount, customSetupFee } : {}),
     });
   };
@@ -130,6 +161,21 @@ export default function BillingPage() {
   };
 
   const renderSubscriptionContent = () => {
+    if (!selectedCompanyId) {
+      return (
+        <Alert className="mb-6 border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/50">
+          <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <AlertTitle className="text-blue-800 dark:text-blue-300">
+            Select a Company
+          </AlertTitle>
+          <AlertDescription className="text-blue-700 dark:text-blue-400">
+            Please select a company from the dropdown below to view subscription
+            details.
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
     if (subscriptionState.isLoading) {
       return (
         <div className="mb-6 flex items-center justify-center space-x-2 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 p-6 dark:from-blue-950/50 dark:to-indigo-950/50">
@@ -328,6 +374,8 @@ export default function BillingPage() {
     },
   ];
 
+  const [activeHover, setActiveHover] = useState(false);
+
   return (
     <div className="container mx-auto px-4 py-16">
       {renderSubscriptionContent()}
@@ -348,86 +396,154 @@ export default function BillingPage() {
           placeholder="Enter your email"
           required
         />
+        <div className="my-4">
+          <Select
+            value={selectedCompanyId}
+            onValueChange={(value) => {
+              if (value === "") {
+                setSelectedCompanyId(undefined);
+              } else {
+                setSelectedCompanyId(value);
+              }
+            }}
+            disabled={companiesLoading}
+          >
+            <SelectTrigger className="w-full border-gray-200 bg-white text-gray-900 ring-offset-white focus:ring-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-50 dark:ring-offset-gray-800 dark:focus:ring-gray-600">
+              {companiesLoading ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Loading companies...</span>
+                </div>
+              ) : (
+                <SelectValue placeholder="Select a company" />
+              )}
+            </SelectTrigger>
+            <SelectContent className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+              {companiesData?.success &&
+              Array.isArray(companiesData.data) &&
+              companiesData.data.length > 0 ? (
+                companiesData.data.map((company) => (
+                  <SelectItem
+                    key={company.id}
+                    value={company.id}
+                    className="text-gray-900 focus:bg-gray-100 focus:text-gray-900 dark:text-slate-50 dark:focus:bg-gray-700 dark:focus:text-slate-50"
+                  >
+                    {company.companyName}
+                  </SelectItem>
+                ))
+              ) : (
+                <SelectItem
+                  value="no-companies"
+                  disabled
+                  className="text-gray-500 dark:text-gray-400"
+                >
+                  {companiesLoading
+                    ? "Loading companies..."
+                    : "No companies available"}
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
-        {tiers.map((tier) => (
-          <div
-            key={tier.id}
-            className="group relative rounded-lg from-blue-500 via-purple-500 to-pink-500 p-[2px] transition-all duration-500 hover:bg-gradient-to-l"
-          >
-            <Card className="relative flex h-full flex-col rounded-lg border-none bg-white transition-all duration-300 hover:shadow-lg dark:bg-gray-800">
-              <CardHeader className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900">
-                <CardTitle className="bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-2xl font-bold text-transparent dark:from-gray-100 dark:to-gray-300">
-                  {tier.name}
-                </CardTitle>
-                <CardDescription className="mt-2 text-gray-600 dark:text-gray-300">
-                  {tier.description}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex-grow py-6">
-                <p className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-2xl font-bold text-transparent dark:from-blue-400 dark:to-purple-400">
-                  {tier.price}
-                </p>
-                <div className="mt-4">
-                  <h4 className="mb-1 font-semibold text-gray-800 dark:text-gray-200">
-                    Features
-                  </h4>
-                  <ul className="list-inside list-disc text-sm text-gray-700 dark:text-gray-300">
-                    {tier.features.map((feature, idx) => (
-                      <li key={idx}>{feature}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="mt-3">
-                  <h4 className="mb-1 font-semibold text-gray-800 dark:text-gray-200">
-                    Add Ons
-                  </h4>
-                  <ul className="list-inside list-disc text-sm text-gray-700 dark:text-gray-300">
-                    {tier.addOns.map((addOn, idx) => (
-                      <li key={idx}>{addOn}</li>
-                    ))}
-                  </ul>
-                </div>
-              </CardContent>
-              <CardFooter className="p-6">
-                <Button
-                  className="w-full rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 py-3 font-semibold text-white transition-all duration-300 hover:from-blue-700 hover:to-blue-800 dark:from-blue-500 dark:to-blue-600 dark:hover:from-blue-600 dark:hover:to-blue-700"
-                  onClick={() => handleSubscribe(tier.id)}
-                  disabled={loading !== null}
-                >
-                  {loading === tier.id ? (
-                    <span className="flex items-center justify-center">
-                      <svg
-                        className="-ml-1 mr-3 h-5 w-5 animate-spin text-white"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                      Processing...
-                    </span>
-                  ) : (
-                    "Subscribe"
-                  )}
-                </Button>
-              </CardFooter>
-            </Card>
-          </div>
-        ))}
+        {tiers.map((tier) => {
+          const isActive =
+            subscriptionState.data?.plan.toLowerCase() ===
+            tier.name.toLowerCase();
+          const isHovered = isActive && activeHover;
+          return (
+            <div
+              key={tier.id}
+              onMouseEnter={() => isActive && setActiveHover(true)}
+              onMouseLeave={() => isActive && setActiveHover(false)}
+              className={cn(
+                "group relative rounded-lg p-[2px] transition-all duration-500",
+                isActive
+                  ? isHovered
+                    ? "bg-gradient-to-r from-blue-500 via-pink-500 to-purple-500"
+                    : "bg-gradient-to-l from-blue-500 via-purple-500 to-pink-500"
+                  : "from-blue-500 via-purple-500 to-pink-500 hover:bg-gradient-to-l",
+              )}
+            >
+              <Card className="relative flex h-full flex-col rounded-lg border-none bg-white transition-all duration-300 hover:shadow-lg dark:bg-gray-800">
+                <CardHeader className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900">
+                  <CardTitle className="bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-2xl font-bold text-transparent dark:from-gray-100 dark:to-gray-300">
+                    {tier.name}
+                  </CardTitle>
+                  <CardDescription className="mt-2 text-gray-600 dark:text-gray-300">
+                    {tier.description}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex-grow py-6">
+                  <p className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-2xl font-bold text-transparent dark:from-blue-400 dark:to-purple-400">
+                    {tier.price}
+                  </p>
+                  <div className="mt-4">
+                    <h4 className="mb-1 font-semibold text-gray-800 dark:text-gray-200">
+                      Features
+                    </h4>
+                    <ul className="list-inside list-disc text-sm text-gray-700 dark:text-gray-300">
+                      {tier.features.map((feature, idx) => (
+                        <li key={idx}>{feature}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="mt-3">
+                    <h4 className="mb-1 font-semibold text-gray-800 dark:text-gray-200">
+                      Add Ons
+                    </h4>
+                    <ul className="list-inside list-disc text-sm text-gray-700 dark:text-gray-300">
+                      {tier.addOns.map((addOn, idx) => (
+                        <li key={idx}>{addOn}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </CardContent>
+                <CardFooter className="p-6">
+                  <Button
+                    className="w-full rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 py-3 font-semibold text-white transition-all duration-300 hover:from-blue-700 hover:to-blue-800 dark:from-blue-500 dark:to-blue-600 dark:hover:from-blue-600 dark:hover:to-blue-700"
+                    onClick={() => handleSubscribe(tier.id)}
+                    disabled={
+                      loading !== null || isActive || !selectedCompanyId
+                    }
+                  >
+                    {loading === tier.id ? (
+                      <span className="flex items-center justify-center">
+                        <svg
+                          className="-ml-1 mr-3 h-5 w-5 animate-spin text-white"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        Processing...
+                      </span>
+                    ) : isActive ? (
+                      "Subscribed"
+                    ) : (
+                      "Subscribe"
+                    )}
+                  </Button>
+                </CardFooter>
+              </Card>
+            </div>
+          );
+        })}
       </div>
 
       {/* Enterprise custom pricing section */}

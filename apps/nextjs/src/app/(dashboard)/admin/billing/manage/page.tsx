@@ -1,21 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { Loader2 } from "lucide-react";
 
+import { Button } from "@acme/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@acme/ui/select";
 import { toast } from "@acme/ui/toast";
 
 import { BillingTable } from "~/app/(dashboard)/super-admin/billing/_components/BillingTable";
-import { FundsInAccount } from "~/app/(dashboard)/super-admin/billing/_components/FundsInAccount";
 import { KpiCard } from "~/app/(dashboard)/super-admin/billing/_components/KpiCard";
-import { MonthlyEarnings } from "~/app/(dashboard)/super-admin/billing/_components/MonthlyEarnings";
-import { SalesOverviewChart } from "~/app/(dashboard)/super-admin/billing/_components/SalesOverviewChart";
 import { TransactionFilter } from "~/app/(dashboard)/super-admin/billing/_components/TransactionFilter";
 import { TransactionsTable } from "~/app/(dashboard)/super-admin/billing/_components/TransactionsTable";
 import { api } from "~/trpc/react";
 
 export default function ManageBillingPage() {
+  const { data: profileData } = api.auth.getProfile.useQuery();
   const [dateRange] = useState<{
     startDate: Date;
     endDate: Date;
@@ -23,27 +29,29 @@ export default function ManageBillingPage() {
     startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)),
     endDate: new Date(),
   });
+  const [selectedCompanyId, setSelectedCompanyId] = useState<
+    string | undefined
+  >(undefined);
+  const [dateFilter, setDateFilter] = useState("all");
+  const [companyFilter, setCompanyFilter] = useState("");
 
-  // Get current user session
-  const { data: profile } = api.auth.getProfile.useQuery(undefined, {
-    enabled: true, // Always fetch profile as it's needed for company data
-  });
-
-  // Fetch admin's company
-  const { data: adminCompanies, isLoading: adminCompaniesLoading } =
+  // Fetch all companies
+  const { data: companiesData, isLoading: companiesLoading } =
     api.company.getCompaniesByAdminId.useQuery(
       {
-        companyAdminId: profile?.user?.id ?? "",
-        limit: 1,
-        page: 1,
-        sortBy: "dateJoined",
+        companyAdminId: profileData?.user?.id ?? "",
+        limit: 100,
+        sortBy: "companyName",
       },
       {
-        enabled: !!profile?.user?.id,
+        enabled: !!profileData?.user?.id,
       },
     );
 
-  const companyId = adminCompanies?.data[0]?.id;
+  const companies = useMemo(
+    () => companiesData?.data ?? [],
+    [companiesData?.data],
+  );
 
   // Fetch all billings for the company
   const {
@@ -52,10 +60,10 @@ export default function ManageBillingPage() {
     error: billingsError,
   } = api.billing.getCompanyBillings.useQuery(
     {
-      companyId: companyId ?? "",
+      companyId: selectedCompanyId ?? "",
     },
     {
-      enabled: !!companyId && !!profile?.user?.id,
+      enabled: !!selectedCompanyId && selectedCompanyId !== "",
     },
   );
 
@@ -63,16 +71,12 @@ export default function ManageBillingPage() {
   const { data: dateRangeBillings, error: dateRangeError } =
     api.billing.getBillingsByDateRange.useQuery(
       {
-        companyId: companyId ?? "",
+        companyId: selectedCompanyId ?? "",
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
       },
       {
-        enabled:
-          !!companyId &&
-          !!profile?.user?.id &&
-          !!dateRange.startDate &&
-          !!dateRange.endDate,
+        enabled: !!selectedCompanyId && selectedCompanyId !== "",
       },
     );
 
@@ -80,11 +84,11 @@ export default function ManageBillingPage() {
   const { data: statusBillings, error: statusError } =
     api.billing.getBillingsByStatus.useQuery(
       {
-        companyId: companyId ?? "",
+        companyId: selectedCompanyId ?? "",
         status: "outstanding",
       },
       {
-        enabled: !!companyId && !!profile?.user?.id,
+        enabled: !!selectedCompanyId && selectedCompanyId !== "",
       },
     );
 
@@ -95,10 +99,10 @@ export default function ManageBillingPage() {
     error: subscriptionError,
   } = api.subscription.getCurrentUserCompanySubscription.useQuery(
     {
-      companyId: companyId ?? "",
+      companyId: selectedCompanyId ?? "",
     },
     {
-      enabled: !!companyId && !!profile?.user?.id,
+      enabled: !!selectedCompanyId && selectedCompanyId !== "",
     },
   );
 
@@ -119,20 +123,6 @@ export default function ManageBillingPage() {
   const newSubs30Day =
     dateRangeBillings?.filter((b) => b.status === "new").length ?? 0;
 
-  // Prepare data for charts and tables with null checks
-  const salesData =
-    dateRangeBillings?.map((billing) => ({
-      date: format(new Date(billing.billingDate), "MMM dd"),
-      amount: Number(billing.amount),
-    })) ?? [];
-
-  const earningsData =
-    dateRangeBillings?.map((billing) => ({
-      date: format(new Date(billing.billingDate), "MMM dd"),
-      amount: Number(billing.amount),
-    })) ?? [];
-
-  // Transactions for table (filter as needed)
   const transactions =
     billings
       ?.filter(
@@ -147,17 +137,40 @@ export default function ManageBillingPage() {
         paymentStatus: b.paymentStatus,
       })) ?? [];
 
-  // Invoices for billing table
-  const invoices =
-    billings?.map((b) => ({
-      id: b.id,
-      date: format(new Date(b.billingDate), "MMM dd, yyyy"),
-      status: b.status,
-      amount: Number(b.amount),
-      plan: b.plan,
-      paymentStatus: b.paymentStatus,
-      pdfLink: b.pdfLink,
-    })) ?? [];
+  // Filter invoices based on date and company
+  const filteredInvoices = useMemo(() => {
+    const invoices =
+      billings?.map((b) => ({
+        id: b.id,
+        date: format(new Date(b.billingDate), "MMM dd, yyyy"),
+        status: b.status,
+        amount: Number(b.amount),
+        plan: b.plan,
+        paymentStatus: b.paymentStatus,
+        companyName:
+          companies.find((c) => c.id === selectedCompanyId)?.companyName ?? "",
+        pdfUrl: b.pdfLink ?? "",
+      })) ?? [];
+
+    return invoices.filter((invoice) => {
+      const matchesCompany = invoice.companyName
+        .toLowerCase()
+        .includes(companyFilter.toLowerCase());
+
+      const invoiceDate = new Date(invoice.date);
+      const now = new Date();
+      const daysDiff = Math.floor(
+        (now.getTime() - invoiceDate.getTime()) / (1000 * 60 * 60 * 24),
+      );
+
+      const matchesDate =
+        dateFilter === "all" ||
+        (dateFilter === "30" && daysDiff <= 30) ||
+        (dateFilter === "90" && daysDiff <= 90);
+
+      return matchesCompany && matchesDate;
+    });
+  }, [billings, companies, selectedCompanyId, companyFilter, dateFilter]);
 
   // Download handler for individual invoices
   const handleDownload = (id: string) => {
@@ -169,7 +182,42 @@ export default function ManageBillingPage() {
     }
   };
 
-  if (adminCompaniesLoading || billingsLoading || subscriptionLoading) {
+  // Handle bulk download
+  const handleBulkDownload = async (ids: string[]) => {
+    try {
+      // Get all valid PDF links
+      const pdfLinks = ids
+        .map((id) => billings?.find((b) => b.id === id)?.pdfLink)
+        .filter((link): link is string => !!link);
+
+      if (pdfLinks.length === 0) {
+        toast.error("No PDFs available for selected invoices");
+        return;
+      }
+
+      // Create a download queue
+      const downloadQueue = async () => {
+        for (const link of pdfLinks) {
+          // Create a temporary link element
+          const linkElement = document.createElement("a");
+          linkElement.href = link;
+          linkElement.target = "_blank";
+          linkElement.click();
+
+          // Wait for 1 second before next download
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      };
+
+      // Start the download queue
+      await downloadQueue();
+    } catch (error) {
+      toast.error("Error downloading invoices");
+      console.error("Bulk download error:", error);
+    }
+  };
+
+  if (billingsLoading || subscriptionLoading) {
     return (
       <div className="flex h-96 items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-gray-500 dark:text-slate-400" />
@@ -188,14 +236,22 @@ export default function ManageBillingPage() {
             dateRangeError?.message ??
             statusError?.message ??
             subscriptionError?.message ??
-            "Please try again later"}
+            "Please try selecting a different company or try again later"}
         </div>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setSelectedCompanyId(undefined);
+          }}
+        >
+          Clear Selection
+        </Button>
       </div>
     );
   }
 
   const hasNoData =
-    !companyId || (!billings?.length && !subscriptionData?.data);
+    !selectedCompanyId || (!billings?.length && !subscriptionData?.data);
 
   return (
     <div className="mt-5 min-h-screen w-full bg-gray-50/50 p-4 dark:bg-slate-900/50 sm:p-6">
@@ -203,14 +259,63 @@ export default function ManageBillingPage() {
         <h1 className="mb-6 text-2xl font-bold text-gray-900 dark:text-slate-50 sm:mb-8 sm:text-3xl">
           Manage Billing
         </h1>
+        <div className="mb-4">
+          <Select
+            value={selectedCompanyId}
+            onValueChange={(value) => {
+              if (value === "") {
+                setSelectedCompanyId(undefined);
+              } else {
+                setSelectedCompanyId(value);
+              }
+            }}
+            disabled={companiesLoading}
+          >
+            <SelectTrigger className="w-full border-gray-200 bg-white text-gray-900 ring-offset-white focus:ring-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-50 dark:ring-offset-gray-800 dark:focus:ring-gray-600">
+              {companiesLoading ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Loading companies...</span>
+                </div>
+              ) : (
+                <SelectValue placeholder="Select a company" />
+              )}
+            </SelectTrigger>
+            <SelectContent className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+              {companies.length > 0 ? (
+                companies.map((company) => (
+                  <SelectItem
+                    key={company.id}
+                    value={company.id}
+                    className="text-gray-900 focus:bg-gray-100 focus:text-gray-900 dark:text-slate-50 dark:focus:bg-gray-700 dark:focus:text-slate-50"
+                  >
+                    {company.companyName}
+                  </SelectItem>
+                ))
+              ) : (
+                <SelectItem
+                  value="no-companies"
+                  disabled
+                  className="text-gray-500 dark:text-gray-400"
+                >
+                  No companies available
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
 
         {hasNoData ? (
           <div className="flex h-96 flex-col items-center justify-center gap-4">
             <div className="text-lg font-semibold text-gray-900 dark:text-slate-50">
-              No Billing Data Available
+              {!selectedCompanyId
+                ? "Please select a company"
+                : "No Billing Data Available"}
             </div>
             <div className="text-sm text-gray-500 dark:text-gray-400">
-              Your company has no billing history or active subscription
+              {!selectedCompanyId
+                ? "Select a company to view its billing information"
+                : "This company has no billing history or active subscription"}
             </div>
           </div>
         ) : (
@@ -244,27 +349,6 @@ export default function ManageBillingPage() {
               />
             </div>
 
-            {/* Sales Overview Chart */}
-            <div className="col-span-4 md:col-span-2">
-              <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-                <SalesOverviewChart data={salesData} />
-              </div>
-            </div>
-
-            {/* Funds In Account */}
-            <div className="col-span-4 sm:col-span-2">
-              <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-                <FundsInAccount amount={totalRevenue} percentage={75} />
-              </div>
-            </div>
-
-            {/* Monthly Earnings */}
-            <div className="col-span-4 sm:col-span-2">
-              <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-                <MonthlyEarnings data={earningsData} percentageChange={5} />
-              </div>
-            </div>
-
             {/* Transactions Table */}
             <div className="col-span-4">
               <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
@@ -295,7 +379,13 @@ export default function ManageBillingPage() {
                     Billing History
                   </span>
                 </div>
-                <BillingTable invoices={invoices} onDownload={handleDownload} />
+                <BillingTable
+                  invoices={filteredInvoices}
+                  onDownload={handleDownload}
+                  onBulkDownload={handleBulkDownload}
+                  onCompanyFilter={setCompanyFilter}
+                  onDateFilter={setDateFilter}
+                />
               </div>
             </div>
           </div>

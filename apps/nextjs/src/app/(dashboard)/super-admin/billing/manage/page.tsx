@@ -38,15 +38,18 @@ export default function ManageBillingPage() {
   const { data: companiesData, isLoading: companiesLoading } =
     api.company.getAllCompanies.useQuery(
       {
-        limit: 100, // Fetch more companies since this is a dropdown
+        limit: 100,
         sortBy: "companyName",
       },
       {
-        enabled: true, // Always fetch companies as they're needed for the dropdown
+        enabled: true,
       },
     );
 
-  const companies = companiesData?.data ?? [];
+  const companies = useMemo(
+    () => companiesData?.data ?? [],
+    [companiesData?.data],
+  );
 
   // Fetch all billings for the company
   const {
@@ -118,20 +121,6 @@ export default function ManageBillingPage() {
   const newSubs30Day =
     dateRangeBillings?.filter((b) => b.status === "new").length ?? 0;
 
-  // Prepare data for charts and tables with null checks
-  // const salesData =
-  //   dateRangeBillings?.map((billing) => ({
-  //     date: format(new Date(billing.billingDate), "MMM dd"),
-  //     amount: Number(billing.amount),
-  //   })) ?? [];
-
-  // const earningsData =
-  //   dateRangeBillings?.map((billing) => ({
-  //     date: format(new Date(billing.billingDate), "MMM dd"),
-  //     amount: Number(billing.amount),
-  //   })) ?? [];
-
-  // Transactions for table (filter as needed)
   const transactions =
     billings
       ?.filter(
@@ -146,32 +135,21 @@ export default function ManageBillingPage() {
         paymentStatus: b.paymentStatus,
       })) ?? [];
 
-  // Invoices for billing table
-  const invoices =
-    billings?.map((b) => ({
-      id: b.id,
-      date: format(new Date(b.billingDate), "MMM dd, yyyy"),
-      status: b.status,
-      amount: Number(b.amount),
-      plan: b.plan,
-      paymentStatus: b.paymentStatus,
-      companyName:
-        companies.find((c) => c.id === selectedCompanyId)?.companyName ?? "",
-      pdfUrl: b.pdfLink ?? "",
-    })) ?? [];
-
-  // Download handler for individual invoices
-  const handleDownload = (id: string) => {
-    const billing = billings?.find((b) => b.id === id);
-    if (billing?.pdfLink) {
-      window.open(billing.pdfLink, "_blank");
-    } else {
-      toast.error("No PDF available for this invoice");
-    }
-  };
-
   // Filter invoices based on date and company
   const filteredInvoices = useMemo(() => {
+    const invoices =
+      billings?.map((b) => ({
+        id: b.id,
+        date: format(new Date(b.billingDate), "MMM dd, yyyy"),
+        status: b.status,
+        amount: Number(b.amount),
+        plan: b.plan,
+        paymentStatus: b.paymentStatus,
+        companyName:
+          companies.find((c) => c.id === selectedCompanyId)?.companyName ?? "",
+        pdfUrl: b.pdfLink ?? "",
+      })) ?? [];
+
     return invoices.filter((invoice) => {
       const matchesCompany = invoice.companyName
         .toLowerCase()
@@ -190,7 +168,17 @@ export default function ManageBillingPage() {
 
       return matchesCompany && matchesDate;
     });
-  }, [invoices, companyFilter, dateFilter]);
+  }, [billings, companies, selectedCompanyId, companyFilter, dateFilter]);
+
+  // Download handler for individual invoices
+  const handleDownload = (id: string) => {
+    const billing = billings?.find((b) => b.id === id);
+    if (billing?.pdfLink) {
+      window.open(billing.pdfLink, "_blank");
+    } else {
+      toast.error("No PDF available for this invoice");
+    }
+  };
 
   // Handle bulk download
   const handleBulkDownload = async (ids: string[]) => {
