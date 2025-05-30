@@ -33,6 +33,8 @@ export default function ManageBillingPage() {
   >(undefined);
   const [dateFilter, setDateFilter] = useState("all");
   const [companyFilter, setCompanyFilter] = useState("");
+  const [transactionStatus, setTransactionStatus] = useState("all");
+  const [kpiFilter, setKpiFilter] = useState<string | null>(null);
 
   // Fetch all companies
   const { data: companiesData, isLoading: companiesLoading } =
@@ -104,9 +106,6 @@ export default function ManageBillingPage() {
     },
   );
 
-  // Example: Filter for transactions
-  const [transactionStatus, setTransactionStatus] = useState("all");
-
   // Check for any errors
   const hasError =
     billingsError ?? dateRangeError ?? statusError ?? subscriptionError;
@@ -135,7 +134,7 @@ export default function ManageBillingPage() {
         paymentStatus: b.paymentStatus,
       })) ?? [];
 
-  // Filter invoices based on date and company
+  // Filter invoices based on date, company, and KPI filter
   const filteredInvoices = useMemo(() => {
     const invoices =
       billings?.map((b) => ({
@@ -166,9 +165,27 @@ export default function ManageBillingPage() {
         (dateFilter === "30" && daysDiff <= 30) ||
         (dateFilter === "90" && daysDiff <= 90);
 
-      return matchesCompany && matchesDate;
+      // Apply KPI filter
+      const matchesKpiFilter = !kpiFilter || invoice.status === kpiFilter;
+
+      return matchesCompany && matchesDate && matchesKpiFilter;
     });
-  }, [billings, companies, selectedCompanyId, companyFilter, dateFilter]);
+  }, [
+    billings,
+    companies,
+    selectedCompanyId,
+    companyFilter,
+    dateFilter,
+    kpiFilter,
+  ]);
+
+  // Handle KPI card filter changes
+  const handleKpiFilterChange = (filter: string) => {
+    setKpiFilter(filter);
+    // Reset other filters when KPI filter is applied
+    setDateFilter("all");
+    setCompanyFilter("");
+  };
 
   // Download handler for individual invoices
   const handleDownload = (id: string) => {
@@ -324,6 +341,7 @@ export default function ManageBillingPage() {
                 title="Total Revenue"
                 value={`$${totalRevenue.toLocaleString()}`}
                 className="border-gray-200 bg-white dark:!border-gray-700 dark:bg-gray-800"
+                onFilterChange={handleKpiFilterChange}
               />
               <KpiCard
                 title="Monthly Recurring"
@@ -334,16 +352,19 @@ export default function ManageBillingPage() {
                 title="Outstanding AR"
                 value={`$${outstandingAR}`}
                 className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
+                onFilterChange={handleKpiFilterChange}
               />
               <KpiCard
                 title="# Outstanding"
                 value={outstandingCount}
                 className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
+                onFilterChange={handleKpiFilterChange}
               />
               <KpiCard
                 title="New Subs 30-Day"
                 value={newSubs30Day}
                 className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
+                onFilterChange={handleKpiFilterChange}
               />
             </div>
 
@@ -376,6 +397,21 @@ export default function ManageBillingPage() {
                   <span className="text-lg font-semibold text-gray-900 dark:text-slate-50">
                     Billing History
                   </span>
+                  {kpiFilter && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                        Filtered by: {kpiFilter}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setKpiFilter(null)}
+                        className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                      >
+                        Clear Filter
+                      </Button>
+                    </div>
+                  )}
                 </div>
                 <BillingTable
                   invoices={filteredInvoices}

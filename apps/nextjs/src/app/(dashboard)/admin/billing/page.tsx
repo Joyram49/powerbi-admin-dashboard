@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Loader2 } from "lucide-react";
-import { useSession } from "next-auth/react";
 
 import type { Subscription } from "@acme/db";
-import { companies } from "@acme/db";
 import { cn } from "@acme/ui";
 import { Alert, AlertDescription, AlertTitle } from "@acme/ui/alert";
 import { Button } from "@acme/ui/button";
@@ -106,7 +104,16 @@ export default function BillingPage() {
         error: null,
       });
     }
-  }, [subscriptionResponse, queryError, isSuccess, isError]);
+  }, [
+    subscriptionResponse,
+    queryError,
+    isSuccess,
+    isError,
+    subscriptionState.isLoading,
+    selectedCompanyId,
+  ]);
+
+  const lastToastCompanyId = useRef<string | undefined>();
 
   // Create checkout session mutation
   const createCheckout = api.stripe.createCheckoutSession.useMutation({
@@ -204,7 +211,13 @@ export default function BillingPage() {
       );
     }
 
-    if (!subscriptionState.data?.id) {
+    if (!subscriptionState.data && selectedCompanyId) {
+      if (lastToastCompanyId.current !== selectedCompanyId) {
+        toast.info("No active subscription found for this company", {
+          id: "no-subscription-toast",
+        });
+        lastToastCompanyId.current = selectedCompanyId;
+      }
       return (
         <Alert className="mb-6 border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/50">
           <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
@@ -217,6 +230,17 @@ export default function BillingPage() {
           </AlertDescription>
         </Alert>
       );
+    }
+
+    if (
+      subscriptionState.data &&
+      lastToastCompanyId.current === selectedCompanyId
+    ) {
+      lastToastCompanyId.current = undefined;
+    }
+
+    if (!subscriptionState.data?.id) {
+      return null;
     }
 
     return (
