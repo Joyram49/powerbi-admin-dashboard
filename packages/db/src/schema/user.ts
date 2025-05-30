@@ -150,20 +150,24 @@ export const updateUserSchema = z
     role: z.enum(["user", "admin", "superAdmin"]),
     status: z.enum(["active", "inactive"]).optional(),
     prevStatus: z.enum(["active", "inactive"]).optional(),
-    companyId: z.string().uuid().optional(),
-    prevCompanyId: z.string().uuid().optional(),
+    companyId: z.string().uuid().nullable().optional(),
+    prevCompanyId: z.string().uuid().nullable().optional(),
     userName: z.string().optional().or(z.literal("")),
   })
   .refine(
     (data) => {
-      if (data.companyId) {
-        return !!data.prevCompanyId;
+      // Only require company IDs for regular users
+      if (data.role === "user") {
+        if (data.companyId) {
+          return !!data.prevCompanyId;
+        }
+        return true;
       }
       return true;
     },
     {
       message:
-        "When updating company, both new and previous company IDs must be provided",
+        "When updating company for a regular user, both new and previous company IDs must be provided",
       path: ["prevCompanyId"],
     },
   );

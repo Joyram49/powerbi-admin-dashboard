@@ -207,6 +207,7 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
           phone: values.phone,
           email: values.email,
           adminIds: selectedAdminIds,
+          preferredSubscriptionPlan: "data_foundation",
         });
       }
     } catch (error) {

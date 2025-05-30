@@ -50,14 +50,12 @@ export default function BillingPage() {
     error: queryError,
   } = api.subscription.getCurrentUserCompanySubscription.useQuery(
     {
-      companyId: "46105855-ac4d-43b3-baab-650af0b024b4",
+      companyId: "07fee1f3-553f-4171-b024-cc6fcaa0727c",
     },
     {
       retry: false,
     },
   );
-
-  console.log(subscriptionResponse);
 
   useEffect(() => {
     if (isSuccess && subscriptionResponse.data) {
@@ -113,7 +111,7 @@ export default function BillingPage() {
     createCheckout.mutate({
       tier,
       customerEmail: email,
-      companyId: "46105855-ac4d-43b3-baab-650af0b024b4",
+      companyId: "07fee1f3-553f-4171-b024-cc6fcaa0727c",
       ...(tier === "enterprise" ? { customAmount, customSetupFee } : {}),
     });
   };

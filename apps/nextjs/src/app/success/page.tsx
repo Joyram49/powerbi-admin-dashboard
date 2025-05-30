@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { stripe } from "@acme/api";
 import { Button } from "@acme/ui/button";
 
+import { api } from "~/trpc/server";
+
 interface SuccessPageProps {
   searchParams: {
     session_id?: string;
@@ -20,8 +22,21 @@ export default async function Success({ searchParams }: SuccessPageProps) {
     expand: ["line_items", "payment_intent"],
   });
 
+  console.log(checkoutSession);
+
   const { status } = checkoutSession;
+  const { companyId } = checkoutSession.metadata ?? {};
   const customerEmail = checkoutSession.customer_details?.email ?? "your email";
+
+  if (companyId) {
+    try {
+      await api.company.resetNullCompanyPreferredSubscriptionPlan({
+        companyId,
+      });
+    } catch (error) {
+      console.error("Failed to reset subscription plan:", error);
+    }
+  }
 
   if (status === "open") {
     return redirect("/");

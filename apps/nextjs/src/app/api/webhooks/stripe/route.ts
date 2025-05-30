@@ -54,8 +54,8 @@ export async function POST(req: Request) {
             stripeCustomerId: session.customer as string,
             plan: session.metadata.tier ?? "unknown",
             amount: (
-              (subscription.items.data[0]?.price?.unit_amount ?? 0) / 100
-            ).toString(),
+              subscription.items.data[0]?.price?.unit_amount / 100
+            ).toFixed(2),
             billingInterval:
               subscription.items.data[0]?.price?.recurring?.interval === "month"
                 ? "monthly"
@@ -233,8 +233,8 @@ export async function POST(req: Request) {
                     subscription.current_period_end * 1000,
                   ),
                   amount: (
-                    subscription.items.data[0]?.price?.unit_amount ?? 0 / 100
-                  ).toString(),
+                    subscription.items.data[0]?.price?.unit_amount / 100
+                  ).toFixed(2),
                   plan: product.name,
                   userLimit: getPlanUserLimit(product.name),
                   updatedAt: new Date(),
@@ -276,8 +276,8 @@ export async function POST(req: Request) {
                     subscription.current_period_end * 1000,
                   ),
                   amount: (
-                    subscription.items.data[0]?.price?.unit_amount ?? 0 / 100
-                  ).toString(),
+                    subscription.items.data[0]?.price?.unit_amount / 100
+                  ).toFixed(2),
                   plan: product.name,
                   userLimit: getPlanUserLimit(product.name),
                   updatedAt: new Date(),

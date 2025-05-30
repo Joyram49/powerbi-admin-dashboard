@@ -381,11 +381,12 @@ export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
         modifiedBy: currentUserId ?? "",
         role: values.role,
         status: values.status ?? "active",
-        companyId: values.companyId,
+        companyId: values.role === "user" ? values.companyId : null,
         userName: values.userName,
         password: values.password,
-        prevCompanyId: initialData?.companyId ?? undefined,
-        prevStatus: initialData?.status ?? undefined,
+        prevCompanyId:
+          values.role === "user" ? (initialData?.companyId ?? null) : null,
+        prevStatus: initialData?.status,
       };
 
       console.log("Updating user:", updateData);
