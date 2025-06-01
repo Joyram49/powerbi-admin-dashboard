@@ -1,395 +1,262 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { format } from "date-fns";
+import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
+import { cn } from "@acme/ui";
+import { Alert, AlertDescription, AlertTitle } from "@acme/ui/alert";
 import { Button } from "@acme/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@acme/ui/select";
 import { toast } from "@acme/ui/toast";
 
-import { BillingTable } from "~/app/(dashboard)/super-admin/billing/_components/BillingTable";
-import { KpiCard } from "~/app/(dashboard)/super-admin/billing/_components/KpiCard";
-import { TransactionFilter } from "~/app/(dashboard)/super-admin/billing/_components/TransactionFilter";
-import { TransactionsTable } from "~/app/(dashboard)/super-admin/billing/_components/TransactionsTable";
 import { api } from "~/trpc/react";
+import { PricingTierCard } from "../_components/PricingTierCard";
+
+type TierId =
+  | "data_foundation"
+  | "insight_accelerator"
+  | "strategic_navigator"
+  | "enterprise";
+
+const TIER_ORDER: Record<TierId, number> = {
+  data_foundation: 1,
+  insight_accelerator: 2,
+  strategic_navigator: 3,
+  enterprise: 4,
+};
 
 export default function ManageBillingPage() {
-  const { data: profileData } = api.auth.getProfile.useQuery();
-  const [dateRange] = useState<{
-    startDate: Date;
-    endDate: Date;
-  }>({
-    startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)),
-    endDate: new Date(),
-  });
-  const [selectedCompanyId, setSelectedCompanyId] = useState<
-    string | undefined
-  >(undefined);
-  const [dateFilter, setDateFilter] = useState("all");
-  const [companyFilter, setCompanyFilter] = useState("");
+  const [loading, setLoading] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const companyId = searchParams.get("companyId");
+  const companyName = searchParams.get("companyName");
 
-  // Fetch all companies
-  const { data: companiesData, isLoading: companiesLoading } =
-    api.company.getCompaniesByAdminId.useQuery(
-      {
-        companyAdminId: profileData?.user?.id ?? "",
-        limit: 100,
-        sortBy: "companyName",
-      },
-      {
-        enabled: !!profileData?.user?.id,
-      },
-    );
+  const { data: profile } = api.auth.getProfile.useQuery();
 
-  const companies = useMemo(
-    () => companiesData?.data ?? [],
-    [companiesData?.data],
-  );
-
-  // Fetch all billings for the company
   const {
-    data: billings,
-    isLoading: billingsLoading,
-    error: billingsError,
-  } = api.billing.getCompanyBillings.useQuery(
-    {
-      companyId: selectedCompanyId ?? "",
-    },
-    {
-      enabled: !!selectedCompanyId && selectedCompanyId !== "",
-    },
-  );
-
-  // Fetch billings by date range
-  const { data: dateRangeBillings, error: dateRangeError } =
-    api.billing.getBillingsByDateRange.useQuery(
-      {
-        companyId: selectedCompanyId ?? "",
-        startDate: dateRange.startDate,
-        endDate: dateRange.endDate,
-      },
-      {
-        enabled: !!selectedCompanyId && selectedCompanyId !== "",
-      },
-    );
-
-  // Fetch billings by status
-  const { data: statusBillings, error: statusError } =
-    api.billing.getBillingsByStatus.useQuery(
-      {
-        companyId: selectedCompanyId ?? "",
-        status: "outstanding",
-      },
-      {
-        enabled: !!selectedCompanyId && selectedCompanyId !== "",
-      },
-    );
-
-  // Fetch current active subscription
-  const {
-    data: subscriptionData,
+    data: subscriptionResponse,
     isLoading: subscriptionLoading,
     error: subscriptionError,
   } = api.subscription.getCurrentUserCompanySubscription.useQuery(
     {
-      companyId: selectedCompanyId ?? "",
+      companyId: companyId ?? "",
     },
     {
-      enabled: !!selectedCompanyId && selectedCompanyId !== "",
+      enabled: !!companyId,
     },
   );
 
-  // Example: Filter for transactions
-  const [transactionStatus, setTransactionStatus] = useState("all");
-
-  // Check for any errors
-  const hasError =
-    billingsError ?? dateRangeError ?? statusError ?? subscriptionError;
-
-  // KPI calculations with null checks
-  const totalRevenue =
-    billings?.reduce((sum, b) => sum + Number(b.amount), 0) ?? 0;
-  const outstandingAR =
-    statusBillings?.reduce((sum, b) => sum + Number(b.amount), 0) ?? 0;
-  const outstandingCount = statusBillings?.length ?? 0;
-  const monthlyRecurring = subscriptionData?.data?.amount ?? 0;
-  const newSubs30Day =
-    dateRangeBillings?.filter((b) => b.status === "new").length ?? 0;
-
-  const transactions =
-    billings
-      ?.filter(
-        (b) => transactionStatus === "all" || b.status === transactionStatus,
-      )
-      .map((b) => ({
-        id: b.id,
-        date: format(new Date(b.billingDate), "MMM dd, yyyy"),
-        description: b.plan,
-        status: b.status,
-        amount: Number(b.amount),
-        paymentStatus: b.paymentStatus,
-      })) ?? [];
-
-  // Filter invoices based on date and company
-  const filteredInvoices = useMemo(() => {
-    const invoices =
-      billings?.map((b) => ({
-        id: b.id,
-        date: format(new Date(b.billingDate), "MMM dd, yyyy"),
-        status: b.status,
-        amount: Number(b.amount),
-        plan: b.plan,
-        paymentStatus: b.paymentStatus,
-        companyName:
-          companies.find((c) => c.id === selectedCompanyId)?.companyName ?? "",
-        pdfUrl: b.pdfLink ?? "",
-      })) ?? [];
-
-    return invoices.filter((invoice) => {
-      const matchesCompany = invoice.companyName
-        .toLowerCase()
-        .includes(companyFilter.toLowerCase());
-
-      const invoiceDate = new Date(invoice.date);
-      const now = new Date();
-      const daysDiff = Math.floor(
-        (now.getTime() - invoiceDate.getTime()) / (1000 * 60 * 60 * 24),
-      );
-
-      const matchesDate =
-        dateFilter === "all" ||
-        (dateFilter === "30" && daysDiff <= 30) ||
-        (dateFilter === "90" && daysDiff <= 90);
-
-      return matchesCompany && matchesDate;
-    });
-  }, [billings, companies, selectedCompanyId, companyFilter, dateFilter]);
-
-  // Download handler for individual invoices
-  const handleDownload = (id: string) => {
-    const billing = billings?.find((b) => b.id === id);
-    if (billing?.pdfLink) {
-      window.open(billing.pdfLink, "_blank");
-    } else {
-      toast.error("No PDF available for this invoice");
-    }
-  };
-
-  // Handle bulk download
-  const handleBulkDownload = async (ids: string[]) => {
-    try {
-      // Get all valid PDF links
-      const pdfLinks = ids
-        .map((id) => billings?.find((b) => b.id === id)?.pdfLink)
-        .filter((link): link is string => !!link);
-
-      if (pdfLinks.length === 0) {
-        toast.error("No PDFs available for selected invoices");
-        return;
+  const upgradeSubscription = api.stripe.upgradeSubscription.useMutation({
+    onSuccess: (data) => {
+      if (data.success) {
+        toast.success(data.message || "Subscription upgrade request received");
+        router.push("/admin/billing");
       }
+    },
+    onError: (error) => {
+      console.error("Error upgrading subscription:", error);
+      toast.error(error.message || "Error upgrading subscription");
+      setLoading(null);
+    },
+  });
 
-      // Create a download queue
-      const downloadQueue = async () => {
-        for (const link of pdfLinks) {
-          // Create a temporary link element
-          const linkElement = document.createElement("a");
-          linkElement.href = link;
-          linkElement.target = "_blank";
-          linkElement.click();
+  const handleSubscribe = async (tierId: TierId) => {
+    if (!email) {
+      toast.error("Please enter your email");
+      return;
+    }
 
-          // Wait for 1 second before next download
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-        }
-      };
+    if (!companyId) {
+      toast.error("Company ID is missing");
+      return;
+    }
 
-      // Start the download queue
-      await downloadQueue();
+    setLoading(tierId);
+
+    try {
+      await upgradeSubscription.mutateAsync({
+        newTier: tierId,
+        companyId,
+      });
     } catch (error) {
-      toast.error("Error downloading invoices");
-      console.error("Bulk download error:", error);
+      console.error("Failed to upgrade subscription:", error);
+      setLoading(null);
     }
   };
 
-  if (billingsLoading || subscriptionLoading) {
-    return (
-      <div className="flex h-96 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-500 dark:text-slate-400" />
-      </div>
-    );
-  }
+  const tiers = [
+    {
+      id: "data_foundation" as const,
+      name: "Data Foundation",
+      description:
+        "For professionals looking for the first step in business data analytics.",
+      price: "$200/mo\n$2000 1-Time Setup Fee\n2 Powerview Licenses",
+      features: [
+        "Foundation Powerview™ Slides",
+        "Job Management Report",
+        "Jobs Report",
+        "Area Review/Compare",
+        "Org Aging",
+        "Group Onboarding",
+        "Email Support: 48hr response",
+        "Deal Refreshed Daily",
+        "Side Edit Credits",
+      ],
+      addOns: [
+        "Enterprise Slides (Contact Us)",
+        "Licenses (Side)",
+        "Custom Slides (Contact Us)",
+      ],
+    },
+    {
+      id: "insight_accelerator" as const,
+      name: "Insight Accelerator",
+      description:
+        "For movers looking for more advanced insights to justify the next business step.",
+      price: "$300/mo\n$3500 1-Time Setup Fee\n6 Powerview Licenses",
+      features: [
+        "5 Insight Powerview™ Slides",
+        "Pro Production",
+        "Pro Production Merits",
+        "Production by Sold",
+        "Team Training Session",
+        "Deal Review Insights",
+        "Optional Email Support",
+        "Side Edit Credits",
+      ],
+      addOns: [
+        "Enterprise Slides ($60/mo)",
+        "Licenses ($150/mo)",
+        "Custom Slides (Contact Us)",
+      ],
+    },
+    {
+      id: "strategic_navigator" as const,
+      name: "Strategic Navigator",
+      description:
+        "For growing businesses that want to empower their colleagues.",
+      price: "$600/mo\n$5000 1-Time Setup Fee\n10 Powerview Licenses",
+      features: [
+        "6 Strategic Powerview™ Slides",
+        "Pro Insights",
+        "Time Frames",
+        "Net Agents – Reports",
+        "Team Training – Reports",
+        "Enterprise Insights",
+        "Detailed Drill Through Feature",
+        "Optional Email Support",
+        "Email Spam Training Credit",
+      ],
+      addOns: [
+        "Enterprise Slides ($60/mo)",
+        "Licenses ($150/mo)",
+        "Custom Slides (Contact Us)",
+      ],
+    },
+    {
+      id: "enterprise" as const,
+      name: "Enterprise",
+      description: "For businesses and franchises with more complex needs.",
+      price: "Contact us for Pricing\nUnlimited Powerview Licenses",
+      features: [
+        "8+ Enterprise Powerview™ Slides",
+        "All Strategic Navigator Features",
+        "Job Management Report",
+        "Web App",
+        "JMR Conditional Formatting",
+        "Priority Photo Support",
+        "Weekly Recap Email",
+        "Automated Action Manager",
+        "Monthly Side Edit Credits",
+      ],
+      addOns: ["Enterprise Slides (Contact Us)", "Custom Slides (Contact Us)"],
+    },
+  ];
 
-  if (hasError) {
+  const getCurrentTierLevel = (planName: string): number => {
+    const tier = tiers.find(
+      (t) => t.name.toLowerCase() === planName.toLowerCase(),
+    );
+    return tier ? TIER_ORDER[tier.id] : 0;
+  };
+
+  const filteredTiers = tiers.filter((tier) => {
+    if (!subscriptionResponse?.data?.plan) return true;
+    const currentTierLevel = getCurrentTierLevel(
+      subscriptionResponse.data.plan,
+    );
+    return TIER_ORDER[tier.id] >= currentTierLevel;
+  });
+
+  if (!companyId || !companyName) {
     return (
-      <div className="flex h-96 flex-col items-center justify-center gap-4">
-        <div className="text-lg font-semibold text-red-500">
-          Error loading billing data
-        </div>
-        <div className="text-sm text-gray-500 dark:text-gray-400">
-          {billingsError?.message ??
-            dateRangeError?.message ??
-            statusError?.message ??
-            subscriptionError?.message ??
-            "Please try selecting a different company or try again later"}
-        </div>
-        <Button
-          variant="outline"
-          onClick={() => {
-            setSelectedCompanyId(undefined);
-          }}
+      <div className="container mx-auto px-4 py-16">
+        <Alert
+          variant="destructive"
+          className="mb-6 border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/50"
         >
-          Clear Selection
+          <AlertTitle className="text-red-800 dark:text-red-300">
+            Missing Company Information
+          </AlertTitle>
+          <AlertDescription className="text-red-700 dark:text-red-400">
+            Please select a company from the billing page to upgrade your
+            subscription.
+          </AlertDescription>
+        </Alert>
+        <Button
+          onClick={() => router.push("/admin/billing")}
+          className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white [text-shadow:_0_1px_2px_rgb(0_0_0_/_40%)] hover:from-blue-700 hover:to-indigo-700 hover:[text-shadow:none] dark:from-blue-500 dark:to-indigo-500 dark:hover:from-blue-600 dark:hover:to-indigo-600"
+        >
+          Back to Billing
         </Button>
       </div>
     );
   }
 
-  const hasNoData =
-    !selectedCompanyId || (!billings?.length && !subscriptionData?.data);
-
   return (
-    <div className="mt-5 min-h-screen w-full bg-gray-50/50 p-4 dark:bg-slate-900/50 sm:p-6">
-      <div className="mx-auto max-w-7xl">
-        <h1 className="mb-6 text-2xl font-bold text-gray-900 dark:text-slate-50 sm:mb-8 sm:text-3xl">
-          Manage Billing
-        </h1>
-        <div className="mb-4">
-          <Select
-            value={selectedCompanyId}
-            onValueChange={(value) => {
-              if (value === "") {
-                setSelectedCompanyId(undefined);
-              } else {
-                setSelectedCompanyId(value);
-              }
-            }}
-            disabled={companiesLoading}
-          >
-            <SelectTrigger className="w-full border-gray-200 bg-white text-gray-900 ring-offset-white focus:ring-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-50 dark:ring-offset-gray-800 dark:focus:ring-gray-600">
-              {companiesLoading ? (
-                <div className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Loading companies...</span>
-                </div>
-              ) : (
-                <SelectValue placeholder="Select a company" />
-              )}
-            </SelectTrigger>
-            <SelectContent className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-              {companies.length > 0 ? (
-                companies.map((company) => (
-                  <SelectItem
-                    key={company.id}
-                    value={company.id}
-                    className="text-gray-900 focus:bg-gray-100 focus:text-gray-900 dark:text-slate-50 dark:focus:bg-gray-700 dark:focus:text-slate-50"
-                  >
-                    {company.companyName}
-                  </SelectItem>
-                ))
-              ) : (
-                <SelectItem
-                  value="no-companies"
-                  disabled
-                  className="text-gray-500 dark:text-gray-400"
-                >
-                  No companies available
-                </SelectItem>
-              )}
-            </SelectContent>
-          </Select>
+    <div className="container mx-auto px-4 py-16">
+      <h1 className="mb-12 text-center text-4xl font-bold">
+        <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-700 bg-clip-text text-transparent dark:from-blue-400 dark:via-purple-400 dark:to-pink-400">
+          UPGRADE SUBSCRIPTION FOR{" "}
+        </span>
+        <span className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 bg-clip-text text-transparent dark:from-emerald-400 dark:via-teal-400 dark:to-cyan-400">
+          {companyName.toUpperCase()}
+        </span>
+      </h1>
+      <div className="mb-8">
+        <div className="mx-auto mb-8 max-w-md">
+          <label className="mb-2 block bg-gradient-to-r from-gray-700 to-gray-900 bg-clip-text text-sm font-medium text-transparent dark:from-gray-200 dark:to-gray-400">
+            Your Email
+          </label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 bg-white p-3 text-gray-900 placeholder-gray-500 shadow-sm transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus:ring-blue-800"
+            placeholder="Enter your email"
+            required
+          />
         </div>
+      </div>
 
-        {hasNoData ? (
-          <div className="flex h-96 flex-col items-center justify-center gap-4">
-            <div className="text-lg font-semibold text-gray-900 dark:text-slate-50">
-              {!selectedCompanyId
-                ? "Please select a company"
-                : "No Billing Data Available"}
-            </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              {!selectedCompanyId
-                ? "Select a company to view its billing information"
-                : "This company has no billing history or active subscription"}
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {/* KPI Cards */}
-            <div className="col-span-4 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-              <KpiCard
-                title="Total Revenue"
-                value={`$${totalRevenue.toLocaleString()}`}
-                className="border-gray-200 bg-white dark:!border-gray-700 dark:bg-gray-800"
-              />
-              <KpiCard
-                title="Monthly Recurring"
-                value={`$${monthlyRecurring}`}
-                className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
-              />
-              <KpiCard
-                title="Outstanding AR"
-                value={`$${outstandingAR}`}
-                className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
-              />
-              <KpiCard
-                title="# Outstanding"
-                value={outstandingCount}
-                className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
-              />
-              <KpiCard
-                title="New Subs 30-Day"
-                value={newSubs30Day}
-                className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
-              />
-            </div>
-
-            {/* Transactions Table */}
-            <div className="col-span-4">
-              <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-                <div className="mb-2 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-                  <span className="text-lg font-semibold text-gray-900 dark:text-slate-50">
-                    Recent Transactions
-                  </span>
-                  <TransactionFilter
-                    options={[
-                      { label: "All", value: "all" },
-                      { label: "Paid", value: "paid" },
-                      { label: "Outstanding", value: "outstanding" },
-                      { label: "Failed", value: "failed" },
-                    ]}
-                    value={transactionStatus}
-                    onChange={setTransactionStatus}
-                  />
-                </div>
-                <TransactionsTable transactions={transactions} />
-              </div>
-            </div>
-
-            {/* Billing Table */}
-            <div className="col-span-4">
-              <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-                <div className="mb-2 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-                  <span className="text-lg font-semibold text-gray-900 dark:text-slate-50">
-                    Billing History
-                  </span>
-                </div>
-                <BillingTable
-                  invoices={filteredInvoices}
-                  onDownload={handleDownload}
-                  onBulkDownload={handleBulkDownload}
-                  onCompanyFilter={setCompanyFilter}
-                  onDateFilter={setDateFilter}
-                />
-              </div>
-            </div>
-          </div>
-        )}
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
+        {filteredTiers.map((tier) => {
+          const isActive =
+            subscriptionResponse?.data?.plan.toLowerCase() ===
+            tier.name.toLowerCase();
+          return (
+            <PricingTierCard
+              key={tier.id}
+              tier={tier}
+              isActive={isActive}
+              onSubscribe={handleSubscribe}
+              loading={loading}
+              selectedCompanyId={companyId}
+            />
+          );
+        })}
       </div>
     </div>
   );

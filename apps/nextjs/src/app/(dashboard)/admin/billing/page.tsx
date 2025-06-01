@@ -1,21 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { format } from "date-fns";
 import { AlertCircle, Loader2 } from "lucide-react";
 
 import type { Subscription } from "@acme/db";
-import { cn } from "@acme/ui";
+
 import { Alert, AlertDescription, AlertTitle } from "@acme/ui/alert";
 import { Button } from "@acme/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@acme/ui/card";
+
 import {
   Select,
   SelectContent,
@@ -25,7 +19,17 @@ import {
 } from "@acme/ui/select";
 import { toast } from "@acme/ui/toast";
 
+import { BillingTable } from "~/app/(dashboard)/super-admin/billing/_components/BillingTable";
+import { TransactionFilter } from "~/app/(dashboard)/super-admin/billing/_components/TransactionFilter";
+import { TransactionsTable } from "~/app/(dashboard)/super-admin/billing/_components/TransactionsTable";
 import { api } from "~/trpc/react";
+import { PricingTierCard } from "./_components/PricingTierCard";
+
+type TierId =
+  | "data_foundation"
+  | "insight_accelerator"
+  | "strategic_navigator"
+  | "enterprise";
 
 interface SubscriptionState {
   data: Subscription | null;
@@ -37,85 +41,116 @@ export default function BillingPage() {
   const [loading, setLoading] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>();
-  const [subscriptionState, setSubscriptionState] = useState<SubscriptionState>(
-    {
-      data: null,
-      isLoading: true,
-      error: null,
-    },
-  );
-
-  // Enterprise tier custom amounts (only for testing)
-  const [customAmount, setCustomAmount] = useState(1000 * 100); // $1000 in cents
-  const [customSetupFee, setCustomSetupFee] = useState(5000 * 100); // $5000 in cents
+  const [transactionStatus, setTransactionStatus] = useState("all");
+  const [companyFilter, setCompanyFilter] = useState("");
+  const [dateFilter, setDateFilter] = useState("all");
   const router = useRouter();
+
   const { data: profile } = api.auth.getProfile.useQuery();
-  // Get companies for the current user
   const { data: companiesData, isLoading: companiesLoading } =
     api.company.getCompaniesByAdminId.useQuery(
       {
-        companyAdminId: profile?.user?.id ?? "", // Use the current user's ID
-        limit: 100, // Get all companies for the dropdown
-        page: 1,
+        companyAdminId: profile?.user?.id ?? "",
+        limit: 100,
         sortBy: "companyName",
       },
       {
         retry: false,
-        enabled: !!profile?.user?.id, // Only run the query when we have a user ID
+        enabled: !!profile?.user?.id,
       },
     );
 
-  console.log("Companies Data:", companiesData);
+  const selectedCompany = useMemo(() => {
+    if (!selectedCompanyId || !companiesData?.data) return null;
+    return companiesData.data.find((c) => c.id === selectedCompanyId);
+  }, [selectedCompanyId, companiesData?.data]);
 
-  // Get current subscription
   const {
     data: subscriptionResponse,
-    isSuccess,
-    isError,
-    error: queryError,
+    isLoading: subscriptionLoading,
+    error: subscriptionError,
   } = api.subscription.getCurrentUserCompanySubscription.useQuery(
     {
-      companyId: selectedCompanyId ?? "d336f3dc-551f-4f5f-ba4d-4d1034f1c892",
+      companyId: selectedCompanyId ?? "",
     },
     {
-      retry: false,
       enabled: !!selectedCompanyId,
     },
   );
 
-  useEffect(() => {
-    if (isSuccess && subscriptionResponse.data) {
-      setSubscriptionState({
-        data: subscriptionResponse.data,
-        isLoading: false,
-        error: null,
-      });
-    } else if (isError && queryError.message) {
-      setSubscriptionState({
-        data: null,
-        isLoading: false,
-        error:
-          queryError.message || "An error occurred while fetching subscription",
-      });
-    } else {
-      setSubscriptionState({
-        data: null,
-        isLoading: !isSuccess && !isError,
-        error: null,
-      });
-    }
+  const { data: billings, isLoading: billingsLoading } =
+    api.billing.getCompanyBillings.useQuery(
+      {
+        companyId: selectedCompanyId ?? "",
+      },
+      {
+        enabled: !!selectedCompanyId && selectedCompanyId !== "",
+      },
+    );
+
+  const subscriptionState: SubscriptionState = {
+    data: subscriptionResponse?.data ?? null,
+    isLoading: subscriptionLoading,
+    error: subscriptionError?.message ?? null,
+  };
+
+  const transactions =
+    billings
+      ?.filter(
+        (b) => transactionStatus === "all" || b.status === transactionStatus,
+      )
+      .map((b) => ({
+        id: b.id,
+        date: format(new Date(b.billingDate), "MMM dd, yyyy"),
+        description: b.plan,
+        status: b.status,
+        amount: Number(b.amount),
+        paymentStatus: b.paymentStatus,
+      })) ?? [];
+
+  const filteredInvoices = useMemo(() => {
+    const invoices =
+      billings?.map((b) => ({
+        id: b.id,
+        date: format(new Date(b.billingDate), "MMM dd, yyyy"),
+        status: b.status,
+        amount: Number(b.amount),
+        plan: b.plan,
+        paymentStatus: b.paymentStatus,
+        companyName:
+          companiesData?.data.find((c) => c.id === selectedCompanyId)
+            ?.companyName ?? "",
+        pdfUrl: b.pdfLink ?? "",
+      })) ?? [];
+
+    return invoices.filter((invoice) => {
+      const matchesCompany = invoice.companyName
+        .toLowerCase()
+        .includes(companyFilter.toLowerCase());
+
+      const invoiceDate = new Date(invoice.date);
+      const now = new Date();
+      const daysDiff = Math.floor(
+        (now.getTime() - invoiceDate.getTime()) / (1000 * 60 * 60 * 24),
+      );
+
+      const matchesDate =
+        dateFilter === "all" ||
+        (dateFilter === "30" && daysDiff <= 30) ||
+        (dateFilter === "90" && daysDiff <= 90);
+
+      return matchesCompany && matchesDate;
+    });
   }, [
-    subscriptionResponse,
-    queryError,
-    isSuccess,
-    isError,
-    subscriptionState.isLoading,
+    billings,
+    companiesData?.data,
     selectedCompanyId,
+    companyFilter,
+    dateFilter,
   ]);
 
   const lastToastCompanyId = useRef<string | undefined>();
 
-  // Create checkout session mutation
   const createCheckout = api.stripe.createCheckoutSession.useMutation({
     onSuccess: (data) => {
       if (data.url) {
@@ -129,13 +164,20 @@ export default function BillingPage() {
     },
   });
 
-  const handleSubscribe = (
-    tier:
-      | "data_foundation"
-      | "insight_accelerator"
-      | "strategic_navigator"
-      | "enterprise",
-  ) => {
+  const createPortal = api.stripe.createPortalSession.useMutation({
+    onSuccess: (data) => {
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    },
+    onError: (error) => {
+      console.error("Error creating portal session:", error);
+      toast.error(error.message || "Error creating portal session");
+      setLoading(null);
+    },
+  });
+
+  const handleSubscribe = (tierId: TierId) => {
     if (!email) {
       toast.error("Please enter your email");
       return;
@@ -146,26 +188,68 @@ export default function BillingPage() {
       return;
     }
 
-    setLoading(tier);
+    setLoading(tierId);
 
     createCheckout.mutate({
-      tier,
+      tier: tierId,
       customerEmail: email,
       companyId: selectedCompanyId,
-      ...(tier === "enterprise" ? { customAmount, customSetupFee } : {}),
     });
   };
 
   const handleManageSubscription = (_formData: FormData) => {
-    if (!subscriptionState.data?.stripeCustomerId) {
-      toast.error(
-        "No active subscription found. Please subscribe to a plan first.",
-      );
+    if (!selectedCompanyId) {
+      toast.error("Please select a company");
       return;
     }
 
-    router.push("/admin/billing/manage");
+    setLoading("manage");
+
+    createPortal.mutate({
+      companyId: selectedCompanyId,
+    });
   };
+
+  // Download handler for individual invoices
+  const handleDownload = (id: string) => {
+    const billing = billings?.find((b) => b.id === id);
+    if (billing?.pdfLink) {
+      window.open(billing.pdfLink, "_blank");
+    } else {
+      toast.error("No PDF available for this invoice");
+    }
+  };
+
+  // Handle bulk download
+  const handleBulkDownload = async (ids: string[]) => {
+    try {
+      const pdfLinks = ids
+        .map((id) => billings?.find((b) => b.id === id)?.pdfLink)
+        .filter((link): link is string => !!link);
+
+      if (pdfLinks.length === 0) {
+        toast.error("No PDFs available for selected invoices");
+        return;
+      }
+
+      const downloadQueue = async () => {
+        for (const link of pdfLinks) {
+          const linkElement = document.createElement("a");
+          linkElement.href = link;
+          linkElement.target = "_blank";
+          linkElement.click();
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      };
+
+      await downloadQueue();
+    } catch (error) {
+      toast.error("Error downloading invoices");
+      console.error("Bulk download error:", error);
+    }
+  };
+
+  const hasPreferredPlan = selectedCompany?.preferredSubscriptionPlan;
 
   const renderSubscriptionContent = () => {
     if (!selectedCompanyId) {
@@ -183,7 +267,7 @@ export default function BillingPage() {
       );
     }
 
-    if (subscriptionState.isLoading) {
+    if (subscriptionLoading) {
       return (
         <div className="mb-6 flex items-center justify-center space-x-2 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 p-6 dark:from-blue-950/50 dark:to-indigo-950/50">
           <Loader2 className="h-6 w-6 animate-spin text-blue-600 dark:text-blue-400" />
@@ -194,7 +278,7 @@ export default function BillingPage() {
       );
     }
 
-    if (subscriptionState.error) {
+    if (subscriptionError) {
       return (
         <Alert
           variant="destructive"
@@ -205,13 +289,13 @@ export default function BillingPage() {
             Error
           </AlertTitle>
           <AlertDescription className="text-red-700 dark:text-red-400">
-            {subscriptionState.error}
+            {subscriptionError.message}
           </AlertDescription>
         </Alert>
       );
     }
 
-    if (!subscriptionState.data && selectedCompanyId) {
+    if (!subscriptionState.data && !hasPreferredPlan && selectedCompanyId) {
       if (lastToastCompanyId.current !== selectedCompanyId) {
         toast.info("No active subscription found for this company", {
           id: "no-subscription-toast",
@@ -239,8 +323,73 @@ export default function BillingPage() {
       lastToastCompanyId.current = undefined;
     }
 
-    if (!subscriptionState.data?.id) {
-      return null;
+    // If no active subscription but has preferred plan, show preferred plan details
+    if (!subscriptionState.data?.id && hasPreferredPlan) {
+      const preferredPlan = tiers.find((tier) => tier.id === hasPreferredPlan);
+
+      if (!preferredPlan) return null;
+
+      return (
+        <>
+          <div className="mb-6">
+            <h2 className="mb-4 text-2xl font-semibold text-gray-900 dark:text-gray-100">
+              Preferred Subscription Plan
+            </h2>
+            <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition-all hover:shadow-md dark:border-gray-700 dark:bg-gray-800">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Plan
+                  </p>
+                  <p className="font-medium text-gray-900 dark:text-gray-100">
+                    {preferredPlan.name}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Status
+                  </p>
+                  <p className="font-medium text-gray-900 dark:text-gray-100">
+                    Preferred Plan
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Price
+                  </p>
+                  <p className="font-medium text-gray-900 dark:text-gray-100">
+                    {preferredPlan.price}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <form action={handleManageSubscription} className="mb-6 flex gap-4">
+            <Button
+              type="button"
+              onClick={() =>
+                router.push(
+                  `/admin/billing/manage?companyId=${selectedCompanyId}&companyName=${encodeURIComponent(selectedCompany.companyName)}`,
+                )
+              }
+              className="bg-gradient-to-r from-green-600 to-emerald-600 text-white [text-shadow:_0_1px_2px_rgb(0_0_0_/_40%)] hover:from-green-700 hover:to-emerald-700 hover:[text-shadow:none] dark:from-green-500 dark:to-emerald-500 dark:hover:from-green-600 dark:hover:to-emerald-600"
+            >
+              Activate Subscription
+            </Button>
+          </form>
+        </>
+      );
+    }
+
+    if (!subscriptionState.data?.id) return null;
+
+    if (billingsLoading) {
+      return (
+        <div className="flex h-96 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-gray-500 dark:text-slate-400" />
+        </div>
+      );
     }
 
     return (
@@ -287,13 +436,13 @@ export default function BillingPage() {
           </div>
         </div>
 
-        <form action={handleManageSubscription} className="mb-6">
+        <form action={handleManageSubscription} className="mb-6 flex gap-4">
           <Button
             type="submit"
             disabled={
               loading === "manage" || !subscriptionState.data.stripeCustomerId
             }
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 dark:from-blue-500 dark:to-indigo-500 dark:hover:from-blue-600 dark:hover:to-indigo-600"
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white [text-shadow:_0_1px_2px_rgb(0_0_0_/_40%)] hover:from-blue-700 hover:to-indigo-700 hover:[text-shadow:none] dark:from-blue-500 dark:to-indigo-500 dark:hover:from-blue-600 dark:hover:to-indigo-600"
           >
             {loading === "manage" ? (
               <>
@@ -304,7 +453,60 @@ export default function BillingPage() {
               "Manage Subscription"
             )}
           </Button>
+          <Button
+            type="button"
+            onClick={() =>
+              router.push(
+                `/admin/billing/manage?companyId=${selectedCompanyId}&companyName=${encodeURIComponent(selectedCompany?.companyName ?? "")}`,
+              )
+            }
+            className="bg-gradient-to-r from-green-600 to-emerald-600 text-white [text-shadow:_0_1px_2px_rgb(0_0_0_/_40%)] hover:from-green-700 hover:to-emerald-700 hover:[text-shadow:none] dark:from-green-500 dark:to-emerald-500 dark:hover:from-green-600 dark:hover:to-emerald-600"
+          >
+            Upgrade Subscription
+          </Button>
         </form>
+
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {/* Transactions Table */}
+          <div className="col-span-4">
+            <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+              <div className="mb-2 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+                <span className="text-lg font-semibold text-gray-900 dark:text-slate-50">
+                  Recent Transactions
+                </span>
+                <TransactionFilter
+                  options={[
+                    { label: "All", value: "all" },
+                    { label: "Paid", value: "paid" },
+                    { label: "Outstanding", value: "outstanding" },
+                    { label: "Failed", value: "failed" },
+                  ]}
+                  value={transactionStatus}
+                  onChange={setTransactionStatus}
+                />
+              </div>
+              <TransactionsTable transactions={transactions} />
+            </div>
+          </div>
+
+          {/* Billing Table */}
+          <div className="col-span-4">
+            <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+              <div className="mb-2 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+                <span className="text-lg font-semibold text-gray-900 dark:text-slate-50">
+                  Billing History
+                </span>
+              </div>
+              <BillingTable
+                invoices={filteredInvoices}
+                onDownload={handleDownload}
+                onBulkDownload={handleBulkDownload}
+                onCompanyFilter={setCompanyFilter}
+                onDateFilter={setDateFilter}
+              />
+            </div>
+          </div>
+        </div>
       </>
     );
   };
@@ -398,208 +600,98 @@ export default function BillingPage() {
     },
   ];
 
-  const [activeHover, setActiveHover] = useState(false);
-
   return (
     <div className="container mx-auto px-4 py-16">
       {renderSubscriptionContent()}
 
-      <h1 className="mb-12 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-700 bg-clip-text text-center text-4xl font-bold text-transparent dark:from-blue-400 dark:via-purple-400 dark:to-pink-400">
-        Choose Your Plan
-      </h1>
+      {!subscriptionState.data && !hasPreferredPlan && (
+        <>
+          <h1 className="mb-12 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-700 bg-clip-text text-center text-4xl font-bold text-transparent dark:from-blue-400 dark:via-purple-400 dark:to-pink-400">
+            Choose Your Plan
+          </h1>
 
-      <div className="mx-auto mb-8 max-w-md">
-        <label className="mb-2 block bg-gradient-to-r from-gray-700 to-gray-900 bg-clip-text text-sm font-medium text-transparent dark:from-gray-200 dark:to-gray-400">
-          Your Email
-        </label>
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 bg-white p-3 text-gray-900 placeholder-gray-500 shadow-sm transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus:ring-blue-800"
-          placeholder="Enter your email"
-          required
-        />
-        <div className="my-4">
-          <Select
-            value={selectedCompanyId}
-            onValueChange={(value) => {
-              if (value === "") {
-                setSelectedCompanyId(undefined);
-              } else {
-                setSelectedCompanyId(value);
-              }
-            }}
-            disabled={companiesLoading}
-          >
-            <SelectTrigger className="w-full border-gray-200 bg-white text-gray-900 ring-offset-white focus:ring-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-50 dark:ring-offset-gray-800 dark:focus:ring-gray-600">
-              {companiesLoading ? (
-                <div className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Loading companies...</span>
-                </div>
-              ) : (
-                <SelectValue placeholder="Select a company" />
-              )}
-            </SelectTrigger>
-            <SelectContent className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-              {companiesData?.success &&
-              Array.isArray(companiesData.data) &&
-              companiesData.data.length > 0 ? (
-                companiesData.data.map((company) => (
-                  <SelectItem
-                    key={company.id}
-                    value={company.id}
-                    className="text-gray-900 focus:bg-gray-100 focus:text-gray-900 dark:text-slate-50 dark:focus:bg-gray-700 dark:focus:text-slate-50"
-                  >
-                    {company.companyName}
-                  </SelectItem>
-                ))
-              ) : (
-                <SelectItem
-                  value="no-companies"
-                  disabled
-                  className="text-gray-500 dark:text-gray-400"
-                >
-                  {companiesLoading
-                    ? "Loading companies..."
-                    : "No companies available"}
-                </SelectItem>
-              )}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
-        {tiers.map((tier) => {
-          const isActive =
-            subscriptionState.data?.plan.toLowerCase() ===
-            tier.name.toLowerCase();
-          const isHovered = isActive && activeHover;
-          return (
-            <div
-              key={tier.id}
-              onMouseEnter={() => isActive && setActiveHover(true)}
-              onMouseLeave={() => isActive && setActiveHover(false)}
-              className={cn(
-                "group relative rounded-lg p-[2px] transition-all duration-500",
-                isActive
-                  ? isHovered
-                    ? "bg-gradient-to-r from-blue-500 via-pink-500 to-purple-500"
-                    : "bg-gradient-to-l from-blue-500 via-purple-500 to-pink-500"
-                  : "from-blue-500 via-purple-500 to-pink-500 hover:bg-gradient-to-l",
-              )}
-            >
-              <Card className="relative flex h-full flex-col rounded-lg border-none bg-white transition-all duration-300 hover:shadow-lg dark:bg-gray-800">
-                <CardHeader className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900">
-                  <CardTitle className="bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-2xl font-bold text-transparent dark:from-gray-100 dark:to-gray-300">
-                    {tier.name}
-                  </CardTitle>
-                  <CardDescription className="mt-2 text-gray-600 dark:text-gray-300">
-                    {tier.description}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex-grow py-6">
-                  <p className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-2xl font-bold text-transparent dark:from-blue-400 dark:to-purple-400">
-                    {tier.price}
-                  </p>
-                  <div className="mt-4">
-                    <h4 className="mb-1 font-semibold text-gray-800 dark:text-gray-200">
-                      Features
-                    </h4>
-                    <ul className="list-inside list-disc text-sm text-gray-700 dark:text-gray-300">
-                      {tier.features.map((feature, idx) => (
-                        <li key={idx}>{feature}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="mt-3">
-                    <h4 className="mb-1 font-semibold text-gray-800 dark:text-gray-200">
-                      Add Ons
-                    </h4>
-                    <ul className="list-inside list-disc text-sm text-gray-700 dark:text-gray-300">
-                      {tier.addOns.map((addOn, idx) => (
-                        <li key={idx}>{addOn}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </CardContent>
-                <CardFooter className="p-6">
-                  <Button
-                    className="w-full rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 py-3 font-semibold text-white transition-all duration-300 hover:from-blue-700 hover:to-blue-800 dark:from-blue-500 dark:to-blue-600 dark:hover:from-blue-600 dark:hover:to-blue-700"
-                    onClick={() => handleSubscribe(tier.id)}
-                    disabled={
-                      loading !== null || isActive || !selectedCompanyId
-                    }
-                  >
-                    {loading === tier.id ? (
-                      <span className="flex items-center justify-center">
-                        <svg
-                          className="-ml-1 mr-3 h-5 w-5 animate-spin text-white"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
-                        Processing...
-                      </span>
-                    ) : isActive ? (
-                      "Subscribed"
-                    ) : (
-                      "Subscribe"
-                    )}
-                  </Button>
-                </CardFooter>
-              </Card>
+          <div className="mx-auto mb-8 max-w-md">
+            <label className="mb-2 block bg-gradient-to-r from-gray-700 to-gray-900 bg-clip-text text-sm font-medium text-transparent dark:from-gray-200 dark:to-gray-400">
+              Your Email
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 bg-white p-3 text-gray-900 placeholder-gray-500 shadow-sm transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus:ring-blue-800"
+              placeholder="Enter your email"
+              required
+            />
+            <div className="my-4">
+              <Select
+                value={selectedCompanyId}
+                onValueChange={(value) => {
+                  if (value === "") {
+                    setSelectedCompanyId(undefined);
+                  } else {
+                    setSelectedCompanyId(value);
+                  }
+                }}
+                disabled={companiesLoading}
+              >
+                <SelectTrigger className="w-full border-gray-200 bg-white text-gray-900 ring-offset-white focus:ring-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-50 dark:ring-offset-gray-800 dark:focus:ring-gray-600">
+                  {companiesLoading ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Loading companies...</span>
+                    </div>
+                  ) : (
+                    <SelectValue placeholder="Select a company" />
+                  )}
+                </SelectTrigger>
+                <SelectContent className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+                  {companiesData?.success &&
+                  Array.isArray(companiesData.data) &&
+                  companiesData.data.length > 0 ? (
+                    companiesData.data.map((company) => (
+                      <SelectItem
+                        key={company.id}
+                        value={company.id}
+                        className="text-gray-900 focus:bg-gray-100 focus:text-gray-900 dark:text-slate-50 dark:focus:bg-gray-700 dark:focus:text-slate-50"
+                      >
+                        {company.companyName}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem
+                      value="no-companies"
+                      disabled
+                      className="text-gray-500 dark:text-gray-400"
+                    >
+                      {companiesLoading
+                        ? "Loading companies..."
+                        : "No companies available"}
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
             </div>
-          );
-        })}
-      </div>
+          </div>
 
-      {/* Enterprise custom pricing section */}
-      <div className="mt-12 rounded-xl border-2 border-gray-200 bg-gradient-to-br from-gray-50 to-white p-6 dark:border-gray-700 dark:from-gray-800 dark:to-gray-900">
-        <h2 className="mb-6 bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-2xl font-semibold text-transparent dark:from-gray-100 dark:to-gray-300">
-          Enterprise Custom Pricing (Testing Only)
-        </h2>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div>
-            <label className="mb-2 block bg-gradient-to-r from-gray-700 to-gray-900 bg-clip-text text-sm font-medium text-transparent dark:from-gray-200 dark:to-gray-400">
-              Custom Monthly Amount (in cents)
-            </label>
-            <input
-              type="number"
-              value={customAmount}
-              onChange={(e) => setCustomAmount(Number(e.target.value))}
-              className="w-full rounded-lg border border-gray-300 bg-white p-3 text-gray-900 placeholder-gray-500 shadow-sm transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus:ring-blue-800"
-            />
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
+            {tiers.map((tier) => {
+              const isActive =
+                subscriptionState.data?.plan.toLowerCase() ===
+                tier.name.toLowerCase();
+              return (
+                <PricingTierCard
+                  key={tier.id}
+                  tier={tier}
+                  isActive={isActive}
+                  onSubscribe={handleSubscribe}
+                  loading={loading}
+                  selectedCompanyId={selectedCompanyId}
+                />
+              );
+            })}
           </div>
-          <div>
-            <label className="mb-2 block bg-gradient-to-r from-gray-700 to-gray-900 bg-clip-text text-sm font-medium text-transparent dark:from-gray-200 dark:to-gray-400">
-              Custom Setup Fee (in cents)
-            </label>
-            <input
-              type="number"
-              value={customSetupFee}
-              onChange={(e) => setCustomSetupFee(Number(e.target.value))}
-              className="w-full rounded-lg border border-gray-300 bg-white p-3 text-gray-900 placeholder-gray-500 shadow-sm transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus:ring-blue-800"
-            />
-          </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }

@@ -1,21 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Loader2 } from "lucide-react";
 
-import type { Subscription } from "@acme/db";
-import { cn } from "@acme/ui";
 import { Alert, AlertDescription, AlertTitle } from "@acme/ui/alert";
 import { Button } from "@acme/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@acme/ui/card";
 import {
   Select,
   SelectContent,
@@ -26,24 +16,45 @@ import {
 import { toast } from "@acme/ui/toast";
 
 import { api } from "~/trpc/react";
+import { PricingTierCard } from "./components/PricingTierCard";
+
+type TierId =
+  | "data_foundation"
+  | "insight_accelerator"
+  | "strategic_navigator"
+  | "enterprise";
 
 interface SubscriptionState {
-  data: Subscription | null;
-  isLoading: boolean;
-  error: string | null;
+  data?: {
+    plan: string;
+    stripeCustomerId?: string;
+  };
 }
 
 export default function BillingPage() {
   const [loading, setLoading] = useState<string | null>(null);
   const [email, setEmail] = useState("");
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string>();
-  const [subscriptionState, setSubscriptionState] = useState<SubscriptionState>(
-    {
-      data: null,
-      isLoading: true,
-      error: null,
-    },
+  const [selectedCompanyId, setSelectedCompanyId] = useState<
+    string | undefined
+  >();
+  const {
+    data: subscriptionResponse,
+    isLoading,
+    error,
+  } = api.subscription.getCurrentUserCompanySubscription.useQuery(
+    { companyId: selectedCompanyId ?? "" },
+    { enabled: !!selectedCompanyId },
   );
+
+  const subscriptionState: SubscriptionState = {
+    data: subscriptionResponse?.data
+      ? {
+          plan: subscriptionResponse.data.plan,
+          stripeCustomerId:
+            subscriptionResponse.data.stripeCustomerId ?? undefined,
+        }
+      : undefined,
+  };
 
   // Enterprise tier custom amounts (only for testing)
   const [customAmount, setCustomAmount] = useState(1000 * 100); // $1000 in cents
@@ -64,52 +75,6 @@ export default function BillingPage() {
 
   console.log("Companies Data:", companiesData);
 
-  // Get current subscription
-  const {
-    data: subscriptionResponse,
-    isSuccess,
-    isError,
-    error: queryError,
-  } = api.subscription.getCurrentUserCompanySubscription.useQuery(
-    {
-      companyId: selectedCompanyId ?? "d336f3dc-551f-4f5f-ba4d-4d1034f1c892",
-    },
-    {
-      retry: false,
-      enabled: !!selectedCompanyId,
-    },
-  );
-
-  useEffect(() => {
-    if (isSuccess && subscriptionResponse.data) {
-      setSubscriptionState({
-        data: subscriptionResponse.data,
-        isLoading: false,
-        error: null,
-      });
-    } else if (isError && queryError.message) {
-      setSubscriptionState({
-        data: null,
-        isLoading: false,
-        error:
-          queryError.message || "An error occurred while fetching subscription",
-      });
-    } else {
-      setSubscriptionState({
-        data: null,
-        isLoading: !isSuccess && !isError,
-        error: null,
-      });
-    }
-  }, [
-    subscriptionResponse,
-    queryError,
-    isSuccess,
-    isError,
-    subscriptionState.isLoading,
-    selectedCompanyId,
-  ]);
-
   const lastToastCompanyId = useRef<string | undefined>();
 
   // Create checkout session mutation
@@ -126,13 +91,20 @@ export default function BillingPage() {
     },
   });
 
-  const handleSubscribe = (
-    tier:
-      | "data_foundation"
-      | "insight_accelerator"
-      | "strategic_navigator"
-      | "enterprise",
-  ) => {
+  const createPortal = api.stripe.createPortalSession.useMutation({
+    onSuccess: (data) => {
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    },
+    onError: (error) => {
+      console.error("Error creating portal session:", error);
+      toast.error(error.message || "Error creating portal session");
+      setLoading(null);
+    },
+  });
+
+  const handleSubscribe =  (tierId: TierId) => {
     if (!email) {
       toast.error("Please enter your email");
       return;
@@ -143,100 +115,71 @@ export default function BillingPage() {
       return;
     }
 
-    setLoading(tier);
+    setLoading(tierId);
 
     createCheckout.mutate({
-      tier,
+      tier: tierId,
       customerEmail: email,
       companyId: selectedCompanyId,
-      ...(tier === "enterprise" ? { customAmount, customSetupFee } : {}),
+      ...(tierId === "enterprise" ? { customAmount, customSetupFee } : {}),
     });
   };
 
-  const handleManageSubscription = (_formData: FormData) => {
-    if (!subscriptionState.data?.stripeCustomerId) {
-      toast.error(
-        "No active subscription found. Please subscribe to a plan first.",
-      );
+  const handleManageSubscription =  (_formData: FormData) => {
+    if (!selectedCompanyId) {
+      toast.error("Please select a company");
       return;
     }
 
-    router.push("/super-admin/billing/manage");
+    setLoading("manage");
+
+    createPortal.mutate({
+      companyId: selectedCompanyId,
+    });
   };
 
   const renderSubscriptionContent = () => {
-    if (!selectedCompanyId) {
-      return (
-        <Alert className="mb-6 border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/50">
-          <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-          <AlertTitle className="text-blue-800 dark:text-blue-300">
-            Select a Company
-          </AlertTitle>
-          <AlertDescription className="text-blue-700 dark:text-blue-400">
-            Please select a company from the dropdown below to view subscription
-            details.
-          </AlertDescription>
-        </Alert>
-      );
-    }
-
-    if (subscriptionState.isLoading) {
+    if (isLoading) {
       return (
         <div className="mb-6 flex items-center justify-center space-x-2 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 p-6 dark:from-blue-950/50 dark:to-indigo-950/50">
           <Loader2 className="h-6 w-6 animate-spin text-blue-600 dark:text-blue-400" />
-          <p className="text-gray-700 dark:text-gray-300">
-            Loading subscription details...
-          </p>
+          <span className="text-blue-600 dark:text-blue-400">
+            Loading subscription...
+          </span>
         </div>
       );
     }
 
-    if (subscriptionState.error) {
+    if (error) {
       return (
-        <Alert
-          variant="destructive"
-          className="mb-6 border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/50"
-        >
-          <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
-          <AlertTitle className="text-red-800 dark:text-red-300">
-            Error
-          </AlertTitle>
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
           <AlertDescription className="text-red-700 dark:text-red-400">
-            {subscriptionState.error}
+            {error.message}
           </AlertDescription>
         </Alert>
       );
     }
 
-    if (!subscriptionState.data && selectedCompanyId) {
+    if (!subscriptionResponse?.data && selectedCompanyId) {
       if (lastToastCompanyId.current !== selectedCompanyId) {
         toast.info("No active subscription found for this company", {
-          id: "no-subscription-toast",
+          id: "no-subscription",
         });
         lastToastCompanyId.current = selectedCompanyId;
       }
-      return (
-        <Alert className="mb-6 border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/50">
-          <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-          <AlertTitle className="text-blue-800 dark:text-blue-300">
-            No Active Subscription
-          </AlertTitle>
-          <AlertDescription className="text-blue-700 dark:text-blue-400">
-            You don't have an active subscription. Please choose a plan below to
-            get started.
-          </AlertDescription>
-        </Alert>
-      );
+      return null;
     }
 
     if (
-      subscriptionState.data &&
+      subscriptionResponse?.data &&
       lastToastCompanyId.current === selectedCompanyId
     ) {
       lastToastCompanyId.current = undefined;
     }
 
-    if (!subscriptionState.data?.id) return null;
+    if (!subscriptionResponse?.data?.id) return null;
 
     return (
       <>
@@ -249,7 +192,7 @@ export default function BillingPage() {
               <div className="space-y-2">
                 <p className="text-sm text-gray-500 dark:text-gray-400">Plan</p>
                 <p className="font-medium text-gray-900 dark:text-gray-100">
-                  {subscriptionState.data.plan}
+                  {subscriptionResponse.data.plan}
                 </p>
               </div>
               <div className="space-y-2">
@@ -257,7 +200,7 @@ export default function BillingPage() {
                   Status
                 </p>
                 <p className="font-medium text-gray-900 dark:text-gray-100">
-                  {subscriptionState.data.status}
+                  {subscriptionResponse.data.status}
                 </p>
               </div>
               <div className="space-y-2">
@@ -265,7 +208,7 @@ export default function BillingPage() {
                   Amount
                 </p>
                 <p className="font-medium text-gray-900 dark:text-gray-100">
-                  ${subscriptionState.data.amount}/month
+                  ${subscriptionResponse.data.amount}/month
                 </p>
               </div>
               <div className="space-y-2">
@@ -274,7 +217,7 @@ export default function BillingPage() {
                 </p>
                 <p className="font-medium text-gray-900 dark:text-gray-100">
                   {new Date(
-                    subscriptionState.data.currentPeriodEnd,
+                    subscriptionResponse.data.currentPeriodEnd,
                   ).toLocaleDateString()}
                 </p>
               </div>
@@ -282,13 +225,13 @@ export default function BillingPage() {
           </div>
         </div>
 
-        <form action={handleManageSubscription} className="mb-6">
+        <form action={handleManageSubscription} className="mb-6 flex gap-4">
           <Button
             type="submit"
             disabled={
-              loading === "manage" || !subscriptionState.data.stripeCustomerId
+              loading === "manage" || !subscriptionState.data?.stripeCustomerId
             }
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 dark:from-blue-500 dark:to-indigo-500 dark:hover:from-blue-600 dark:hover:to-indigo-600"
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white [text-shadow:_0_1px_2px_rgb(0_0_0_/_40%)] hover:from-blue-700 hover:to-indigo-700 hover:[text-shadow:none] dark:from-blue-500 dark:to-indigo-500 dark:hover:from-blue-600 dark:hover:to-indigo-600"
           >
             {loading === "manage" ? (
               <>
@@ -298,6 +241,13 @@ export default function BillingPage() {
             ) : (
               "Manage Subscription"
             )}
+          </Button>
+          <Button
+            type="button"
+            onClick={() => router.push("/super-admin/billing/manage")}
+            className="bg-gradient-to-r from-green-600 to-emerald-600 text-white [text-shadow:_0_1px_2px_rgb(0_0_0_/_40%)] hover:from-green-700 hover:to-emerald-700 hover:[text-shadow:none] dark:from-green-500 dark:to-emerald-500 dark:hover:from-green-600 dark:hover:to-emerald-600"
+          >
+            Upgrade Subscription
           </Button>
         </form>
       </>
@@ -393,7 +343,6 @@ export default function BillingPage() {
     },
   ];
 
-  const [activeHover, setActiveHover] = useState(false);
 
   return (
     <div className="container mx-auto px-4 py-16">
@@ -468,99 +417,17 @@ export default function BillingPage() {
 
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
         {tiers.map((tier) => {
-          const isActive =
-            subscriptionState.data?.plan.toLowerCase() ===
-            tier.name.toLowerCase();
-          const isHovered = isActive && activeHover;
+          const currentPlan = subscriptionState.data?.plan.toLowerCase() ?? "";
+          const isActive = currentPlan === tier.name.toLowerCase();
           return (
-            <div
+            <PricingTierCard
               key={tier.id}
-              onMouseEnter={() => isActive && setActiveHover(true)}
-              onMouseLeave={() => isActive && setActiveHover(false)}
-              className={cn(
-                "group relative rounded-lg p-[2px] transition-all duration-500",
-                isActive
-                  ? isHovered
-                    ? "bg-gradient-to-r from-blue-500 via-pink-500 to-purple-500"
-                    : "bg-gradient-to-l from-blue-500 via-purple-500 to-pink-500"
-                  : "from-blue-500 via-purple-500 to-pink-500 hover:bg-gradient-to-l",
-              )}
-            >
-              <Card className="relative flex h-full flex-col rounded-lg border-none bg-white transition-all duration-300 hover:shadow-lg dark:bg-gray-800">
-                <CardHeader className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900">
-                  <CardTitle className="bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-2xl font-bold text-transparent dark:from-gray-100 dark:to-gray-300">
-                    {tier.name}
-                  </CardTitle>
-                  <CardDescription className="mt-2 text-gray-600 dark:text-gray-300">
-                    {tier.description}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex-grow py-6">
-                  <p className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-2xl font-bold text-transparent dark:from-blue-400 dark:to-purple-400">
-                    {tier.price}
-                  </p>
-                  <div className="mt-4">
-                    <h4 className="mb-1 font-semibold text-gray-800 dark:text-gray-200">
-                      Features
-                    </h4>
-                    <ul className="list-inside list-disc text-sm text-gray-700 dark:text-gray-300">
-                      {tier.features.map((feature, idx) => (
-                        <li key={idx}>{feature}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="mt-3">
-                    <h4 className="mb-1 font-semibold text-gray-800 dark:text-gray-200">
-                      Add Ons
-                    </h4>
-                    <ul className="list-inside list-disc text-sm text-gray-700 dark:text-gray-300">
-                      {tier.addOns.map((addOn, idx) => (
-                        <li key={idx}>{addOn}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </CardContent>
-                <CardFooter className="p-6">
-                  <Button
-                    className="w-full rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 py-3 font-semibold text-white transition-all duration-300 hover:from-blue-700 hover:to-blue-800 dark:from-blue-500 dark:to-blue-600 dark:hover:from-blue-600 dark:hover:to-blue-700"
-                    onClick={() => handleSubscribe(tier.id)}
-                    disabled={
-                      loading !== null || isActive || !selectedCompanyId
-                    }
-                  >
-                    {loading === tier.id ? (
-                      <span className="flex items-center justify-center">
-                        <svg
-                          className="-ml-1 mr-3 h-5 w-5 animate-spin text-white"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
-                        Processing...
-                      </span>
-                    ) : isActive ? (
-                      "Subscribed"
-                    ) : (
-                      "Subscribe"
-                    )}
-                  </Button>
-                </CardFooter>
-              </Card>
-            </div>
+              tier={tier}
+              isActive={isActive}
+              onSubscribe={handleSubscribe}
+              loading={loading}
+              selectedCompanyId={selectedCompanyId}
+            />
           );
         })}
       </div>

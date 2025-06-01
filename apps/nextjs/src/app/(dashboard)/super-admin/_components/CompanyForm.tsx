@@ -20,6 +20,7 @@ import type {
 import { createCompanySchema, updateCompanySchema } from "@acme/db/schema";
 import { Button } from "@acme/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@acme/ui/card";
+import { Checkbox } from "@acme/ui/checkbox";
 import {
   Form,
   FormControl,
@@ -30,6 +31,13 @@ import {
   FormMessage,
 } from "@acme/ui/form";
 import { Input } from "@acme/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@acme/ui/select";
 import { Separator } from "@acme/ui/separator";
 import { toast } from "@acme/ui/toast";
 
@@ -75,6 +83,7 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
   const [mounted, setMounted] = useState(false);
   const [formStep, setFormStep] = useState(0);
   const [selectedAdmins, setSelectedAdmins] = useState<Admins[]>([]);
+  const [isOldCompany, setIsOldCompany] = useState(false);
 
   const { data: admins, isLoading: adminsLoading } =
     api.user.getAdminUsers.useQuery(
@@ -102,6 +111,8 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
           phone: initialData.phone ?? "",
           email: initialData.email ?? "",
           adminIds: initialData.admins.map((admin) => admin.id),
+          preferredSubscriptionPlan:
+            initialData.preferredSubscriptionPlan ?? null,
         }
       : {
           companyName: "",
@@ -109,6 +120,7 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
           phone: "",
           email: "",
           adminIds: [],
+          preferredSubscriptionPlan: null,
         },
     mode: "onChange",
   });
@@ -123,6 +135,8 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
         phone: initialData.phone ?? "",
         email: initialData.email ?? "",
         adminIds: initialData.admins.map((admin) => admin.id),
+        preferredSubscriptionPlan:
+          initialData.preferredSubscriptionPlan ?? null,
       });
       setSelectedAdmins([...initialData.admins]);
     }
@@ -186,6 +200,7 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
           phone: values.phone,
           email: values.email,
           adminIds: values.adminIds,
+          preferredSubscriptionPlan: values.preferredSubscriptionPlan,
         });
       } else {
         // For new company, we need admin information
@@ -206,7 +221,9 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
           phone: values.phone,
           email: values.email,
           adminIds: selectedAdminIds,
-          preferredSubscriptionPlan: "data_foundation",
+          preferredSubscriptionPlan: isOldCompany
+            ? values.preferredSubscriptionPlan
+            : "data_foundation",
         });
       }
     } catch (error) {
@@ -281,7 +298,9 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
           </div>
         </CardHeader>
 
-        <CardContent className="p-4 sm:pt-6">
+        <CardContent
+          className={`p-4 sm:pt-6 ${isOldCompany ? "max-h-[600px] overflow-y-auto" : ""}`}
+        >
           <Form {...companyForm}>
             <motion.form
               onSubmit={companyForm.handleSubmit(onSubmitCompany)}
@@ -379,6 +398,93 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
                         </FormItem>
                       )}
                     />
+                  </motion.div>
+
+                  <motion.div variants={itemVariants} className="space-y-4">
+                    <FormField
+                      control={companyForm.control}
+                      name="isOldCompany"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormControl>
+                            <Checkbox
+                              checked={isOldCompany}
+                              onCheckedChange={(checked) => {
+                                setIsOldCompany(checked as boolean);
+                                if (!checked) {
+                                  companyForm.setValue(
+                                    "preferredSubscriptionPlan",
+                                    undefined,
+                                  );
+                                }
+                              }}
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>This is an old company</FormLabel>
+                            <FormDescription>
+                              Check this if you want to set a specific
+                              subscription plan
+                            </FormDescription>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+
+                    {isOldCompany && (
+                      <FormField
+                        control={companyForm.control}
+                        name="preferredSubscriptionPlan"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-sm font-medium dark:text-gray-300">
+                              Subscription Plan
+                            </FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              defaultValue={field.value ?? undefined}
+                            >
+                              <FormControl>
+                                <SelectTrigger className="border-gray-200 bg-white text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:focus:border-blue-400 dark:focus:ring-blue-400">
+                                  <SelectValue placeholder="Select subscription plan" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+                                <SelectItem
+                                  value="data_foundation"
+                                  className="text-gray-900 focus:bg-gray-100 dark:text-gray-100 dark:focus:bg-gray-700"
+                                >
+                                  Data Foundation
+                                </SelectItem>
+                                <SelectItem
+                                  value="insight_accelerator"
+                                  className="text-gray-900 focus:bg-gray-100 dark:text-gray-100 dark:focus:bg-gray-700"
+                                >
+                                  Insight Accelerator
+                                </SelectItem>
+                                <SelectItem
+                                  value="strategic_navigator"
+                                  className="text-gray-900 focus:bg-gray-100 dark:text-gray-100 dark:focus:bg-gray-700"
+                                >
+                                  Strategic Navigator
+                                </SelectItem>
+                                <SelectItem
+                                  value="enterprise"
+                                  className="text-gray-900 focus:bg-gray-100 dark:text-gray-100 dark:focus:bg-gray-700"
+                                >
+                                  Enterprise
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormDescription className="text-xs text-gray-500 dark:text-gray-400">
+                              Select the preferred subscription plan for this
+                              company
+                            </FormDescription>
+                            <FormMessage className="text-xs dark:text-red-400" />
+                          </FormItem>
+                        )}
+                      />
+                    )}
                   </motion.div>
 
                   <motion.div

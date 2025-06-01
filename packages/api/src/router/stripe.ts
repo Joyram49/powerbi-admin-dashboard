@@ -449,7 +449,8 @@ export const stripeRouter = createTRPCRouter({
         return {
           success: true,
           subscription: updatedSubscription,
-          message: "Subscription upgrade initiated successfully",
+          message:
+            "Subscription upgrade request received. The changes will be applied at the end of your current billing period.",
         };
       } catch (error) {
         console.error("Error upgrading subscription:", error);
