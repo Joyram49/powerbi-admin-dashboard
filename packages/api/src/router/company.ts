@@ -36,6 +36,7 @@ export const companyRouter = createTRPCRouter({
             phone: input.phone ?? null,
             email: input.email,
             modifiedBy: ctx.session.user.email,
+            preferredSubscriptionPlan: input.preferredSubscriptionPlan ?? null,
           })
           .returning();
 
@@ -808,6 +809,54 @@ export const companyRouter = createTRPCRouter({
           success: true,
           message: "Company added to the company admin history successfully",
         };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: String(error),
+        });
+      }
+    }),
+
+  // reset null company preferred subscription plan
+  resetNullCompanyPreferredSubscriptionPlan: protectedProcedure
+    .input(companyRouterSchema.getById)
+    .mutation(async ({ ctx, input }) => {
+      const { companyId } = input;
+
+      if (ctx.session.user.role === "user") {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message:
+            "You are not authorized to reset null company preferred subscription plan",
+        });
+      }
+
+      if (ctx.session.user.role === "admin") {
+        // check if the company's admin is the same as the user
+        const companyAdmin = await db.query.companyAdmins.findFirst({
+          where: and(
+            eq(companyAdmins.companyId, companyId),
+            eq(companyAdmins.userId, ctx.session.user.id),
+          ),
+        });
+
+        if (!companyAdmin) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message:
+              "You are not authorized to reset null company preferred subscription plan",
+          });
+        }
+      }
+
+      try {
+        await db
+          .update(companies)
+          .set({ preferredSubscriptionPlan: null })
+          .where(eq(companies.id, companyId));
       } catch (error) {
         if (error instanceof TRPCError) {
           throw error;

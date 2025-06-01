@@ -177,8 +177,6 @@ export const subscriptionRouter = createTRPCRouter({
     .query(async ({ input }) => {
       const { companyId } = input;
 
-      console.log(">>> companyId", companyId);
-
       try {
         const subscription = await db.query.subscriptions.findFirst({
           where: and(

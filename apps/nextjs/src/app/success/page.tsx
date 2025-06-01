@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 
 import { stripe } from "@acme/api";
+import { Button } from "@acme/ui/button";
 
-import { SuccessContent } from "./SuccessContent";
+import { api } from "~/trpc/server";
 
 interface SuccessPageProps {
   searchParams: {
@@ -20,26 +21,21 @@ export default async function Success({ searchParams }: SuccessPageProps) {
     expand: ["line_items", "payment_intent", "customer"],
   });
 
+  console.log(checkoutSession);
+
   const { status } = checkoutSession;
+  const { companyId } = checkoutSession.metadata ?? {};
   const customerEmail = checkoutSession.customer_details?.email ?? "your email";
 
-  // Extract payment details
-  const paymentDetails = {
-    amount: checkoutSession.amount_total
-      ? (checkoutSession.amount_total / 100).toFixed(2)
-      : "0.00",
-    currency: checkoutSession.currency?.toUpperCase() ?? "USD",
-    paymentStatus: checkoutSession.payment_status,
-    paymentMethod: checkoutSession.payment_method_types[0] ?? "card",
-    orderItems:
-      checkoutSession.line_items?.data.map((item) => ({
-        name: item.description,
-        quantity: item.quantity,
-        amount: (item.amount_total ? item.amount_total / 100 : 0).toFixed(2),
-      })) ?? [],
-    orderDate: new Date(checkoutSession.created * 1000).toLocaleDateString(),
-    orderId: checkoutSession.id,
-  };
+  if (companyId) {
+    try {
+      await api.company.resetNullCompanyPreferredSubscriptionPlan({
+        companyId,
+      });
+    } catch (error) {
+      console.error("Failed to reset subscription plan:", error);
+    }
+  }
 
   if (status === "open") {
     return redirect("/");

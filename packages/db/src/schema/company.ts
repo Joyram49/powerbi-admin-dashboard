@@ -73,6 +73,7 @@ export const createCompanySchema = baseCompanyValidationSchema.extend({
     required_error: "At least one admin must be assigned",
     invalid_type_error: "Admin IDs must be valid UUIDs",
   }),
+  preferredSubscriptionPlan: z.enum(subscriptionTier.enumValues).optional(),
 });
 
 // Validation schema for updating a company
