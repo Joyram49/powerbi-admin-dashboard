@@ -1,17 +1,40 @@
+"use client";
+
 import { useState } from "react";
 import { Button, Pressable, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Link, Stack } from "expo-router";
 import { FlashList } from "@shopify/flash-list";
 
-import type { RouterOutputs } from "~/utils/api";
-import { api } from "~/utils/api";
 import { useSignIn, useSignOut, useUser } from "~/utils/auth";
 
-function PostCard(props: {
-  post: RouterOutputs["post"]["all"][number];
-  onDelete: () => void;
-}) {
+// Define a static post type
+interface Post {
+  id: string;
+  title: string;
+  content: string;
+}
+
+// Static posts data
+const STATIC_POSTS: Post[] = [
+  {
+    id: "1",
+    title: "Welcome to T3 Turbo",
+    content: "This is a static post to demonstrate the UI without API calls.",
+  },
+  {
+    id: "2",
+    title: "Getting Started",
+    content: "Learn how to build amazing apps with T3 Turbo.",
+  },
+  {
+    id: "3",
+    title: "Features",
+    content: "Explore the powerful features of T3 Turbo.",
+  },
+];
+
+function PostCard(props: { post: Post; onDelete: () => void }) {
   return (
     <View className="flex flex-row rounded-lg bg-muted p-4">
       <View className="flex-grow">
@@ -38,18 +61,21 @@ function PostCard(props: {
 }
 
 function CreatePost() {
-  const utils = api.useUtils();
-
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
-  const { mutate, error } = api.post.create.useMutation({
-    async onSuccess() {
-      setTitle("");
-      setContent("");
-      await utils.post.all.invalidate();
-    },
-  });
+  const handleCreate = () => {
+    if (!title.trim() || !content.trim()) {
+      setError("Title and content are required");
+      return;
+    }
+    // In a real app, this would create a post
+    // For now, just clear the form
+    setTitle("");
+    setContent("");
+    setError(null);
+  };
 
   return (
     <View className="mt-4 flex gap-2">
@@ -59,38 +85,19 @@ function CreatePost() {
         onChangeText={setTitle}
         placeholder="Title"
       />
-      {error?.data?.zodError?.fieldErrors.title && (
-        <Text className="mb-2 text-destructive">
-          {error.data.zodError.fieldErrors.title}
-        </Text>
-      )}
       <TextInput
         className="items-center rounded-md border border-input bg-background px-3 text-lg leading-[1.25] text-foreground"
         value={content}
         onChangeText={setContent}
         placeholder="Content"
       />
-      {error?.data?.zodError?.fieldErrors.content && (
-        <Text className="mb-2 text-destructive">
-          {error.data.zodError.fieldErrors.content}
-        </Text>
-      )}
+      {error && <Text className="mb-2 text-destructive">{error}</Text>}
       <Pressable
         className="flex items-center rounded bg-primary p-2"
-        onPress={() => {
-          mutate({
-            title,
-            content,
-          });
-        }}
+        onPress={handleCreate}
       >
         <Text className="text-foreground">Create</Text>
       </Pressable>
-      {error?.data?.code === "UNAUTHORIZED" && (
-        <Text className="mt-2 text-destructive">
-          You need to be logged in to create a post
-        </Text>
-      )}
     </View>
   );
 }
@@ -115,17 +122,14 @@ function MobileAuth() {
 }
 
 export default function Index() {
-  const utils = api.useUtils();
+  const [posts, setPosts] = useState<Post[]>(STATIC_POSTS);
 
-  const postQuery = api.post.all.useQuery();
-
-  const deletePostMutation = api.post.delete.useMutation({
-    onSettled: () => utils.post.all.invalidate(),
-  });
+  const handleDelete = (id: string) => {
+    setPosts(posts.filter((post) => post.id !== id));
+  };
 
   return (
     <SafeAreaView className="bg-background">
-      {/* Changes page title visible on the header */}
       <Stack.Screen options={{ title: "Home Page" }} />
       <View className="h-full w-full bg-background p-4">
         <Text className="pb-2 text-center text-5xl font-bold text-foreground">
@@ -141,14 +145,11 @@ export default function Index() {
         </View>
 
         <FlashList
-          data={postQuery.data}
+          data={posts}
           estimatedItemSize={20}
           ItemSeparatorComponent={() => <View className="h-2" />}
           renderItem={(p) => (
-            <PostCard
-              post={p.item}
-              onDelete={() => deletePostMutation.mutate(p.item.id)}
-            />
+            <PostCard post={p.item} onDelete={() => handleDelete(p.item.id)} />
           )}
         />
 

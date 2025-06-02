@@ -1,7 +1,9 @@
 "use client";
 
+import type { TRPCClientErrorLike } from "@trpc/client";
 import { useEffect } from "react";
 
+import type { AppRouter } from "@acme/api";
 import { Button } from "@acme/ui/button";
 import {
   Dialog,
@@ -24,7 +26,7 @@ interface UpgradePlanModalProps {
   onContinue: () => void;
   isFetching: boolean;
   isError: boolean;
-  error: Error | null;
+  error: TRPCClientErrorLike<AppRouter> | null;
   subscriptionData: SubscriptionData | undefined;
 }
 

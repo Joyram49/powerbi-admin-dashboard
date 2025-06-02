@@ -36,16 +36,34 @@ export const billings = pgTable("billing", {
 });
 
 export const billingRouterSchema = {
-  createBilling: z.object({
-    stripeInvoiceId: z.string(),
-    companyId: z.string().uuid(),
-    stripeCustomerId: z.string().optional(),
-    billingDate: z.date(),
-    status: z.string(),
-    amount: z.number(),
-    plan: z.string(),
-    pdfLink: z.string().optional(),
-    paymentStatus: z.string(),
+  getAllBillings: z.object({
+    search: z.string().optional(),
+    limit: z.number().optional().default(10),
+    page: z.number().optional().default(1),
+    sortBy: z
+      .enum([
+        "old_to_new_billing",
+        "new_to_old_billing",
+        "high_to_low_amount",
+        "low_to_high_amount",
+      ])
+      .optional()
+      .default("new_to_old_billing"),
+    status: z.enum(["paid", "unpaid", "past_due", "failed"]).optional(),
+    plan: z
+      .enum([
+        "Data Foundation",
+        "Strategic Navigator",
+        "Insight Accelerator",
+        "Enterprise",
+        "overage usage",
+      ])
+      .optional(),
+  }),
+
+  getTotalRevenue: z.object({
+    startDate: z.date().optional(),
+    endDate: z.date().optional(),
   }),
 
   getCompanyBillings: z.object({
