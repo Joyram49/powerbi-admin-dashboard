@@ -1,15 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import { AlertCircle, Loader2 } from "lucide-react";
 
 import type { Subscription } from "@acme/db";
-
 import { Alert, AlertDescription, AlertTitle } from "@acme/ui/alert";
 import { Button } from "@acme/ui/button";
-
 import {
   Select,
   SelectContent,
@@ -45,6 +43,7 @@ export default function BillingPage() {
   const [companyFilter, setCompanyFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("all");
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const { data: profile } = api.auth.getProfile.useQuery();
   const { data: companiesData, isLoading: companiesLoading } =
@@ -59,6 +58,24 @@ export default function BillingPage() {
         enabled: !!profile?.user?.id,
       },
     );
+
+  // Add effect to handle URL parameters
+  useEffect(() => {
+    const companyIdFromUrl = searchParams.get("companyId");
+    if (companyIdFromUrl && companiesData?.data) {
+      const companyExists = companiesData.data.some(
+        (company) => company.id === companyIdFromUrl,
+      );
+      if (companyExists) {
+        setSelectedCompanyId(companyIdFromUrl);
+      } else {
+        setSelectedCompanyId(undefined);
+      }
+    } else {
+      // Reset to default state if no companyId in URL
+      setSelectedCompanyId(undefined);
+    }
+  }, [searchParams, companiesData?.data]);
 
   const selectedCompany = useMemo(() => {
     if (!selectedCompanyId || !companiesData?.data) return null;
@@ -628,8 +645,10 @@ export default function BillingPage() {
                 onValueChange={(value) => {
                   if (value === "") {
                     setSelectedCompanyId(undefined);
+                    router.push("/admin/billing");
                   } else {
                     setSelectedCompanyId(value);
+                    router.push(`/admin/billing?companyId=${value}`);
                   }
                 }}
                 disabled={companiesLoading}

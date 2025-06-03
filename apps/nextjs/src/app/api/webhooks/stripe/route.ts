@@ -10,19 +10,24 @@ export async function POST(req: Request) {
   const body = await req.text();
   const signature = headers().get("Stripe-Signature");
 
+  console.log("Received webhook request");
+  console.log("Signature:", signature ? "Present" : "Missing");
+
   if (!signature) {
     console.error("No Stripe signature found in request headers");
     return new Response("No signature provided", { status: 400 });
   }
 
   try {
+    console.log("Attempting to construct event with webhook secret");
     const event = stripe.webhooks.constructEvent(
       body,
       signature,
       env.STRIPE_WEBHOOK_SECRET,
     );
 
-    console.log(`Received Stripe webhook event: ${event.type}`);
+    console.log(`Successfully verified webhook event: ${event.type}`);
+    console.log("Event data:", JSON.stringify(event.data.object, null, 2));
 
     // Handle the event
     switch (event.type) {
@@ -54,7 +59,7 @@ export async function POST(req: Request) {
             stripeCustomerId: session.customer as string,
             plan: session.metadata.tier ?? "unknown",
             amount: (
-              subscription.items.data[0]?.price?.unit_amount / 100
+              (subscription.items.data[0]?.price?.unit_amount ?? 0) / 100
             ).toFixed(2),
             billingInterval:
               subscription.items.data[0]?.price?.recurring?.interval === "month"
@@ -202,14 +207,31 @@ export async function POST(req: Request) {
 
       case "customer.subscription.updated": {
         const subscription = event.data.object;
+
+        console.log("[Webhook] Processing subscription update:", {
+          subscriptionId: subscription.id,
+          status: subscription.status,
+          metadata: subscription.metadata,
+        });
+
         const productId = subscription.items.data[0]?.plan.product;
         const product = await stripe.products.retrieve(productId as string);
+
+        console.log("[Webhook] Retrieved product details:", {
+          productId,
+          productName: product.name,
+        });
 
         if (subscription.customer) {
           const portalUrl = await getStripePortalUrl(
             subscription.customer as string,
           );
           const companyId = subscription.metadata.companyId;
+
+          console.log("[Webhook] Company details:", {
+            companyId,
+            customerId: subscription.customer,
+          });
 
           if (!companyId) {
             console.error("No company ID found in subscription metadata");
@@ -219,6 +241,11 @@ export async function POST(req: Request) {
           // Get the previous subscription data to check if plan changed
           const previousSubscription = await db.query.subscriptions.findFirst({
             where: eq(subscriptions.stripeSubscriptionId, subscription.id),
+          });
+
+          console.log("[Webhook] Previous subscription data:", {
+            previousPlan: previousSubscription?.plan,
+            currentPlan: product.name,
           });
 
           switch (subscription.status) {
@@ -233,7 +260,7 @@ export async function POST(req: Request) {
                     subscription.current_period_end * 1000,
                   ),
                   amount: (
-                    subscription.items.data[0]?.price?.unit_amount / 100
+                    (subscription.items.data[0]?.price?.unit_amount ?? 0) / 100
                   ).toFixed(2),
                   plan: product.name,
                   userLimit: getPlanUserLimit(product.name),
@@ -242,8 +269,7 @@ export async function POST(req: Request) {
                 })
                 .where(eq(subscriptions.stripeSubscriptionId, subscription.id));
 
-              // You might want to notify the company about the payment issue
-              // and that they have ~15 days to resolve it
+              console.log("[Webhook] Updated subscription for past_due status");
               break;
 
             case "unpaid":
@@ -260,6 +286,10 @@ export async function POST(req: Request) {
                   status: "inactive",
                 })
                 .where(eq(users.companyId, companyId));
+
+              console.log(
+                "[Webhook] Deleted subscription and deactivated users for unpaid status",
+              );
               break;
 
             case "active":
@@ -267,8 +297,14 @@ export async function POST(req: Request) {
               // Check if plan has changed
               const isPlanChanged = previousSubscription?.plan !== product.name;
 
+              console.log("[Webhook] Processing active/trialing status:", {
+                isPlanChanged,
+                previousPlan: previousSubscription?.plan,
+                newPlan: product.name,
+              });
+
               // Update subscription with new details
-              await db
+              const updatedSubscription = await db
                 .update(subscriptions)
                 .set({
                   status: subscription.status,
@@ -276,14 +312,21 @@ export async function POST(req: Request) {
                     subscription.current_period_end * 1000,
                   ),
                   amount: (
-                    subscription.items.data[0]?.price?.unit_amount / 100
+                    (subscription.items.data[0]?.price?.unit_amount ?? 0) / 100
                   ).toFixed(2),
                   plan: product.name,
                   userLimit: getPlanUserLimit(product.name),
                   updatedAt: new Date(),
                   stripePortalUrl: portalUrl,
                 })
-                .where(eq(subscriptions.stripeSubscriptionId, subscription.id));
+                .where(eq(subscriptions.stripeSubscriptionId, subscription.id))
+                .returning();
+
+              console.log("[Webhook] Updated subscription in database:", {
+                updatedSubscriptionId: updatedSubscription[0]?.id,
+                newStatus: updatedSubscription[0]?.status,
+                newPlan: updatedSubscription[0]?.plan,
+              });
 
               if (isPlanChanged) {
                 console.log(
@@ -306,6 +349,10 @@ export async function POST(req: Request) {
                   status: "inactive",
                 })
                 .where(eq(users.companyId, companyId));
+
+              console.log(
+                "[Webhook] Deleted subscription and deactivated users for canceled status",
+              );
               break;
           }
         }

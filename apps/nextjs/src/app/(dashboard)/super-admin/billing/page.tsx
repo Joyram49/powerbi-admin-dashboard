@@ -1,10 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { AlertCircle, Loader2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { format } from "date-fns";
+import { Loader2 } from "lucide-react";
 
-import { Alert, AlertDescription, AlertTitle } from "@acme/ui/alert";
 import { Button } from "@acme/ui/button";
 import {
   Select,
@@ -16,355 +15,266 @@ import {
 import { toast } from "@acme/ui/toast";
 
 import { api } from "~/trpc/react";
-import { PricingTierCard } from "./components/PricingTierCard";
-
-type TierId =
-  | "data_foundation"
-  | "insight_accelerator"
-  | "strategic_navigator"
-  | "enterprise";
-
-interface SubscriptionState {
-  data?: {
-    plan: string;
-    stripeCustomerId?: string;
-  };
-}
+import { BillingTable } from "./_components/BillingTable";
+import { KpiCard } from "./_components/KpiCard";
+import { TransactionFilter } from "./_components/TransactionFilter";
+import { TransactionsTable } from "./_components/TransactionsTable";
 
 export default function BillingPage() {
-  const [loading, setLoading] = useState<string | null>(null);
-  const [email, setEmail] = useState("");
+  const [dateRange] = useState<{
+    startDate: Date;
+    endDate: Date;
+  }>({
+    startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)),
+    endDate: new Date(),
+  });
   const [selectedCompanyId, setSelectedCompanyId] = useState<
     string | undefined
-  >();
-  const {
-    data: subscriptionResponse,
-    isLoading,
-    error,
-  } = api.subscription.getCurrentUserCompanySubscription.useQuery(
-    { companyId: selectedCompanyId ?? "" },
-    { enabled: !!selectedCompanyId },
-  );
+  >(undefined);
+  const [dateFilter, setDateFilter] = useState("all");
+  const [companyFilter, setCompanyFilter] = useState("");
+  const [transactionStatus, setTransactionStatus] = useState("all");
+  const [kpiFilter, setKpiFilter] = useState<string | null>(null);
 
-  const subscriptionState: SubscriptionState = {
-    data: subscriptionResponse?.data
-      ? {
-          plan: subscriptionResponse.data.plan,
-          stripeCustomerId:
-            subscriptionResponse.data.stripeCustomerId ?? undefined,
-        }
-      : undefined,
-  };
-
-  // Enterprise tier custom amounts (only for testing)
-  const [customAmount, setCustomAmount] = useState(1000 * 100); // $1000 in cents
-  const [customSetupFee, setCustomSetupFee] = useState(5000 * 100); // $5000 in cents
-  const router = useRouter();
-
-  // Get all companies
+  // Fetch all companies
   const { data: companiesData, isLoading: companiesLoading } =
     api.company.getAllCompanies.useQuery(
       {
-        limit: 100, // Get all companies for the dropdown
+        limit: 100,
         sortBy: "companyName",
       },
       {
-        retry: false,
+        enabled: true,
       },
     );
 
-  console.log("Companies Data:", companiesData);
+  const companies = useMemo(
+    () => companiesData?.data ?? [],
+    [companiesData?.data],
+  );
 
-  const lastToastCompanyId = useRef<string | undefined>();
-
-  // Create checkout session mutation
-  const createCheckout = api.stripe.createCheckoutSession.useMutation({
-    onSuccess: (data) => {
-      if (data.url) {
-        window.location.href = data.url;
-      }
+  // Fetch all billings for the company
+  const {
+    data: billings,
+    isLoading: billingsLoading,
+    error: billingsError,
+  } = api.billing.getCompanyBillings.useQuery(
+    {
+      companyId: selectedCompanyId ?? "",
     },
-    onError: (error) => {
-      console.error("Error creating checkout session:", error);
-      toast.error(error.message || "Error creating checkout session");
-      setLoading(null);
+    {
+      enabled: !!selectedCompanyId && selectedCompanyId !== "",
     },
-  });
+  );
 
-  const createPortal = api.stripe.createPortalSession.useMutation({
-    onSuccess: (data) => {
-      if (data.url) {
-        window.location.href = data.url;
-      }
-    },
-    onError: (error) => {
-      console.error("Error creating portal session:", error);
-      toast.error(error.message || "Error creating portal session");
-      setLoading(null);
-    },
-  });
-
-  const handleSubscribe =  (tierId: TierId) => {
-    if (!email) {
-      toast.error("Please enter your email");
-      return;
-    }
-
-    if (!selectedCompanyId) {
-      toast.error("Please select a company");
-      return;
-    }
-
-    setLoading(tierId);
-
-    createCheckout.mutate({
-      tier: tierId,
-      customerEmail: email,
-      companyId: selectedCompanyId,
-      ...(tierId === "enterprise" ? { customAmount, customSetupFee } : {}),
-    });
-  };
-
-  const handleManageSubscription =  (_formData: FormData) => {
-    if (!selectedCompanyId) {
-      toast.error("Please select a company");
-      return;
-    }
-
-    setLoading("manage");
-
-    createPortal.mutate({
-      companyId: selectedCompanyId,
-    });
-  };
-
-  const renderSubscriptionContent = () => {
-    if (isLoading) {
-      return (
-        <div className="mb-6 flex items-center justify-center space-x-2 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 p-6 dark:from-blue-950/50 dark:to-indigo-950/50">
-          <Loader2 className="h-6 w-6 animate-spin text-blue-600 dark:text-blue-400" />
-          <span className="text-blue-600 dark:text-blue-400">
-            Loading subscription...
-          </span>
-        </div>
-      );
-    }
-
-    if (error) {
-      return (
-        <Alert variant="destructive" className="mb-6">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription className="text-red-700 dark:text-red-400">
-            {error.message}
-          </AlertDescription>
-        </Alert>
-      );
-    }
-
-    if (!subscriptionResponse?.data && selectedCompanyId) {
-      if (lastToastCompanyId.current !== selectedCompanyId) {
-        toast.info("No active subscription found for this company", {
-          id: "no-subscription",
-        });
-        lastToastCompanyId.current = selectedCompanyId;
-      }
-      return null;
-    }
-
-    if (
-      subscriptionResponse?.data &&
-      lastToastCompanyId.current === selectedCompanyId
-    ) {
-      lastToastCompanyId.current = undefined;
-    }
-
-    if (!subscriptionResponse?.data?.id) return null;
-
-    return (
-      <>
-        <div className="mb-6">
-          <h2 className="mb-4 text-2xl font-semibold text-gray-900 dark:text-gray-100">
-            Current Subscription
-          </h2>
-          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition-all hover:shadow-md dark:border-gray-700 dark:bg-gray-800">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <p className="text-sm text-gray-500 dark:text-gray-400">Plan</p>
-                <p className="font-medium text-gray-900 dark:text-gray-100">
-                  {subscriptionResponse.data.plan}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Status
-                </p>
-                <p className="font-medium text-gray-900 dark:text-gray-100">
-                  {subscriptionResponse.data.status}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Amount
-                </p>
-                <p className="font-medium text-gray-900 dark:text-gray-100">
-                  ${subscriptionResponse.data.amount}/month
-                </p>
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Next Billing Date
-                </p>
-                <p className="font-medium text-gray-900 dark:text-gray-100">
-                  {new Date(
-                    subscriptionResponse.data.currentPeriodEnd,
-                  ).toLocaleDateString()}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <form action={handleManageSubscription} className="mb-6 flex gap-4">
-          <Button
-            type="submit"
-            disabled={
-              loading === "manage" || !subscriptionState.data?.stripeCustomerId
-            }
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white [text-shadow:_0_1px_2px_rgb(0_0_0_/_40%)] hover:from-blue-700 hover:to-indigo-700 hover:[text-shadow:none] dark:from-blue-500 dark:to-indigo-500 dark:hover:from-blue-600 dark:hover:to-indigo-600"
-          >
-            {loading === "manage" ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Loading...
-              </>
-            ) : (
-              "Manage Subscription"
-            )}
-          </Button>
-          <Button
-            type="button"
-            onClick={() => router.push("/super-admin/billing/manage")}
-            className="bg-gradient-to-r from-green-600 to-emerald-600 text-white [text-shadow:_0_1px_2px_rgb(0_0_0_/_40%)] hover:from-green-700 hover:to-emerald-700 hover:[text-shadow:none] dark:from-green-500 dark:to-emerald-500 dark:hover:from-green-600 dark:hover:to-emerald-600"
-          >
-            Upgrade Subscription
-          </Button>
-        </form>
-      </>
+  // Fetch billings by date range
+  const { data: dateRangeBillings, error: dateRangeError } =
+    api.billing.getBillingsByDateRange.useQuery(
+      {
+        companyId: selectedCompanyId ?? "",
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+      },
+      {
+        enabled: !!selectedCompanyId && selectedCompanyId !== "",
+      },
     );
+
+  // Fetch billings by status
+  const { data: statusBillings, error: statusError } =
+    api.billing.getBillingsByStatus.useQuery(
+      {
+        companyId: selectedCompanyId ?? "",
+        status: "outstanding",
+      },
+      {
+        enabled: !!selectedCompanyId && selectedCompanyId !== "",
+      },
+    );
+
+  // Fetch current active subscription
+  const {
+    data: subscriptionData,
+    isLoading: subscriptionLoading,
+    error: subscriptionError,
+  } = api.subscription.getCurrentUserCompanySubscription.useQuery(
+    {
+      companyId: selectedCompanyId ?? "",
+    },
+    {
+      enabled: !!selectedCompanyId && selectedCompanyId !== "",
+    },
+  );
+
+  // Check for any errors
+  const hasError =
+    billingsError ?? dateRangeError ?? statusError ?? subscriptionError;
+
+  // KPI calculations with null checks
+  const totalRevenue =
+    billings?.reduce((sum, b) => sum + Number(b.amount), 0) ?? 0;
+  const outstandingAR =
+    statusBillings?.reduce((sum, b) => sum + Number(b.amount), 0) ?? 0;
+  const outstandingCount = statusBillings?.length ?? 0;
+  const monthlyRecurring = subscriptionData?.data?.amount ?? 0;
+  const newSubs30Day =
+    dateRangeBillings?.filter((b) => b.status === "new").length ?? 0;
+
+  const transactions =
+    billings
+      ?.filter(
+        (b) => transactionStatus === "all" || b.status === transactionStatus,
+      )
+      .map((b) => ({
+        id: b.id,
+        date: format(new Date(b.billingDate), "MMM dd, yyyy"),
+        description: b.plan,
+        status: b.status,
+        amount: Number(b.amount),
+        paymentStatus: b.paymentStatus,
+      })) ?? [];
+
+  // Filter invoices based on date, company, and KPI filter
+  const filteredInvoices = useMemo(() => {
+    const invoices =
+      billings?.map((b) => ({
+        id: b.id,
+        date: format(new Date(b.billingDate), "MMM dd, yyyy"),
+        status: b.status,
+        amount: Number(b.amount),
+        plan: b.plan,
+        paymentStatus: b.paymentStatus,
+        companyName:
+          companies.find((c) => c.id === selectedCompanyId)?.companyName ?? "",
+        pdfUrl: b.pdfLink ?? "",
+      })) ?? [];
+
+    return invoices.filter((invoice) => {
+      const matchesCompany = invoice.companyName
+        .toLowerCase()
+        .includes(companyFilter.toLowerCase());
+
+      const invoiceDate = new Date(invoice.date);
+      const now = new Date();
+      const daysDiff = Math.floor(
+        (now.getTime() - invoiceDate.getTime()) / (1000 * 60 * 60 * 24),
+      );
+
+      const matchesDate =
+        dateFilter === "all" ||
+        (dateFilter === "30" && daysDiff <= 30) ||
+        (dateFilter === "90" && daysDiff <= 90);
+
+      // Apply KPI filter
+      const matchesKpiFilter = !kpiFilter || invoice.status === kpiFilter;
+
+      return matchesCompany && matchesDate && matchesKpiFilter;
+    });
+  }, [
+    billings,
+    companies,
+    selectedCompanyId,
+    companyFilter,
+    dateFilter,
+    kpiFilter,
+  ]);
+
+  // Handle KPI card filter changes
+  const handleKpiFilterChange = (filter: string) => {
+    setKpiFilter(filter);
+    // Reset other filters when KPI filter is applied
+    setDateFilter("all");
+    setCompanyFilter("");
   };
 
-  const tiers = [
-    {
-      id: "data_foundation" as const,
-      name: "Data Foundation",
-      description:
-        "For professionals looking for the first step in business data analytics.",
-      price: "$200/mo\n$2000 1-Time Setup Fee\n2 Powerview Licenses",
-      features: [
-        "Foundation Powerview™ Slides",
-        "Job Management Report",
-        "Jobs Report",
-        "Area Review/Compare",
-        "Org Aging",
-        "Group Onboarding",
-        "Email Support: 48hr response",
-        "Deal Refreshed Daily",
-        "Side Edit Credits",
-      ],
-      addOns: [
-        "Enterprise Slides (Contact Us)",
-        "Licenses (Side)",
-        "Custom Slides (Contact Us)",
-      ],
-    },
-    {
-      id: "insight_accelerator" as const,
-      name: "Insight Accelerator",
-      description:
-        "For movers looking for more advanced insights to justify the next business step.",
-      price: "$300/mo\n$3500 1-Time Setup Fee\n6 Powerview Licenses",
-      features: [
-        "5 Insight Powerview™ Slides",
-        "Pro Production",
-        "Pro Production Merits",
-        "Production by Sold",
-        "Team Training Session",
-        "Deal Review Insights",
-        "Optional Email Support",
-        "Side Edit Credits",
-      ],
-      addOns: [
-        "Enterprise Slides ($60/mo)",
-        "Licenses ($150/mo)",
-        "Custom Slides (Contact Us)",
-      ],
-    },
-    {
-      id: "strategic_navigator" as const,
-      name: "Strategic Navigator",
-      description:
-        "For growing businesses that want to empower their colleagues.",
-      price: "$600/mo\n$5000 1-Time Setup Fee\n10 Powerview Licenses",
-      features: [
-        "6 Strategic Powerview™ Slides",
-        "Pro Insights",
-        "Time Frames",
-        "Net Agents – Reports",
-        "Team Training – Reports",
-        "Enterprise Insights",
-        "Detailed Drill Through Feature",
-        "Optional Email Support",
-        "Email Spam Training Credit",
-      ],
-      addOns: [
-        "Enterprise Slides ($60/mo)",
-        "Licenses ($150/mo)",
-        "Custom Slides (Contact Us)",
-      ],
-    },
-    {
-      id: "enterprise" as const,
-      name: "Enterprise",
-      description: "For businesses and franchises with more complex needs.",
-      price: "Contact us for Pricing\nUnlimited Powerview Licenses",
-      features: [
-        "8+ Enterprise Powerview™ Slides",
-        "All Strategic Navigator Features",
-        "Job Management Report",
-        "Web App",
-        "JMR Conditional Formatting",
-        "Priority Photo Support",
-        "Weekly Recap Email",
-        "Automated Action Manager",
-        "Monthly Side Edit Credits",
-      ],
-      addOns: ["Enterprise Slides (Contact Us)", "Custom Slides (Contact Us)"],
-    },
-  ];
+  // Download handler for individual invoices
+  const handleDownload = (id: string) => {
+    const billing = billings?.find((b) => b.id === id);
+    if (billing?.pdfLink) {
+      window.open(billing.pdfLink, "_blank");
+    } else {
+      toast.error("No PDF available for this invoice");
+    }
+  };
 
+  // Handle bulk download
+  const handleBulkDownload = async (ids: string[]) => {
+    try {
+      // Get all valid PDF links
+      const pdfLinks = ids
+        .map((id) => billings?.find((b) => b.id === id)?.pdfLink)
+        .filter((link): link is string => !!link);
+
+      if (pdfLinks.length === 0) {
+        toast.error("No PDFs available for selected invoices");
+        return;
+      }
+
+      // Create a download queue
+      const downloadQueue = async () => {
+        for (const link of pdfLinks) {
+          // Create a temporary link element
+          const linkElement = document.createElement("a");
+          linkElement.href = link;
+          linkElement.target = "_blank";
+          linkElement.click();
+
+          // Wait for 1 second before next download
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      };
+
+      // Start the download queue
+      await downloadQueue();
+    } catch (error) {
+      toast.error("Error downloading invoices");
+      console.error("Bulk download error:", error);
+    }
+  };
+
+  if (billingsLoading || subscriptionLoading) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-500 dark:text-slate-400" />
+      </div>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <div className="flex h-96 flex-col items-center justify-center gap-4">
+        <div className="text-lg font-semibold text-red-500">
+          Error loading billing data
+        </div>
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          {billingsError?.message ??
+            dateRangeError?.message ??
+            statusError?.message ??
+            subscriptionError?.message ??
+            "Please try selecting a different company or try again later"}
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setSelectedCompanyId(undefined);
+          }}
+        >
+          Clear Selection
+        </Button>
+      </div>
+    );
+  }
+
+  const hasNoData =
+    !selectedCompanyId || (!billings?.length && !subscriptionData?.data);
 
   return (
-    <div className="container mx-auto px-4 py-16">
-      {renderSubscriptionContent()}
-
-      <h1 className="mb-12 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-700 bg-clip-text text-center text-4xl font-bold text-transparent dark:from-blue-400 dark:via-purple-400 dark:to-pink-400">
-        Choose Your Plan
-      </h1>
-
-      <div className="mx-auto mb-8 max-w-md">
-        <label className="mb-2 block bg-gradient-to-r from-gray-700 to-gray-900 bg-clip-text text-sm font-medium text-transparent dark:from-gray-200 dark:to-gray-400">
-          Your Email
-        </label>
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 bg-white p-3 text-gray-900 placeholder-gray-500 shadow-sm transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus:ring-blue-800"
-          placeholder="Enter your email"
-          required
-        />
-        <div className="my-4">
+    <div className="mt-5 min-h-screen w-full bg-gray-50/50 p-4 dark:bg-slate-900/50 sm:p-6">
+      <div className="mx-auto max-w-7xl">
+        <h1 className="mb-6 text-2xl font-bold text-gray-900 dark:text-slate-50 sm:mb-8 sm:text-3xl">
+          Billing Management
+        </h1>
+        <div className="mb-4">
           <Select
             value={selectedCompanyId}
             onValueChange={(value) => {
@@ -386,11 +296,9 @@ export default function BillingPage() {
                 <SelectValue placeholder="Select a company" />
               )}
             </SelectTrigger>
-            <SelectContent className="max-h-[300px] overflow-y-auto border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-              {companiesData?.success &&
-              Array.isArray(companiesData.data) &&
-              companiesData.data.length > 0 ? (
-                companiesData.data.map((company) => (
+            <SelectContent className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+              {companies.length > 0 ? (
+                companies.map((company) => (
                   <SelectItem
                     key={company.id}
                     value={company.id}
@@ -405,62 +313,120 @@ export default function BillingPage() {
                   disabled
                   className="text-gray-500 dark:text-gray-400"
                 >
-                  {companiesLoading
-                    ? "Loading companies..."
-                    : "No companies available"}
+                  No companies available
                 </SelectItem>
               )}
             </SelectContent>
           </Select>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
-        {tiers.map((tier) => {
-          const currentPlan = subscriptionState.data?.plan.toLowerCase() ?? "";
-          const isActive = currentPlan === tier.name.toLowerCase();
-          return (
-            <PricingTierCard
-              key={tier.id}
-              tier={tier}
-              isActive={isActive}
-              onSubscribe={handleSubscribe}
-              loading={loading}
-              selectedCompanyId={selectedCompanyId}
-            />
-          );
-        })}
-      </div>
+        {hasNoData ? (
+          <div className="flex h-96 flex-col items-center justify-center gap-4">
+            <div className="text-lg font-semibold text-gray-900 dark:text-slate-50">
+              {!selectedCompanyId
+                ? "Please select a company"
+                : "No Billing Data Available"}
+            </div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              {!selectedCompanyId
+                ? "Select a company to view its billing information"
+                : "This company has no billing history or active subscription"}
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {/* KPI Cards */}
+            <div className="col-span-4 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+              <KpiCard
+                title="Total Revenue"
+                value={`$${totalRevenue.toLocaleString()}`}
+                className="border-gray-200 bg-white dark:!border-gray-700 dark:bg-gray-800"
+                onFilterChange={handleKpiFilterChange}
+              />
+              <KpiCard
+                title="Monthly Recurring"
+                value={`$${monthlyRecurring}`}
+                className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
+              />
+              <KpiCard
+                title="Outstanding AR"
+                value={`$${outstandingAR}`}
+                className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
+                onFilterChange={handleKpiFilterChange}
+              />
+              <KpiCard
+                title="# Outstanding"
+                value={outstandingCount}
+                className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
+                onFilterChange={handleKpiFilterChange}
+              />
+              <KpiCard
+                title="New Subs 30-Day"
+                value={newSubs30Day}
+                className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
+                onFilterChange={handleKpiFilterChange}
+              />
+            </div>
 
-      {/* Enterprise custom pricing section */}
-      <div className="mt-12 rounded-xl border-2 border-gray-200 bg-gradient-to-br from-gray-50 to-white p-6 dark:border-gray-700 dark:from-gray-800 dark:to-gray-900">
-        <h2 className="mb-6 bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-2xl font-semibold text-transparent dark:from-gray-100 dark:to-gray-300">
-          Enterprise Custom Pricing (Testing Only)
-        </h2>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div>
-            <label className="mb-2 block bg-gradient-to-r from-gray-700 to-gray-900 bg-clip-text text-sm font-medium text-transparent dark:from-gray-200 dark:to-gray-400">
-              Custom Monthly Amount (in cents)
-            </label>
-            <input
-              type="number"
-              value={customAmount}
-              onChange={(e) => setCustomAmount(Number(e.target.value))}
-              className="w-full rounded-lg border border-gray-300 bg-white p-3 text-gray-900 placeholder-gray-500 shadow-sm transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus:ring-blue-800"
-            />
+            {/* Transactions Table */}
+            <div className="col-span-4">
+              <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                <div className="mb-2 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+                  <span className="text-lg font-semibold text-gray-900 dark:text-slate-50">
+                    Recent Transactions
+                  </span>
+                  <TransactionFilter
+                    options={[
+                      { label: "All", value: "all" },
+                      { label: "Paid", value: "paid" },
+                      { label: "Outstanding", value: "outstanding" },
+                      { label: "Failed", value: "failed" },
+                    ]}
+                    value={transactionStatus}
+                    onChange={setTransactionStatus}
+                  />
+                </div>
+                <TransactionsTable transactions={transactions} />
+              </div>
+            </div>
+
+            {/* Billing Table */}
+            <div className="col-span-4">
+              <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                <div className="mb-2 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+                  <span className="text-lg font-semibold text-gray-900 dark:text-slate-50">
+                    Billing History
+                  </span>
+                  {kpiFilter && (
+                    <div className="flex text-sm items-center gap-2">
+                      <span className=" text-gray-500">
+                        Filtered by:
+                      </span>
+                      <span className="text-gray-500 dark:text-white">
+                        {kpiFilter.charAt(0).toUpperCase() + kpiFilter.slice(1)}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setKpiFilter(null)}
+                        className="border text-gray-500 hover:text-gray-700 dark:border-blue-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+                      >
+                        Clear Filter
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                <BillingTable
+                  invoices={filteredInvoices}
+                  onDownload={handleDownload}
+                  onBulkDownload={handleBulkDownload}
+                  onCompanyFilter={setCompanyFilter}
+                  onDateFilter={setDateFilter}
+                />
+              </div>
+            </div>
           </div>
-          <div>
-            <label className="mb-2 block bg-gradient-to-r from-gray-700 to-gray-900 bg-clip-text text-sm font-medium text-transparent dark:from-gray-200 dark:to-gray-400">
-              Custom Setup Fee (in cents)
-            </label>
-            <input
-              type="number"
-              value={customSetupFee}
-              onChange={(e) => setCustomSetupFee(Number(e.target.value))}
-              className="w-full rounded-lg border border-gray-300 bg-white p-3 text-gray-900 placeholder-gray-500 shadow-sm transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus:ring-blue-800"
-            />
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

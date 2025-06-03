@@ -340,8 +340,10 @@ export const stripeRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       const { companyId, newTier } = input;
 
-      console.log(">>> companyId", companyId);
-      console.log(">>> newTier", newTier);
+      console.log("[Upgrade Subscription] Starting upgrade process", {
+        companyId,
+        newTier,
+      });
 
       try {
         // Get current subscription
@@ -355,7 +357,9 @@ export const stripeRouter = createTRPCRouter({
           ),
         });
 
-        console.log(">>> currentSubscription", currentSubscription);
+        console.log("[Upgrade Subscription] Current subscription found:", {
+          subscription: currentSubscription,
+        });
 
         if (!currentSubscription) {
           throw new TRPCError({
@@ -380,6 +384,20 @@ export const stripeRouter = createTRPCRouter({
           .split(" ")
           .join("_") as Tier;
         const newPlan = tierProducts[newTier];
+
+        console.log("[Upgrade Subscription] Plan details:", {
+          currentPlan,
+          newPlan,
+        });
+
+        // Check if the new plan is a custom plan
+        if (newPlan.custom) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "Custom plans are not supported for direct upgrades. Please contact support for enterprise pricing.",
+          });
+        }
 
         // Validate upgrade path
         const validUpgrades: Record<Tier, Tier[]> = {
@@ -411,6 +429,11 @@ export const stripeRouter = createTRPCRouter({
         const stripeSubscription = await stripe.subscriptions.retrieve(
           currentSubscription.stripeSubscriptionId,
         );
+
+        console.log("[Upgrade Subscription] Stripe subscription retrieved:", {
+          stripeSubscriptionId: stripeSubscription.id,
+          status: stripeSubscription.status,
+        });
 
         // Check if subscription has items
         if (!stripeSubscription.items.data.length) {
@@ -446,6 +469,14 @@ export const stripeRouter = createTRPCRouter({
           },
         );
 
+        console.log(
+          "[Upgrade Subscription] Subscription updated successfully:",
+          {
+            updatedSubscriptionId: updatedSubscription.id,
+            newStatus: updatedSubscription.status,
+          },
+        );
+
         return {
           success: true,
           subscription: updatedSubscription,
@@ -453,7 +484,7 @@ export const stripeRouter = createTRPCRouter({
             "Subscription upgrade request received. The changes will be applied at the end of your current billing period.",
         };
       } catch (error) {
-        console.error("Error upgrading subscription:", error);
+        console.error("[Upgrade Subscription] Error:", error);
         if (error instanceof TRPCError) {
           throw error;
         }

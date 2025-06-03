@@ -127,6 +127,7 @@ export function BillingTable({
                   }
                   onCheckedChange={handleSelectAll}
                   aria-label="Select all"
+                  className="flex items-center justify-center"
                 />
               </TableHead>
               <TableHead className="text-gray-900 dark:text-gray-100">
@@ -155,11 +156,12 @@ export function BillingTable({
                 key={inv.id}
                 className="hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
               >
-                <TableCell className="text-gray-900 dark:text-gray-100">
+                <TableCell className="flex items-center justify-center text-gray-900 dark:text-gray-100">
                   <Checkbox
                     checked={selectedInvoices.includes(inv.id)}
                     onCheckedChange={() => handleSelectInvoice(inv.id)}
                     aria-label={`Select invoice ${inv.id}`}
+                    className="flex items-center justify-center"
                   />
                 </TableCell>
                 <TableCell className="text-gray-900 dark:text-gray-100">

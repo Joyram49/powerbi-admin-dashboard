@@ -2,9 +2,7 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
 
-import { cn } from "@acme/ui";
 import { Alert, AlertDescription, AlertTitle } from "@acme/ui/alert";
 import { Button } from "@acme/ui/button";
 import { toast } from "@acme/ui/toast";
@@ -27,7 +25,6 @@ const TIER_ORDER: Record<TierId, number> = {
 
 export default function ManageBillingPage() {
   const [loading, setLoading] = useState<string | null>(null);
-  const [email, setEmail] = useState("");
   const router = useRouter();
   const searchParams = useSearchParams();
   const companyId = searchParams.get("companyId");
@@ -35,11 +32,7 @@ export default function ManageBillingPage() {
 
   const { data: profile } = api.auth.getProfile.useQuery();
 
-  const {
-    data: subscriptionResponse,
-    isLoading: subscriptionLoading,
-    error: subscriptionError,
-  } = api.subscription.getCurrentUserCompanySubscription.useQuery(
+  const { data: companyData } = api.company.getCompanyByCompanyId.useQuery(
     {
       companyId: companyId ?? "",
     },
@@ -48,11 +41,34 @@ export default function ManageBillingPage() {
     },
   );
 
+  const { data: subscriptionResponse } =
+    api.subscription.getCurrentUserCompanySubscription.useQuery(
+      {
+        companyId: companyId ?? "",
+      },
+      {
+        enabled: !!companyId,
+      },
+    );
+
+  const createCheckout = api.stripe.createCheckoutSession.useMutation({
+    onSuccess: (data) => {
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    },
+    onError: (error) => {
+      console.error("Error creating checkout session:", error);
+      toast.error(error.message || "Error creating checkout session");
+      setLoading(null);
+    },
+  });
+
   const upgradeSubscription = api.stripe.upgradeSubscription.useMutation({
     onSuccess: (data) => {
       if (data.success) {
         toast.success(data.message || "Subscription upgrade request received");
-        router.push("/admin/billing");
+        router.push(`/admin/billing?companyId=${companyId}`);
       }
     },
     onError: (error) => {
@@ -63,8 +79,9 @@ export default function ManageBillingPage() {
   });
 
   const handleSubscribe = async (tierId: TierId) => {
+    const email = profile?.user?.email;
     if (!email) {
-      toast.error("Please enter your email");
+      toast.error("Could not determine your email. Please re-login.");
       return;
     }
 
@@ -76,12 +93,26 @@ export default function ManageBillingPage() {
     setLoading(tierId);
 
     try {
-      await upgradeSubscription.mutateAsync({
-        newTier: tierId,
-        companyId,
-      });
+      if (companyData?.data?.preferredSubscriptionPlan) {
+        await createCheckout.mutateAsync({
+          tier: companyData.data.preferredSubscriptionPlan as TierId,
+          customerEmail: email,
+          companyId,
+        });
+      } else if (subscriptionResponse?.data) {
+        await upgradeSubscription.mutateAsync({
+          newTier: tierId,
+          companyId,
+        });
+      } else {
+        await createCheckout.mutateAsync({
+          tier: tierId,
+          customerEmail: email,
+          companyId,
+        });
+      }
     } catch (error) {
-      console.error("Failed to upgrade subscription:", error);
+      console.error("Failed to process subscription:", error);
       setLoading(null);
     }
   };
@@ -219,44 +250,54 @@ export default function ManageBillingPage() {
     <div className="container mx-auto px-4 py-16">
       <h1 className="mb-12 text-center text-4xl font-bold">
         <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-700 bg-clip-text text-transparent dark:from-blue-400 dark:via-purple-400 dark:to-pink-400">
-          UPGRADE SUBSCRIPTION FOR{" "}
+          {companyData?.data?.preferredSubscriptionPlan
+            ? "ACTIVATE"
+            : "UPGRADE"}{" "}
+          SUBSCRIPTION FOR{" "}
         </span>
         <span className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 bg-clip-text text-transparent dark:from-emerald-400 dark:via-teal-400 dark:to-cyan-400">
           {companyName.toUpperCase()}
         </span>
       </h1>
-      <div className="mb-8">
-        <div className="mx-auto mb-8 max-w-md">
-          <label className="mb-2 block bg-gradient-to-r from-gray-700 to-gray-900 bg-clip-text text-sm font-medium text-transparent dark:from-gray-200 dark:to-gray-400">
-            Your Email
-          </label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 bg-white p-3 text-gray-900 placeholder-gray-500 shadow-sm transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus:ring-blue-800"
-            placeholder="Enter your email"
-            required
-          />
-        </div>
-      </div>
 
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
-        {filteredTiers.map((tier) => {
-          const isActive =
-            subscriptionResponse?.data?.plan.toLowerCase() ===
-            tier.name.toLowerCase();
-          return (
-            <PricingTierCard
-              key={tier.id}
-              tier={tier}
-              isActive={isActive}
-              onSubscribe={handleSubscribe}
-              loading={loading}
-              selectedCompanyId={companyId}
-            />
-          );
-        })}
+        {companyData?.data?.preferredSubscriptionPlan ? (
+          <PricingTierCard
+            key={companyData.data.preferredSubscriptionPlan}
+            tier={
+              (tiers.find(
+                (t) => t.id === companyData.data?.preferredSubscriptionPlan,
+              ) ?? tiers[0]) as {
+                id: TierId;
+                name: string;
+                description: string;
+                price: string;
+                features: string[];
+                addOns: string[];
+              }
+            }
+            isActive={false}
+            onSubscribe={handleSubscribe}
+            loading={loading}
+            selectedCompanyId={companyId}
+          />
+        ) : (
+          filteredTiers.map((tier) => {
+            const isActive =
+              subscriptionResponse?.data?.plan.toLowerCase() ===
+              tier.name.toLowerCase();
+            return (
+              <PricingTierCard
+                key={tier.id}
+                tier={tier}
+                isActive={isActive}
+                onSubscribe={handleSubscribe}
+                loading={loading}
+                selectedCompanyId={companyId}
+              />
+            );
+          })
+        )}
       </div>
     </div>
   );
