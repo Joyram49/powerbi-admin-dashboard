@@ -1,15 +1,124 @@
+import type { SQL } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { and, eq, or } from "drizzle-orm";
-import { z } from "zod";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gte,
+  ilike,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
 
-import { db, subscriptions } from "@acme/db";
+import {
+  companies,
+  db,
+  subscriptionRouterSchema,
+  subscriptions,
+} from "@acme/db";
 
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 
 export const subscriptionRouter = createTRPCRouter({
+  // Get all subscriptions
+  getAllSubscriptions: protectedProcedure
+    .input(subscriptionRouterSchema.getAllSubscriptions)
+    .query(async ({ input }) => {
+      try {
+        const { search, limit, page, sortBy, status, plan } = input;
+        const filters: SQL[] = [];
+
+        // Get sort order based on the selected option
+        const getSortOrder = () => {
+          switch (sortBy) {
+            case "old_to_new_date":
+              return asc(subscriptions.dateCreated);
+            case "new_to_old_date":
+              return desc(subscriptions.dateCreated);
+            case "high_to_low_overage":
+              return desc(subscriptions.overageUser);
+            case "low_to_high_overage":
+              return asc(subscriptions.overageUser);
+            default:
+              return desc(subscriptions.dateCreated);
+          }
+        };
+
+        if (status) {
+          filters.push(eq(subscriptions.status, status));
+        }
+
+        if (plan) {
+          filters.push(eq(subscriptions.plan, plan));
+        }
+
+        // Get total count with company name search
+        const total = await db
+          .select({ count: count() })
+          .from(subscriptions)
+          .leftJoin(companies, eq(subscriptions.companyId, companies.id))
+          .where(
+            and(
+              ...filters,
+              search ? ilike(companies.companyName, `%${search}%`) : undefined,
+            ),
+          );
+
+        // Get paginated results with company name search
+        const allSubscriptions = await db
+          .select({
+            id: subscriptions.id,
+            stripeSubscriptionId: subscriptions.stripeSubscriptionId,
+            companyName: companies.companyName,
+            plan: subscriptions.plan,
+            amount: sql<number>`CAST(${subscriptions.amount} AS FLOAT)`,
+            billingInterval: subscriptions.billingInterval,
+            status: subscriptions.status,
+            userLimit: subscriptions.userLimit,
+            overageUser: subscriptions.overageUser,
+            currentPeriodEnd: subscriptions.currentPeriodEnd,
+            dateCreated: subscriptions.dateCreated,
+            updatedAt: subscriptions.updatedAt,
+          })
+          .from(subscriptions)
+          .leftJoin(companies, eq(subscriptions.companyId, companies.id))
+          .where(
+            and(
+              ...filters,
+              search ? ilike(companies.companyName, `%${search}%`) : undefined,
+            ),
+          )
+          .limit(limit)
+          .offset((page - 1) * limit)
+          .orderBy(getSortOrder());
+
+        return {
+          message: "Subscriptions fetched successfully",
+          success: true,
+          page,
+          limit,
+          data: allSubscriptions,
+          total: total[0]?.count ?? 0,
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to fetch all subscriptions",
+          cause: error,
+        });
+      }
+    }),
+
   // Get subscription by company ID
   getCompanySubscription: protectedProcedure
-    .input(z.object({ companyId: z.string().uuid() }))
+    .input(subscriptionRouterSchema.getCompanySubscription)
     .query(async ({ input }) => {
       try {
         const subscription = await db.query.subscriptions.findFirst({
@@ -21,7 +130,11 @@ export const subscriptionRouter = createTRPCRouter({
             message: "Subscription not found",
           });
         }
-        return subscription;
+        return {
+          success: true,
+          message: "Subscription for company fetched successfully",
+          data: subscription,
+        };
       } catch (error) {
         if (error instanceof TRPCError) throw error;
         throw new TRPCError({
@@ -37,7 +150,7 @@ export const subscriptionRouter = createTRPCRouter({
 
   // Get subscription by ID
   getSubscriptionById: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .input(subscriptionRouterSchema.getSubscriptionById)
     .query(async ({ input }) => {
       try {
         const subscription = await db.query.subscriptions.findFirst({
@@ -49,7 +162,11 @@ export const subscriptionRouter = createTRPCRouter({
             message: "Subscription not found",
           });
         }
-        return subscription;
+        return {
+          success: true,
+          message: "Subscription fetched successfully",
+          data: subscription,
+        };
       } catch (error) {
         if (error instanceof TRPCError) throw error;
         throw new TRPCError({
@@ -63,104 +180,21 @@ export const subscriptionRouter = createTRPCRouter({
       }
     }),
 
-  // Update subscription
-  //   updateSubscription: protectedProcedure
-  //     .input(
-  //       z.object({
-  //         id: z.string().uuid(),
-  //         status: z.string().optional(),
-  //         amount: z.number().optional(),
-  //         currentPeriodEnd: z.date().optional(),
-  //         userLimit: z.number().optional(),
-  //         stripePortalUrl: z.string().optional(),
-  //       }),
-  //     )
-  //     .mutation(async ({ input }) => {
-  //       try {
-  //         const { id, ...updateData } = input;
-  //         const [subscription] = await db
-  //           .update(subscriptions)
-  //           .set(updateData)
-  //           .where(eq(subscriptions.id, id))
-  //           .returning();
-  //         if (!subscription) {
-  //           throw new TRPCError({
-  //             code: "NOT_FOUND",
-  //             message: "Subscription not found",
-  //           });
-  //         }
-  //         return subscription;
-  //       } catch (error) {
-  //         if (error instanceof TRPCError) throw error;
-  //         throw new TRPCError({
-  //           code: "INTERNAL_SERVER_ERROR",
-  //           message:
-  //             error instanceof Error
-  //               ? error.message
-  //               : "Failed to update subscription",
-  //           cause: error,
-  //         });
-  //       }
-  //     }),
-
-  // Delete subscription
-  deleteSubscription: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
-    .mutation(async ({ input }) => {
-      try {
-        const [subscription] = await db
-          .delete(subscriptions)
-          .where(eq(subscriptions.id, input.id))
-          .returning();
-        if (!subscription) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Subscription not found",
-          });
-        }
-        return { success: true };
-      } catch (error) {
-        if (error instanceof TRPCError) throw error;
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Failed to delete subscription",
-          cause: error,
-        });
-      }
-    }),
-
-  // Get subscriptions by status
-  getSubscriptionsByStatus: protectedProcedure
-    .input(z.object({ status: z.string() }))
-    .query(async ({ input }) => {
-      try {
-        return await db.query.subscriptions.findMany({
-          where: eq(subscriptions.status, input.status),
-        });
-      } catch (error) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Failed to fetch subscriptions by status",
-          cause: error,
-        });
-      }
-    }),
-
   // Get subscriptions by plan
   getSubscriptionsByPlan: protectedProcedure
-    .input(z.object({ plan: z.string() }))
+    .input(subscriptionRouterSchema.getSubscriptionsByPlan)
     .query(async ({ input }) => {
       try {
-        return await db.query.subscriptions.findMany({
+        const subscriptionByPlan = await db.query.subscriptions.findMany({
           where: eq(subscriptions.plan, input.plan),
         });
+        return {
+          success: true,
+          message: "Subscriptions by plan fetched successfully",
+          data: subscriptionByPlan,
+        };
       } catch (error) {
+        if (error instanceof TRPCError) throw error;
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message:
@@ -173,7 +207,7 @@ export const subscriptionRouter = createTRPCRouter({
     }),
 
   getCurrentUserCompanySubscription: protectedProcedure
-    .input(z.object({ companyId: z.string().uuid() }))
+    .input(subscriptionRouterSchema.getCurrentUserCompanySubscription)
     .query(async ({ input }) => {
       const { companyId } = input;
 
@@ -198,7 +232,7 @@ export const subscriptionRouter = createTRPCRouter({
 
         return {
           success: true,
-          message: "Subscription fetched successfully",
+          message: "Current user company subscription fetched successfully",
           data: subscription,
         };
       } catch (error) {
@@ -209,6 +243,135 @@ export const subscriptionRouter = createTRPCRouter({
             error instanceof Error
               ? error.message
               : "Failed to fetch company subscription",
+        });
+      }
+    }),
+
+  getSubscriptionStatsByTimeframe: protectedProcedure
+    .input(subscriptionRouterSchema.getSubscriptionStatsByTimeframe)
+    .query(async ({ input }) => {
+      try {
+        const { timeframe, search, limit, page, sortBy, status, plan } = input;
+        const now = new Date();
+        let startDate: Date;
+
+        // Calculate start date based on timeframe
+        switch (timeframe) {
+          case "1d":
+            startDate = new Date(now.setDate(now.getDate() - 1));
+            break;
+          case "7d":
+            startDate = new Date(now.setDate(now.getDate() - 7));
+            break;
+          case "1m":
+            startDate = new Date(now.setMonth(now.getMonth() - 1));
+            break;
+          case "3m":
+            startDate = new Date(now.setMonth(now.getMonth() - 3));
+            break;
+          case "6m":
+            startDate = new Date(now.setMonth(now.getMonth() - 6));
+            break;
+          case "1y":
+            startDate = new Date(now.setFullYear(now.getFullYear() - 1));
+            break;
+          default:
+            startDate = new Date(now.setDate(now.getDate() - 1));
+        }
+
+        const filters: SQL[] = [
+          gte(subscriptions.dateCreated, startDate),
+          lte(subscriptions.dateCreated, new Date()),
+        ];
+
+        // Add status filter if provided
+        if (status) {
+          filters.push(eq(subscriptions.status, status));
+        }
+
+        // Add plan filter if provided
+        if (plan) {
+          filters.push(eq(subscriptions.plan, plan));
+        }
+
+        // Get sort order based on the selected option
+        const getSortOrder = () => {
+          switch (sortBy) {
+            case "old_to_new_date":
+              return asc(subscriptions.dateCreated);
+            case "new_to_old_date":
+              return desc(subscriptions.dateCreated);
+            case "high_to_low_overage":
+              return desc(subscriptions.overageUser);
+            case "low_to_high_overage":
+              return asc(subscriptions.overageUser);
+            default:
+              return desc(subscriptions.dateCreated);
+          }
+        };
+
+        // Get total count with company name search
+        const total = await db
+          .select({ count: count() })
+          .from(subscriptions)
+          .leftJoin(companies, eq(subscriptions.companyId, companies.id))
+          .where(
+            and(
+              ...filters,
+              search ? ilike(companies.companyName, `%${search}%`) : undefined,
+            ),
+          );
+
+        // Get paginated results with company name search
+        const subscriptionsData = await db
+          .select({
+            id: subscriptions.id,
+            stripeSubscriptionId: subscriptions.stripeSubscriptionId,
+            companyName: companies.companyName,
+            plan: subscriptions.plan,
+            amount: sql<number>`CAST(${subscriptions.amount} AS FLOAT)`,
+            billingInterval: subscriptions.billingInterval,
+            status: subscriptions.status,
+            userLimit: subscriptions.userLimit,
+            overageUser: subscriptions.overageUser,
+            currentPeriodEnd: subscriptions.currentPeriodEnd,
+            dateCreated: subscriptions.dateCreated,
+            updatedAt: subscriptions.updatedAt,
+          })
+          .from(subscriptions)
+          .leftJoin(companies, eq(subscriptions.companyId, companies.id))
+          .where(
+            and(
+              ...filters,
+              search ? ilike(companies.companyName, `%${search}%`) : undefined,
+            ),
+          )
+          .limit(limit)
+          .offset((page - 1) * limit)
+          .orderBy(getSortOrder());
+
+        return {
+          success: true,
+          message: `Subscription stats for ${timeframe} fetched successfully`,
+          total: total[0]?.count ?? 0,
+          limit,
+          page,
+          data: {
+            timeframe,
+            startDate,
+            endDate: new Date(),
+            subscriptions: subscriptionsData,
+          },
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to fetch subscription stats",
+          cause: error,
         });
       }
     }),

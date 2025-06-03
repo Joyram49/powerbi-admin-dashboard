@@ -8,6 +8,7 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
+import { z } from "zod";
 
 import { companies } from "./company";
 
@@ -48,3 +49,68 @@ export const subscriptions = pgTable("subscription", {
 });
 
 export type Subscription = typeof subscriptions.$inferSelect;
+
+export const subscriptionRouterSchema = {
+  getAllSubscriptions: z.object({
+    search: z.string().optional(),
+    limit: z.number().optional().default(10),
+    page: z.number().optional().default(1),
+    sortBy: z
+      .enum([
+        "old_to_new_date",
+        "new_to_old_date",
+        "high_to_low_overage",
+        "low_to_high_overage",
+      ])
+      .optional()
+      .default("new_to_old_date"),
+    status: z.enum(["active", "inactive", "trialing", "canceled"]).optional(),
+    plan: z
+      .enum([
+        "Data Foundation",
+        "Strategic Navigator",
+        "Insight Accelerator",
+        "Enterprise",
+      ])
+      .optional(),
+  }),
+
+  getSubscriptionStatsByTimeframe: z.object({
+    timeframe: z.enum(["1d", "7d", "1m", "3m", "6m", "1y"]),
+    search: z.string().optional(),
+    limit: z.number().optional().default(10),
+    page: z.number().optional().default(1),
+    sortBy: z
+      .enum([
+        "old_to_new_date",
+        "new_to_old_date",
+        "high_to_low_overage",
+        "low_to_high_overage",
+      ])
+      .optional()
+      .default("new_to_old_date"),
+    status: z.enum(["active", "inactive", "trialing", "canceled"]).optional(),
+    plan: z
+      .enum([
+        "Data Foundation",
+        "Strategic Navigator",
+        "Insight Accelerator",
+        "Enterprise",
+      ])
+      .optional(),
+  }),
+
+  getCompanySubscription: z.object({
+    companyId: z.string().uuid(),
+  }),
+  getSubscriptionById: z.object({
+    id: z.string().uuid(),
+  }),
+
+  getSubscriptionsByPlan: z.object({
+    plan: z.string(),
+  }),
+  getCurrentUserCompanySubscription: z.object({
+    companyId: z.string().uuid(),
+  }),
+};
