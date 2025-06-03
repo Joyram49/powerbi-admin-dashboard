@@ -35,7 +35,8 @@ interface BillingTableProps {
   onDownload?: (id: string) => void;
   onBulkDownload?: (ids: string[]) => void;
   onCompanyFilter: (search: string) => void;
-  onDateFilter: (filter: string) => void;
+  onDateFilter?: (filter: string) => void;
+  emptyMessage?: string;
 }
 
 export function BillingTable({
@@ -44,6 +45,7 @@ export function BillingTable({
   onBulkDownload,
   onCompanyFilter,
   onDateFilter,
+  emptyMessage,
 }: BillingTableProps) {
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
 
@@ -151,60 +153,71 @@ export function BillingTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {invoices.map((inv) => (
-              <TableRow
-                key={inv.id}
-                className="hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
-              >
-                <TableCell className="flex items-center justify-center text-gray-900 dark:text-gray-100">
-                  <Checkbox
-                    checked={selectedInvoices.includes(inv.id)}
-                    onCheckedChange={() => handleSelectInvoice(inv.id)}
-                    aria-label={`Select invoice ${inv.id}`}
-                    className="flex items-center justify-center"
-                  />
-                </TableCell>
-                <TableCell className="text-gray-900 dark:text-gray-100">
-                  {inv.companyName}
-                </TableCell>
-                <TableCell className="text-gray-900 dark:text-gray-100">
-                  {inv.id}
-                </TableCell>
-                <TableCell className="text-gray-900 dark:text-gray-100">
-                  {inv.date}
-                </TableCell>
-                <TableCell className="text-gray-900 dark:text-gray-100">
-                  <Badge
-                    variant={
-                      inv.status === "paid"
-                        ? "success"
-                        : inv.status === "outstanding"
-                          ? "secondary"
-                          : inv.status === "failed"
-                            ? "destructive"
-                            : "default"
-                    }
-                    className="capitalize"
-                  >
-                    {inv.status}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right text-gray-900 dark:text-gray-100">
-                  ${inv.amount.toLocaleString()}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      className="bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-600"
-                      onClick={() => onDownload?.(inv.id)}
-                    >
-                      Download
-                    </Button>
-                  </div>
+            {invoices.length === 0 && emptyMessage ? (
+              <TableRow>
+                <TableCell
+                  colSpan={7}
+                  className="text-center text-gray-500 dark:text-gray-400"
+                >
+                  {emptyMessage}
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              invoices.map((inv) => (
+                <TableRow
+                  key={inv.id}
+                  className="hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+                >
+                  <TableCell className="flex items-center justify-center text-gray-900 dark:text-gray-100">
+                    <Checkbox
+                      checked={selectedInvoices.includes(inv.id)}
+                      onCheckedChange={() => handleSelectInvoice(inv.id)}
+                      aria-label={`Select invoice ${inv.id}`}
+                      className="flex items-center justify-center"
+                    />
+                  </TableCell>
+                  <TableCell className="text-gray-900 dark:text-gray-100">
+                    {inv.companyName}
+                  </TableCell>
+                  <TableCell className="text-gray-900 dark:text-gray-100">
+                    {inv.id}
+                  </TableCell>
+                  <TableCell className="text-gray-900 dark:text-gray-100">
+                    {inv.date}
+                  </TableCell>
+                  <TableCell className="text-gray-900 dark:text-gray-100">
+                    <Badge
+                      variant={
+                        inv.status === "paid"
+                          ? "success"
+                          : inv.status === "outstanding"
+                            ? "secondary"
+                            : inv.status === "failed"
+                              ? "destructive"
+                              : "default"
+                      }
+                      className="capitalize"
+                    >
+                      {inv.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right text-gray-900 dark:text-gray-100">
+                    ${inv.amount.toLocaleString()}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        className="bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-600"
+                        onClick={() => onDownload?.(inv.id)}
+                      >
+                        Download
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>

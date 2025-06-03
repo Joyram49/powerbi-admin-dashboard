@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import { Loader2 } from "lucide-react";
 
@@ -15,28 +16,42 @@ import {
 import { toast } from "@acme/ui/toast";
 
 import { api } from "~/trpc/react";
+import { Pagination } from "../../_components/Pagination";
+import { useDebounce } from "../../../../hooks/useDebounce";
 import { BillingTable } from "./_components/BillingTable";
 import { KpiCard } from "./_components/KpiCard";
-import { TransactionFilter } from "./_components/TransactionFilter";
-import { TransactionsTable } from "./_components/TransactionsTable";
 
 export default function BillingPage() {
-  const [dateRange] = useState<{
-    startDate: Date;
-    endDate: Date;
-  }>({
-    startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)),
-    endDate: new Date(),
-  });
+  const [companyFilter, setCompanyFilter] = useState("");
+  const debouncedCompanyFilter = useDebounce(companyFilter, 300);
+  const [transactionStatus, setTransactionStatus] = useState<
+    "all" | "paid" | "unpaid" | "past_due" | "failed" | "outstanding"
+  >("all");
+  const [kpiFilter, setKpiFilter] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<
+    | "new_to_old_billing"
+    | "old_to_new_billing"
+    | "high_to_low_amount"
+    | "low_to_high_amount"
+  >("new_to_old_billing");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   const [selectedCompanyId, setSelectedCompanyId] = useState<
     string | undefined
   >(undefined);
-  const [dateFilter, setDateFilter] = useState("all");
-  const [companyFilter, setCompanyFilter] = useState("");
-  const [transactionStatus, setTransactionStatus] = useState("all");
-  const [kpiFilter, setKpiFilter] = useState<string | null>(null);
 
-  // Fetch all companies
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // On mount, set selectedCompanyId from URL if present
+  useEffect(() => {
+    const companyIdFromUrl = searchParams.get("companyId");
+    if (companyIdFromUrl) {
+      setSelectedCompanyId(companyIdFromUrl);
+    }
+  }, [searchParams]);
+
+  // Fetch all companies for the dropdown
   const { data: companiesData, isLoading: companiesLoading } =
     api.company.getAllCompanies.useQuery(
       {
@@ -47,149 +62,95 @@ export default function BillingPage() {
         enabled: true,
       },
     );
-
   const companies = useMemo(
     () => companiesData?.data ?? [],
     [companiesData?.data],
   );
 
-  // Fetch all billings for the company
+  // Fetch all billings using the new API
   const {
-    data: billings,
+    data: billingsData,
     isLoading: billingsLoading,
     error: billingsError,
-  } = api.billing.getCompanyBillings.useQuery(
+  } = api.billing.getAllBillings.useQuery(
     {
-      companyId: selectedCompanyId ?? "",
+      search: selectedCompanyId
+        ? (companies.find((c) => c.id === selectedCompanyId)?.companyName ?? "")
+        : debouncedCompanyFilter,
+      limit,
+      page,
+      sortBy,
+      status:
+        transactionStatus === "all" || transactionStatus === "outstanding"
+          ? undefined
+          : (transactionStatus as
+              | "paid"
+              | "unpaid"
+              | "past_due"
+              | "failed"
+              | undefined),
+      plan: undefined,
     },
     {
-      enabled: !!selectedCompanyId && selectedCompanyId !== "",
+      enabled: !companiesLoading,
+      retry: 1,
+      refetchOnWindowFocus: false,
     },
   );
+  const billings = useMemo(
+    () => billingsData?.data ?? [],
+    [billingsData?.data],
+  );
 
-  // Fetch billings by date range
-  const { data: dateRangeBillings, error: dateRangeError } =
-    api.billing.getBillingsByDateRange.useQuery(
-      {
-        companyId: selectedCompanyId ?? "",
-        startDate: dateRange.startDate,
-        endDate: dateRange.endDate,
-      },
-      {
-        enabled: !!selectedCompanyId && selectedCompanyId !== "",
-      },
-    );
-
-  // Fetch billings by status
-  const { data: statusBillings, error: statusError } =
-    api.billing.getBillingsByStatus.useQuery(
-      {
-        companyId: selectedCompanyId ?? "",
-        status: "outstanding",
-      },
-      {
-        enabled: !!selectedCompanyId && selectedCompanyId !== "",
-      },
-    );
-
-  // Fetch current active subscription
+  // Fetch total revenue using the API
   const {
-    data: subscriptionData,
-    isLoading: subscriptionLoading,
-    error: subscriptionError,
-  } = api.subscription.getCurrentUserCompanySubscription.useQuery(
-    {
-      companyId: selectedCompanyId ?? "",
-    },
-    {
-      enabled: !!selectedCompanyId && selectedCompanyId !== "",
-    },
-  );
+    data: totalRevenueData,
+    isLoading: totalRevenueLoading,
+    error: totalRevenueError,
+  } = api.billing.getTotalRevenue.useQuery({});
 
-  // Check for any errors
-  const hasError =
-    billingsError ?? dateRangeError ?? statusError ?? subscriptionError;
+  // KPI calculations
+  const outstandingAR = billings
+    .filter((b) => b.status === "outstanding")
+    .reduce((sum, b) => sum + Number(b.amount), 0);
+  const outstandingCount = billings.filter(
+    (b) => b.status === "outstanding",
+  ).length;
+  // Monthly recurring and new subs 30-day would require subscription data or more info
+  const monthlyRecurring = 0;
+  const newSubs30Day = 0;
 
-  // KPI calculations with null checks
-  const totalRevenue =
-    billings?.reduce((sum, b) => sum + Number(b.amount), 0) ?? 0;
-  const outstandingAR =
-    statusBillings?.reduce((sum, b) => sum + Number(b.amount), 0) ?? 0;
-  const outstandingCount = statusBillings?.length ?? 0;
-  const monthlyRecurring = subscriptionData?.data?.amount ?? 0;
-  const newSubs30Day =
-    dateRangeBillings?.filter((b) => b.status === "new").length ?? 0;
-
-  const transactions =
-    billings
-      ?.filter(
-        (b) => transactionStatus === "all" || b.status === transactionStatus,
-      )
-      .map((b) => ({
-        id: b.id,
-        date: format(new Date(b.billingDate), "MMM dd, yyyy"),
-        description: b.plan,
-        status: b.status,
-        amount: Number(b.amount),
-        paymentStatus: b.paymentStatus,
-      })) ?? [];
-
-  // Filter invoices based on date, company, and KPI filter
+  // Filtered invoices for the billing table
   const filteredInvoices = useMemo(() => {
-    const invoices =
-      billings?.map((b) => ({
-        id: b.id,
-        date: format(new Date(b.billingDate), "MMM dd, yyyy"),
-        status: b.status,
-        amount: Number(b.amount),
-        plan: b.plan,
-        paymentStatus: b.paymentStatus,
-        companyName:
-          companies.find((c) => c.id === selectedCompanyId)?.companyName ?? "",
-        pdfUrl: b.pdfLink ?? "",
-      })) ?? [];
-
-    return invoices.filter((invoice) => {
-      const matchesCompany = invoice.companyName
-        .toLowerCase()
-        .includes(companyFilter.toLowerCase());
-
-      const invoiceDate = new Date(invoice.date);
-      const now = new Date();
-      const daysDiff = Math.floor(
-        (now.getTime() - invoiceDate.getTime()) / (1000 * 60 * 60 * 24),
+    let invoices = billings.map((b) => ({
+      id: b.id,
+      date: format(new Date(b.billingDate), "MMM dd, yyyy"),
+      status: b.status,
+      amount: Number(b.amount),
+      plan: "",
+      paymentStatus: b.status,
+      companyName: b.companyName ?? "",
+      pdfUrl: b.pdfLink ?? "",
+    }));
+    if (kpiFilter) {
+      invoices = invoices.filter((invoice) => invoice.status === kpiFilter);
+    }
+    if (companyFilter) {
+      invoices = invoices.filter((invoice) =>
+        invoice.companyName.toLowerCase().includes(companyFilter.toLowerCase()),
       );
-
-      const matchesDate =
-        dateFilter === "all" ||
-        (dateFilter === "30" && daysDiff <= 30) ||
-        (dateFilter === "90" && daysDiff <= 90);
-
-      // Apply KPI filter
-      const matchesKpiFilter = !kpiFilter || invoice.status === kpiFilter;
-
-      return matchesCompany && matchesDate && matchesKpiFilter;
-    });
-  }, [
-    billings,
-    companies,
-    selectedCompanyId,
-    companyFilter,
-    dateFilter,
-    kpiFilter,
-  ]);
+    }
+    return invoices;
+  }, [billings, kpiFilter, companyFilter]);
 
   // Handle KPI card filter changes
   const handleKpiFilterChange = (filter: string) => {
     setKpiFilter(filter);
-    // Reset other filters when KPI filter is applied
-    setDateFilter("all");
-    setCompanyFilter("");
   };
 
   // Download handler for individual invoices
   const handleDownload = (id: string) => {
-    const billing = billings?.find((b) => b.id === id);
+    const billing = billings.find((b) => b.id === id);
     if (billing?.pdfLink) {
       window.open(billing.pdfLink, "_blank");
     } else {
@@ -200,31 +161,22 @@ export default function BillingPage() {
   // Handle bulk download
   const handleBulkDownload = async (ids: string[]) => {
     try {
-      // Get all valid PDF links
       const pdfLinks = ids
-        .map((id) => billings?.find((b) => b.id === id)?.pdfLink)
+        .map((id) => billings.find((b) => b.id === id)?.pdfLink)
         .filter((link): link is string => !!link);
-
       if (pdfLinks.length === 0) {
         toast.error("No PDFs available for selected invoices");
         return;
       }
-
-      // Create a download queue
       const downloadQueue = async () => {
         for (const link of pdfLinks) {
-          // Create a temporary link element
           const linkElement = document.createElement("a");
           linkElement.href = link;
           linkElement.target = "_blank";
           linkElement.click();
-
-          // Wait for 1 second before next download
           await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       };
-
-      // Start the download queue
       await downloadQueue();
     } catch (error) {
       toast.error("Error downloading invoices");
@@ -232,31 +184,33 @@ export default function BillingPage() {
     }
   };
 
-  if (billingsLoading || subscriptionLoading) {
-    return (
-      <div className="flex h-96 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-500 dark:text-slate-400" />
-      </div>
-    );
-  }
+  const total = billingsData?.total ?? 0;
+  const totalPages = Math.ceil(total / limit);
 
-  if (hasError) {
+  // Determine if a company is selected and has no billing data at all
+  const selectedCompany = companies.find((c) => c.id === selectedCompanyId);
+  const allCompanyBillings =
+    billingsData?.data.filter(
+      (b) =>
+        !selectedCompanyId || b.companyName === selectedCompany?.companyName,
+    ) ?? [];
+  const showNoBillingData =
+    selectedCompanyId && !billingsLoading && allCompanyBillings.length === 0;
+
+  if (billingsError) {
     return (
       <div className="flex h-96 flex-col items-center justify-center gap-4">
         <div className="text-lg font-semibold text-red-500">
           Error loading billing data
         </div>
         <div className="text-sm text-gray-500 dark:text-gray-400">
-          {billingsError?.message ??
-            dateRangeError?.message ??
-            statusError?.message ??
-            subscriptionError?.message ??
-            "Please try selecting a different company or try again later"}
+          {billingsError.message || "Please try again later"}
         </div>
         <Button
           variant="outline"
           onClick={() => {
             setSelectedCompanyId(undefined);
+            setCompanyFilter("");
           }}
         >
           Clear Selection
@@ -264,9 +218,6 @@ export default function BillingPage() {
       </div>
     );
   }
-
-  const hasNoData =
-    !selectedCompanyId || (!billings?.length && !subscriptionData?.data);
 
   return (
     <div className="mt-5 min-h-screen w-full bg-gray-50/50 p-4 dark:bg-slate-900/50 sm:p-6">
@@ -276,12 +227,20 @@ export default function BillingPage() {
         </h1>
         <div className="mb-4">
           <Select
-            value={selectedCompanyId}
+            value={selectedCompanyId ?? ""}
             onValueChange={(value) => {
               if (value === "") {
                 setSelectedCompanyId(undefined);
+                // Remove companyId from URL
+                const params = new URLSearchParams(searchParams.toString());
+                params.delete("companyId");
+                router.replace(`billing?${params.toString()}`);
               } else {
                 setSelectedCompanyId(value);
+                // Set companyId in URL
+                const params = new URLSearchParams(searchParams.toString());
+                params.set("companyId", value);
+                router.replace(`billing?${params.toString()}`);
               }
             }}
             disabled={companiesLoading}
@@ -318,39 +277,54 @@ export default function BillingPage() {
               )}
             </SelectContent>
           </Select>
+          {/* Clear selection button */}
+          {selectedCompanyId && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2 border-gray-200 text-gray-700 hover:bg-gray-100 dark:border-blue-800 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
+              onClick={() => {
+                setSelectedCompanyId(undefined);
+                const params = new URLSearchParams(searchParams.toString());
+                params.delete("companyId");
+                router.replace(`billing?${params.toString()}`);
+              }}
+            >
+              Clear Selection
+            </Button>
+          )}
         </div>
 
-        {hasNoData ? (
-          <div className="flex h-96 flex-col items-center justify-center gap-4">
-            <div className="text-lg font-semibold text-gray-900 dark:text-slate-50">
-              {!selectedCompanyId
-                ? "Please select a company"
-                : "No Billing Data Available"}
+        <div className="relative">
+          {billingsLoading && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 dark:bg-gray-900/60">
+              <Loader2 className="h-8 w-8 animate-spin text-gray-500 dark:text-slate-400" />
             </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              {!selectedCompanyId
-                ? "Select a company to view its billing information"
-                : "This company has no billing history or active subscription"}
-            </div>
-          </div>
-        ) : (
+          )}
+
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
             {/* KPI Cards */}
             <div className="col-span-4 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
               <KpiCard
                 title="Total Revenue"
-                value={`$${totalRevenue.toLocaleString()}`}
+                value={
+                  totalRevenueLoading
+                    ? "Loading..."
+                    : totalRevenueError
+                      ? "Error"
+                      : `$${(totalRevenueData?.data ?? 0).toLocaleString()}`
+                }
                 className="border-gray-200 bg-white dark:!border-gray-700 dark:bg-gray-800"
                 onFilterChange={handleKpiFilterChange}
               />
               <KpiCard
                 title="Monthly Recurring"
-                value={`$${monthlyRecurring}`}
+                value={`$${monthlyRecurring.toLocaleString()}`}
                 className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
               />
               <KpiCard
                 title="Outstanding AR"
-                value={`$${outstandingAR}`}
+                value={`$${outstandingAR.toLocaleString()}`}
                 className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
                 onFilterChange={handleKpiFilterChange}
               />
@@ -367,29 +341,16 @@ export default function BillingPage() {
                 onFilterChange={handleKpiFilterChange}
               />
             </div>
-
-            {/* Transactions Table */}
-            <div className="col-span-4">
-              <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-                <div className="mb-2 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-                  <span className="text-lg font-semibold text-gray-900 dark:text-slate-50">
-                    Recent Transactions
-                  </span>
-                  <TransactionFilter
-                    options={[
-                      { label: "All", value: "all" },
-                      { label: "Paid", value: "paid" },
-                      { label: "Outstanding", value: "outstanding" },
-                      { label: "Failed", value: "failed" },
-                    ]}
-                    value={transactionStatus}
-                    onChange={setTransactionStatus}
-                  />
+            {showNoBillingData && (
+              <div className="flex h-96 flex-col items-center justify-center gap-4">
+                <div className="text-lg font-semibold text-gray-900 dark:text-slate-50">
+                  No Billing Data Available
                 </div>
-                <TransactionsTable transactions={transactions} />
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  This company has no billing history
+                </div>
               </div>
-            </div>
-
+            )}
             {/* Billing Table */}
             <div className="col-span-4">
               <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
@@ -398,10 +359,8 @@ export default function BillingPage() {
                     Billing History
                   </span>
                   {kpiFilter && (
-                    <div className="flex text-sm items-center gap-2">
-                      <span className=" text-gray-500">
-                        Filtered by:
-                      </span>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-gray-500">Filtered by:</span>
                       <span className="text-gray-500 dark:text-white">
                         {kpiFilter.charAt(0).toUpperCase() + kpiFilter.slice(1)}
                       </span>
@@ -421,12 +380,26 @@ export default function BillingPage() {
                   onDownload={handleDownload}
                   onBulkDownload={handleBulkDownload}
                   onCompanyFilter={setCompanyFilter}
-                  onDateFilter={setDateFilter}
+                  emptyMessage={
+                    !billingsLoading && filteredInvoices.length === 0
+                      ? "No results found."
+                      : undefined
+                  }
+                />
+
+                {/* Pagination Controls */}
+                <Pagination
+                  currentPage={page}
+                  totalPages={totalPages}
+                  totalItems={total}
+                  pageSize={limit}
+                  onPageChange={setPage}
+                  onPageSizeChange={setLimit}
                 />
               </div>
             </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
