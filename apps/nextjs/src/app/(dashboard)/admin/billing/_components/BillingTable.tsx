@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Loader2 } from "lucide-react";
 
 import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
@@ -36,6 +37,7 @@ interface BillingTableProps {
   onBulkDownload?: (ids: string[]) => void;
   onCompanyFilter: (search: string) => void;
   onDateFilter: (filter: string) => void;
+  loading?: boolean;
 }
 
 export function BillingTable({
@@ -44,6 +46,7 @@ export function BillingTable({
   onBulkDownload,
   onCompanyFilter,
   onDateFilter,
+  loading = false,
 }: BillingTableProps) {
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
 
@@ -115,7 +118,12 @@ export function BillingTable({
       )}
 
       {/* Table */}
-      <div className="rounded-md border border-gray-200 dark:border-gray-700">
+      <div className="relative rounded-md border border-gray-200 dark:border-gray-700">
+        {loading && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 dark:bg-gray-900/60">
+            <Loader2 className="h-8 w-8 animate-spin text-gray-500 dark:text-slate-400" />
+          </div>
+        )}
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800">

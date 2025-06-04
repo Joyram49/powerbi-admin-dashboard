@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 
 import { stripe } from "@acme/api";
-import { Button } from "@acme/ui/button";
 
 import { api } from "~/trpc/server";
+import { SuccessContent } from "./SuccessContent";
+import { toast } from "@acme/ui/toast";
 
 interface SuccessPageProps {
   searchParams: {
@@ -33,7 +34,7 @@ export default async function Success({ searchParams }: SuccessPageProps) {
         companyId,
       });
     } catch (error) {
-      console.error("Failed to reset subscription plan:", error);
+      toast.error("Failed to reset subscription plan:", error);
     }
   }
 

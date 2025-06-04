@@ -30,8 +30,10 @@ interface PricingTierCardProps {
   };
   isActive: boolean;
   onSubscribe: (tierId: TierId) => void;
-  loading: string | null;
+  loading: string | null | boolean;
   selectedCompanyId: string | undefined;
+  isPreferredPlan?: boolean;
+  isUpgrade?: boolean;
 }
 
 export function PricingTierCard({
@@ -40,6 +42,8 @@ export function PricingTierCard({
   onSubscribe,
   loading,
   selectedCompanyId,
+  isPreferredPlan = false,
+  isUpgrade = false,
 }: PricingTierCardProps) {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -53,7 +57,11 @@ export function PricingTierCard({
           ? isHovered
             ? "bg-gradient-to-r from-blue-500 via-pink-500 to-purple-500"
             : "bg-gradient-to-l from-blue-500 via-purple-500 to-pink-500"
-          : "from-blue-500 via-purple-500 to-pink-500 hover:bg-gradient-to-l",
+          : isPreferredPlan
+            ? "bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500"
+            : isUpgrade
+              ? "bg-gradient-to-r from-purple-500 via-indigo-500 to-blue-500"
+              : "from-blue-500 via-purple-500 to-pink-500 hover:bg-gradient-to-l",
       )}
     >
       <Card className="relative flex h-full flex-col rounded-lg border-none bg-white transition-all duration-300 hover:shadow-lg dark:bg-gray-800">
@@ -65,7 +73,7 @@ export function PricingTierCard({
             {tier.description}
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex-grow py-6">
+        <CardContent className="flex-grow p-6">
           <p className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-2xl font-bold text-transparent dark:from-blue-400 dark:to-purple-400">
             {tier.price}
           </p>
@@ -92,7 +100,14 @@ export function PricingTierCard({
         </CardContent>
         <CardFooter className="p-6">
           <Button
-            className="w-full rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 py-3 font-semibold text-white transition-all duration-300 hover:from-blue-700 hover:to-blue-800 dark:from-blue-500 dark:to-blue-600 dark:hover:from-blue-600 dark:hover:to-blue-700"
+            className={cn(
+              "w-full rounded-lg py-3 font-semibold text-white transition-all duration-300",
+              isPreferredPlan
+                ? "bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 dark:from-green-500 dark:to-emerald-500 dark:hover:from-green-600 dark:hover:to-emerald-600"
+                : isUpgrade
+                  ? "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 dark:from-purple-500 dark:to-indigo-500 dark:hover:from-purple-600 dark:hover:to-indigo-600"
+                  : "bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 dark:from-blue-500 dark:via-indigo-500 dark:to-purple-500 dark:hover:from-blue-600 dark:hover:via-indigo-600 dark:hover:to-purple-600",
+            )}
             onClick={() => onSubscribe(tier.id)}
             disabled={loading !== null || isActive || !selectedCompanyId}
           >
@@ -122,6 +137,10 @@ export function PricingTierCard({
               </span>
             ) : isActive ? (
               "Subscribed"
+            ) : isPreferredPlan ? (
+              "Activate"
+            ) : isUpgrade ? (
+              "Update"
             ) : (
               "Subscribe"
             )}

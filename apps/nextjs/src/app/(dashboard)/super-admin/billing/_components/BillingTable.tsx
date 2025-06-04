@@ -20,6 +20,8 @@ import {
   TableRow,
 } from "@acme/ui/table";
 
+import { BillingTableSkeleton } from "./BillingTableSkeleton";
+
 interface Invoice {
   id: string;
   date: string;
@@ -37,6 +39,7 @@ interface BillingTableProps {
   onCompanyFilter: (search: string) => void;
   onDateFilter?: (filter: string) => void;
   emptyMessage?: string;
+  onLoading?: boolean;
 }
 
 export function BillingTable({
@@ -46,6 +49,7 @@ export function BillingTable({
   onCompanyFilter,
   onDateFilter,
   emptyMessage,
+  onLoading,
 }: BillingTableProps) {
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
 
@@ -60,6 +64,31 @@ export function BillingTable({
         : [...prev, id],
     );
   };
+
+  if (onLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-col gap-4 sm:flex-row">
+          <Input
+            placeholder="Search companies..."
+            disabled
+            className="w-full border-gray-200 bg-white text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 sm:w-64"
+          />
+          <Select disabled defaultValue="all" onValueChange={onDateFilter}>
+            <SelectTrigger className="w-full border-gray-200 bg-white text-gray-900 ring-offset-white focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:ring-offset-gray-800 dark:focus:ring-blue-400 sm:w-48">
+              <SelectValue placeholder="Select date range" />
+            </SelectTrigger>
+            <SelectContent className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+              <SelectItem value="all">All Time</SelectItem>
+              <SelectItem value="30">Last 30 Days</SelectItem>
+              <SelectItem value="90">Last 90 Days</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <BillingTableSkeleton rowCount={10} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -117,11 +146,11 @@ export function BillingTable({
       )}
 
       {/* Table */}
-      <div className="rounded-md border border-gray-200 dark:border-gray-700">
+      <div className="relative rounded-md border border-gray-200 dark:border-gray-700">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800">
-              <TableHead className="w-[50px] text-gray-900 dark:text-gray-100">
+              <TableHead className="flex w-[50px] items-center justify-center">
                 <Checkbox
                   checked={
                     invoices.length > 0 &&
@@ -129,7 +158,6 @@ export function BillingTable({
                   }
                   onCheckedChange={handleSelectAll}
                   aria-label="Select all"
-                  className="flex items-center justify-center"
                 />
               </TableHead>
               <TableHead className="text-gray-900 dark:text-gray-100">
@@ -168,12 +196,11 @@ export function BillingTable({
                   key={inv.id}
                   className="hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
                 >
-                  <TableCell className="flex items-center justify-center text-gray-900 dark:text-gray-100">
+                  <TableCell className="flex h-[56px] items-center justify-center">
                     <Checkbox
                       checked={selectedInvoices.includes(inv.id)}
                       onCheckedChange={() => handleSelectInvoice(inv.id)}
                       aria-label={`Select invoice ${inv.id}`}
-                      className="flex items-center justify-center"
                     />
                   </TableCell>
                   <TableCell className="text-gray-900 dark:text-gray-100">

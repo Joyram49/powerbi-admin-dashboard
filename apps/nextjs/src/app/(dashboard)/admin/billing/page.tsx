@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { format } from "date-fns";
+import { endOfDay, format, startOfDay, subDays } from "date-fns";
 import { AlertCircle, Loader2 } from "lucide-react";
 
-import type { Subscription } from "@acme/db";
+import type { Billing, Subscription } from "@acme/db";
 import { Alert, AlertDescription, AlertTitle } from "@acme/ui/alert";
 import { Button } from "@acme/ui/button";
 import {
@@ -18,8 +18,6 @@ import {
 import { toast } from "@acme/ui/toast";
 
 import { BillingTable } from "~/app/(dashboard)/super-admin/billing/_components/BillingTable";
-import { TransactionFilter } from "~/app/(dashboard)/super-admin/billing/_components/TransactionFilter";
-import { TransactionsTable } from "~/app/(dashboard)/super-admin/billing/_components/TransactionsTable";
 import { api } from "~/trpc/react";
 import { PricingTierCard } from "./_components/PricingTierCard";
 
@@ -36,12 +34,12 @@ interface SubscriptionState {
 }
 
 export default function BillingPage() {
-  const [loading, setLoading] = useState<string | null>(null);
+  const [loading, setLoading] = useState<string | null | boolean>(null);
   const [email, setEmail] = useState("");
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>();
-  const [transactionStatus, setTransactionStatus] = useState("all");
   const [companyFilter, setCompanyFilter] = useState("");
-  const [dateFilter, setDateFilter] = useState("all");
+  const [dateRange, setDateRange] = useState<"all" | "30" | "90">("all");
+  const [isChangingCompany, setIsChangingCompany] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -95,15 +93,54 @@ export default function BillingPage() {
     },
   );
 
-  const { data: billings, isLoading: billingsLoading } =
-    api.billing.getCompanyBillings.useQuery(
-      {
-        companyId: selectedCompanyId ?? "",
-      },
-      {
-        enabled: !!selectedCompanyId && selectedCompanyId !== "",
-      },
-    );
+  const now = new Date();
+  let startDate: Date | null = null;
+  let endDate: Date | null = null;
+
+  if (dateRange !== "all") {
+    const days = dateRange === "30" ? 30 : 90;
+    startDate = startOfDay(subDays(now, days));
+    endDate = endOfDay(now);
+  }
+
+  const { data: billingData, isLoading: billingsLoading } =
+    dateRange === "all"
+      ? api.billing.getCompanyBilling.useQuery(
+          {
+            companyId: selectedCompanyId ?? "",
+          },
+          {
+            enabled: !!selectedCompanyId && selectedCompanyId !== "",
+          },
+        )
+      : api.billing.getBillingsByDateRange.useQuery(
+          {
+            companyId: selectedCompanyId ?? "",
+            startDate: startDate!,
+            endDate: endDate!,
+          },
+          {
+            enabled:
+              !!selectedCompanyId &&
+              selectedCompanyId !== "" &&
+              !!startDate &&
+              !!endDate,
+          },
+        );
+
+  const billings: Billing[] = useMemo(() => {
+    if (!billingData) return [];
+    if (
+      "billingRecords" in billingData &&
+      Array.isArray(billingData.billingRecords)
+    ) {
+      return billingData.billingRecords;
+    }
+    if (Array.isArray(billingData)) {
+      return billingData;
+    }
+    return [];
+  }, [billingData]);
 
   const subscriptionState: SubscriptionState = {
     data: subscriptionResponse?.data ?? null,
@@ -111,60 +148,27 @@ export default function BillingPage() {
     error: subscriptionError?.message ?? null,
   };
 
-  const transactions =
-    billings
-      ?.filter(
-        (b) => transactionStatus === "all" || b.status === transactionStatus,
-      )
-      .map((b) => ({
-        id: b.id,
-        date: format(new Date(b.billingDate), "MMM dd, yyyy"),
-        description: b.plan,
-        status: b.status,
-        amount: Number(b.amount),
-        paymentStatus: b.paymentStatus,
-      })) ?? [];
-
   const filteredInvoices = useMemo(() => {
-    const invoices =
-      billings?.map((b) => ({
-        id: b.id,
-        date: format(new Date(b.billingDate), "MMM dd, yyyy"),
-        status: b.status,
-        amount: Number(b.amount),
-        plan: b.plan,
-        paymentStatus: b.paymentStatus,
-        companyName:
-          companiesData?.data.find((c) => c.id === selectedCompanyId)
-            ?.companyName ?? "",
-        pdfUrl: b.pdfLink ?? "",
-      })) ?? [];
+    const invoices = billings.map((b: Billing) => ({
+      id: b.id,
+      date: format(new Date(b.billingDate), "MMM dd, yyyy"),
+      status: b.status,
+      amount: Number(b.amount),
+      plan: b.plan,
+      paymentStatus: b.paymentStatus,
+      companyName:
+        companiesData?.data.find((c) => c.id === selectedCompanyId)
+          ?.companyName ?? "",
+      pdfUrl: b.pdfLink ?? "",
+    }));
 
-    return invoices.filter((invoice) => {
+    return invoices.filter((invoice: (typeof invoices)[number]) => {
       const matchesCompany = invoice.companyName
         .toLowerCase()
         .includes(companyFilter.toLowerCase());
-
-      const invoiceDate = new Date(invoice.date);
-      const now = new Date();
-      const daysDiff = Math.floor(
-        (now.getTime() - invoiceDate.getTime()) / (1000 * 60 * 60 * 24),
-      );
-
-      const matchesDate =
-        dateFilter === "all" ||
-        (dateFilter === "30" && daysDiff <= 30) ||
-        (dateFilter === "90" && daysDiff <= 90);
-
-      return matchesCompany && matchesDate;
+      return matchesCompany;
     });
-  }, [
-    billings,
-    companiesData?.data,
-    selectedCompanyId,
-    companyFilter,
-    dateFilter,
-  ]);
+  }, [billings, companiesData?.data, selectedCompanyId, companyFilter]);
 
   const lastToastCompanyId = useRef<string | undefined>();
 
@@ -177,7 +181,7 @@ export default function BillingPage() {
     onError: (error) => {
       console.error("Error creating checkout session:", error);
       toast.error(error.message || "Error creating checkout session");
-      setLoading(null);
+      setLoading(false);
     },
   });
 
@@ -190,7 +194,7 @@ export default function BillingPage() {
     onError: (error) => {
       console.error("Error creating portal session:", error);
       toast.error(error.message || "Error creating portal session");
-      setLoading(null);
+      setLoading(false);
     },
   });
 
@@ -205,7 +209,7 @@ export default function BillingPage() {
       return;
     }
 
-    setLoading(tierId);
+    setLoading(true);
 
     createCheckout.mutate({
       tier: tierId,
@@ -220,7 +224,7 @@ export default function BillingPage() {
       return;
     }
 
-    setLoading("manage");
+    setLoading(true);
 
     createPortal.mutate({
       companyId: selectedCompanyId,
@@ -229,7 +233,7 @@ export default function BillingPage() {
 
   // Download handler for individual invoices
   const handleDownload = (id: string) => {
-    const billing = billings?.find((b) => b.id === id);
+    const billing = billings.find((b: Billing) => b.id === id);
     if (billing?.pdfLink) {
       window.open(billing.pdfLink, "_blank");
     } else {
@@ -241,7 +245,7 @@ export default function BillingPage() {
   const handleBulkDownload = async (ids: string[]) => {
     try {
       const pdfLinks = ids
-        .map((id) => billings?.find((b) => b.id === id)?.pdfLink)
+        .map((id) => billings.find((b: Billing) => b.id === id)?.pdfLink)
         .filter((link): link is string => !!link);
 
       if (pdfLinks.length === 0) {
@@ -401,14 +405,6 @@ export default function BillingPage() {
 
     if (!subscriptionState.data?.id) return null;
 
-    if (billingsLoading) {
-      return (
-        <div className="flex h-96 items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-gray-500 dark:text-slate-400" />
-        </div>
-      );
-    }
-
     return (
       <>
         <div className="mb-6">
@@ -456,12 +452,10 @@ export default function BillingPage() {
         <form action={handleManageSubscription} className="mb-6 flex gap-4">
           <Button
             type="submit"
-            disabled={
-              loading === "manage" || !subscriptionState.data.stripeCustomerId
-            }
+            disabled={!!loading || !subscriptionState.data.stripeCustomerId}
             className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white [text-shadow:_0_1px_2px_rgb(0_0_0_/_40%)] hover:from-blue-700 hover:to-indigo-700 hover:[text-shadow:none] dark:from-blue-500 dark:to-indigo-500 dark:hover:from-blue-600 dark:hover:to-indigo-600"
           >
-            {loading === "manage" ? (
+            {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Loading...
@@ -484,42 +478,16 @@ export default function BillingPage() {
         </form>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-          {/* Transactions Table */}
-          <div className="col-span-4">
-            <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-              <div className="mb-2 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-                <span className="text-lg font-semibold text-gray-900 dark:text-slate-50">
-                  Recent Transactions
-                </span>
-                <TransactionFilter
-                  options={[
-                    { label: "All", value: "all" },
-                    { label: "Paid", value: "paid" },
-                    { label: "Outstanding", value: "outstanding" },
-                    { label: "Failed", value: "failed" },
-                  ]}
-                  value={transactionStatus}
-                  onChange={setTransactionStatus}
-                />
-              </div>
-              <TransactionsTable transactions={transactions} />
-            </div>
-          </div>
-
           {/* Billing Table */}
           <div className="col-span-4">
-            <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-              <div className="mb-2 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-                <span className="text-lg font-semibold text-gray-900 dark:text-slate-50">
-                  Billing History
-                </span>
-              </div>
+            <div className="relative rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
               <BillingTable
                 invoices={filteredInvoices}
                 onDownload={handleDownload}
                 onBulkDownload={handleBulkDownload}
                 onCompanyFilter={setCompanyFilter}
-                onDateFilter={setDateFilter}
+                onLoading={billingsLoading}
+                onDateFilter={(val) => setDateRange(val as "all" | "30" | "90")}
               />
             </div>
           </div>
@@ -621,95 +589,114 @@ export default function BillingPage() {
     <div className="container mx-auto px-4 py-16">
       {renderSubscriptionContent()}
 
-      {!subscriptionState.data && !hasPreferredPlan && (
-        <>
-          <h1 className="mb-12 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-700 bg-clip-text text-center text-4xl font-bold text-transparent dark:from-blue-400 dark:via-purple-400 dark:to-pink-400">
-            Choose Your Plan
-          </h1>
+      {!subscriptionState.data &&
+        !hasPreferredPlan &&
+        !isChangingCompany &&
+        !subscriptionLoading &&
+        !companiesLoading &&
+        !billingsLoading &&
+        companiesData?.data &&
+        selectedCompanyId && (
+          <>
+            <h1 className="mb-12 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-700 bg-clip-text text-center text-4xl font-bold text-transparent dark:from-blue-400 dark:via-purple-400 dark:to-pink-400">
+              Choose Your Plan
+            </h1>
 
-          <div className="mx-auto mb-8 max-w-md">
-            <label className="mb-2 block bg-gradient-to-r from-gray-700 to-gray-900 bg-clip-text text-sm font-medium text-transparent dark:from-gray-200 dark:to-gray-400">
-              Your Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 bg-white p-3 text-gray-900 placeholder-gray-500 shadow-sm transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus:ring-blue-800"
-              placeholder="Enter your email"
-              required
-            />
-            <div className="my-4">
-              <Select
-                value={selectedCompanyId}
-                onValueChange={(value) => {
-                  if (value === "") {
-                    setSelectedCompanyId(undefined);
-                    router.push("/admin/billing");
-                  } else {
-                    setSelectedCompanyId(value);
-                    router.push(`/admin/billing?companyId=${value}`);
-                  }
-                }}
-                disabled={companiesLoading}
-              >
-                <SelectTrigger className="w-full border-gray-200 bg-white text-gray-900 ring-offset-white focus:ring-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-50 dark:ring-offset-gray-800 dark:focus:ring-gray-600">
-                  {companiesLoading ? (
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Loading companies...</span>
-                    </div>
-                  ) : (
-                    <SelectValue placeholder="Select a company" />
-                  )}
-                </SelectTrigger>
-                <SelectContent className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-                  {companiesData?.success &&
-                  Array.isArray(companiesData.data) &&
-                  companiesData.data.length > 0 ? (
-                    companiesData.data.map((company) => (
-                      <SelectItem
-                        key={company.id}
-                        value={company.id}
-                        className="text-gray-900 focus:bg-gray-100 focus:text-gray-900 dark:text-slate-50 dark:focus:bg-gray-700 dark:focus:text-slate-50"
-                      >
-                        {company.companyName}
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem
-                      value="no-companies"
-                      disabled
-                      className="text-gray-500 dark:text-gray-400"
-                    >
-                      {companiesLoading
-                        ? "Loading companies..."
-                        : "No companies available"}
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+            <div className="mx-auto mb-8 max-w-md">
+              <label className="mb-2 block bg-gradient-to-r from-gray-700 to-gray-900 bg-clip-text text-sm font-medium text-transparent dark:from-gray-200 dark:to-gray-400">
+                Your Email
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 bg-white p-3 text-gray-900 placeholder-gray-500 shadow-sm transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus:ring-blue-800"
+                placeholder="Enter your email"
+                required
+              />
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
-            {tiers.map((tier) => {
-              const isActive =
-                subscriptionState.data?.plan.toLowerCase() ===
-                tier.name.toLowerCase();
-              return (
-                <PricingTierCard
-                  key={tier.id}
-                  tier={tier}
-                  isActive={isActive}
-                  onSubscribe={handleSubscribe}
-                  loading={loading}
-                  selectedCompanyId={selectedCompanyId}
-                />
-              );
-            })}
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
+              {tiers.map((tier) => {
+                const isActive =
+                  subscriptionState.data?.plan.toLowerCase() ===
+                  tier.name.toLowerCase();
+                return (
+                  <PricingTierCard
+                    key={tier.id}
+                    tier={tier}
+                    isActive={isActive}
+                    onSubscribe={handleSubscribe}
+                    loading={loading}
+                    selectedCompanyId={selectedCompanyId}
+                  />
+                );
+              })}
+            </div>
+          </>
+        )}
+
+      {!selectedCompanyId && !companiesLoading && (
+        <div className="mb-12 text-center">
+          <h1 className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-700 bg-clip-text text-3xl font-bold text-transparent dark:from-blue-400 dark:via-purple-400 dark:to-pink-400">
+            Please select a company to view subscription plans.
+          </h1>
+          <div className="mx-auto mt-6 max-w-md">
+            <Select
+              value={selectedCompanyId}
+              onValueChange={(value) => {
+                setIsChangingCompany(true);
+                if (value === "") {
+                  setSelectedCompanyId(undefined);
+                  router.push("/admin/billing");
+                } else {
+                  setSelectedCompanyId(value);
+                  router.push(`/admin/billing?companyId=${value}`);
+                }
+                setTimeout(() => {
+                  setIsChangingCompany(false);
+                }, 100);
+              }}
+              disabled={companiesLoading}
+            >
+              <SelectTrigger className="w-full border-gray-200 bg-white text-gray-900 ring-offset-white focus:ring-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-50 dark:ring-offset-gray-800 dark:focus:ring-gray-600">
+                {companiesLoading ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Loading companies...</span>
+                  </div>
+                ) : (
+                  <SelectValue placeholder="Select a company" />
+                )}
+              </SelectTrigger>
+              <SelectContent className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+                {companiesData?.success &&
+                Array.isArray(companiesData.data) &&
+                companiesData.data.length > 0 ? (
+                  companiesData.data.map((company) => (
+                    <SelectItem
+                      key={company.id}
+                      value={company.id}
+                      className="text-gray-900 focus:bg-gray-100 focus:text-gray-900 dark:text-slate-50 dark:focus:bg-gray-700 dark:focus:text-slate-50"
+                    >
+                      {company.companyName}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem
+                    value="no-companies"
+                    disabled
+                    className="text-gray-500 dark:text-gray-400"
+                  >
+                    {companiesLoading
+                      ? "Loading companies..."
+                      : "No companies available"}
+                  </SelectItem>
+                )}
+              </SelectContent>
+            </Select>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

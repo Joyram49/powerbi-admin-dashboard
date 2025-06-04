@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Loader2 } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@acme/ui/alert";
 import { Button } from "@acme/ui/button";
@@ -25,6 +26,7 @@ const TIER_ORDER: Record<TierId, number> = {
 
 export default function ManageBillingPage() {
   const [loading, setLoading] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const searchParams = useSearchParams();
   const companyId = searchParams.get("companyId");
@@ -32,16 +34,17 @@ export default function ManageBillingPage() {
 
   const { data: profile } = api.auth.getProfile.useQuery();
 
-  const { data: companyData } = api.company.getCompanyByCompanyId.useQuery(
-    {
-      companyId: companyId ?? "",
-    },
-    {
-      enabled: !!companyId,
-    },
-  );
+  const { data: companyData, isLoading: companyLoading } =
+    api.company.getCompanyByCompanyId.useQuery(
+      {
+        companyId: companyId ?? "",
+      },
+      {
+        enabled: !!companyId,
+      },
+    );
 
-  const { data: subscriptionResponse } =
+  const { data: subscriptionResponse, isLoading: subscriptionLoading } =
     api.subscription.getCurrentUserCompanySubscription.useQuery(
       {
         companyId: companyId ?? "",
@@ -50,6 +53,13 @@ export default function ManageBillingPage() {
         enabled: !!companyId,
       },
     );
+
+  // Add effect to handle loading states
+  useEffect(() => {
+    if (!companyLoading && !subscriptionLoading) {
+      setIsLoading(false);
+    }
+  }, [companyLoading, subscriptionLoading]);
 
   const createCheckout = api.stripe.createCheckoutSession.useMutation({
     onSuccess: (data) => {
@@ -260,45 +270,55 @@ export default function ManageBillingPage() {
         </span>
       </h1>
 
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
-        {companyData?.data?.preferredSubscriptionPlan ? (
-          <PricingTierCard
-            key={companyData.data.preferredSubscriptionPlan}
-            tier={
-              (tiers.find(
-                (t) => t.id === companyData.data?.preferredSubscriptionPlan,
-              ) ?? tiers[0]) as {
-                id: TierId;
-                name: string;
-                description: string;
-                price: string;
-                features: string[];
-                addOns: string[];
+      {isLoading ? (
+        <div className="flex justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600 dark:text-blue-400" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
+          {companyData?.data?.preferredSubscriptionPlan ? (
+            <PricingTierCard
+              key={companyData.data.preferredSubscriptionPlan}
+              tier={
+                (tiers.find(
+                  (t) => t.id === companyData.data?.preferredSubscriptionPlan,
+                ) ?? tiers[0]) as {
+                  id: TierId;
+                  name: string;
+                  description: string;
+                  price: string;
+                  features: string[];
+                  addOns: string[];
+                }
               }
-            }
-            isActive={false}
-            onSubscribe={handleSubscribe}
-            loading={loading}
-            selectedCompanyId={companyId}
-          />
-        ) : (
-          filteredTiers.map((tier) => {
-            const isActive =
-              subscriptionResponse?.data?.plan.toLowerCase() ===
-              tier.name.toLowerCase();
-            return (
-              <PricingTierCard
-                key={tier.id}
-                tier={tier}
-                isActive={isActive}
-                onSubscribe={handleSubscribe}
-                loading={loading}
-                selectedCompanyId={companyId}
-              />
-            );
-          })
-        )}
-      </div>
+              isActive={false}
+              onSubscribe={handleSubscribe}
+              loading={loading}
+              selectedCompanyId={companyId}
+              isPreferredPlan={true}
+              isUpgrade={false}
+            />
+          ) : (
+            filteredTiers.map((tier) => {
+              const isActive =
+                subscriptionResponse?.data?.plan.toLowerCase() ===
+                tier.name.toLowerCase();
+              return (
+                <PricingTierCard
+                  key={tier.id}
+                  tier={tier}
+                  isActive={isActive}
+                  onSubscribe={handleSubscribe}
+                  loading={loading}
+                  selectedCompanyId={companyId}
+                  isPreferredPlan={false}
+                  isUpgrade={!!subscriptionResponse?.data}
+                />
+              );
+            })
+          )}
+        </div>
+      )}
     </div>
   );
 }
