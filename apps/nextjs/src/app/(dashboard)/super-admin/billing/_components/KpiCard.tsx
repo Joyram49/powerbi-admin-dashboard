@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 
 import { cn } from "@acme/ui";
@@ -8,37 +10,14 @@ interface KpiCardProps {
   title: string;
   value: string | number;
   className?: string;
-  onClick?: () => void;
-  onFilterChange?: (filter: string) => void;
 }
 
-export function KpiCard({
-  title,
-  value,
-  className,
-  onClick,
-  onFilterChange,
-}: KpiCardProps) {
+export function KpiCard({ title, value, className }: KpiCardProps) {
   const [showModal, setShowModal] = useState(false);
 
   const handleClick = () => {
-    if (onClick) {
-      onClick();
-    } else if (title === "Monthly Recurring") {
+    if (title === "Monthly Recurring" || title === "New Subs 30-Day") {
       setShowModal(true);
-    } else if (onFilterChange) {
-      switch (title) {
-        case "Outstanding AR":
-        case "# Outstanding":
-          onFilterChange("outstanding");
-          break;
-        case "Total Revenue":
-          onFilterChange("paid");
-          break;
-        case "New Subs 30-Day":
-          onFilterChange("new");
-          break;
-      }
     }
   };
 
@@ -58,11 +37,18 @@ export function KpiCard({
           {value}
         </p>
       </div>
-      {title === "Monthly Recurring" && (
-        <SubscriptionDetailsModal
-          isOpen={showModal}
-          onClose={() => setShowModal(false)}
-        />
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="rounded-lg bg-white p-4 shadow-lg">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              {title}
+            </h2>
+            <SubscriptionDetailsModal
+              isOpen={showModal}
+              onClose={() => setShowModal(false)}
+            />
+          </div>
+        </div>
       )}
     </>
   );

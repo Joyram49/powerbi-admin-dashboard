@@ -468,8 +468,12 @@ export const userRouter = createTRPCRouter({
         const totalUsers = await db.$count(
           users,
           whereConditions.length > 0
-            ? and(inArray(users.companyId, companyIds), ...whereConditions)
-            : inArray(users.companyId, companyIds),
+            ? and(
+                inArray(users.companyId, companyIds),
+                eq(users.role, "user"),
+                ...whereConditions,
+              )
+            : and(inArray(users.companyId, companyIds), eq(users.role, "user")),
         );
 
         // Get users from all companies
@@ -488,8 +492,15 @@ export const userRouter = createTRPCRouter({
           },
           where:
             whereConditions.length > 0
-              ? and(inArray(users.companyId, companyIds), ...whereConditions)
-              : inArray(users.companyId, companyIds),
+              ? and(
+                  inArray(users.companyId, companyIds),
+                  eq(users.role, "user"),
+                  ...whereConditions,
+                )
+              : and(
+                  inArray(users.companyId, companyIds),
+                  eq(users.role, "user"),
+                ),
           limit,
           offset: (page - 1) * limit,
           orderBy: orderByCondition,

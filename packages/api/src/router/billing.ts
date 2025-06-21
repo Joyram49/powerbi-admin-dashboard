@@ -1,13 +1,15 @@
-import type { SQL } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
+import type { SQL } from "drizzle-orm";
 import {
   and,
   asc,
+  between,
   count,
   desc,
   eq,
   gte,
   ilike,
+  inArray,
   lte,
   or,
   sql,
@@ -25,10 +27,22 @@ export const billingRouter = createTRPCRouter({
     .input(billingRouterSchema.getAllBillings)
     .query(async ({ input }) => {
       try {
-        const { search, limit, page, sortBy, status, plan } = input;
-        const filters: SQL[] = [];
+        const { limit, page, sortBy, filters = {} } = input;
+        const {
+          search,
+          status,
+          paymentStatus,
+          plan,
+          companyIds,
+          startDate,
+          endDate,
+          minAmount,
+          maxAmount,
+        } = filters;
 
-        // Get sort order based on the selected option
+        const sqlFilters: SQL[] = [];
+
+        // Get sort order based on the selected option - optimized for indexed columns
         const getSortOrder = () => {
           switch (sortBy) {
             case "old_to_new_billing":
@@ -39,55 +53,112 @@ export const billingRouter = createTRPCRouter({
               return desc(sql<number>`CAST(${billings.amount} AS FLOAT)`);
             case "low_to_high_amount":
               return asc(sql<number>`CAST(${billings.amount} AS FLOAT)`);
+            case "old_to_new_created":
+              return asc(billings.dateCreated);
+            case "new_to_old_created":
+              return desc(billings.dateCreated);
+            case "company_name_asc":
+              return asc(companies.companyName);
+            case "company_name_desc":
+              return desc(companies.companyName);
+            case "status_asc":
+              return asc(billings.status);
+            case "status_desc":
+              return desc(billings.status);
             default:
               return desc(billings.dateCreated);
           }
         };
 
+        // Apply filters in order of selectivity (most selective first)
+        // Status filter - very selective
         if (status) {
-          filters.push(eq(billings.status, status));
+          sqlFilters.push(eq(billings.status, status));
         }
 
+        // Payment status filter - very selective
+        if (paymentStatus) {
+          sqlFilters.push(eq(billings.paymentStatus, paymentStatus));
+        }
+
+        // Plan filter - selective
         if (plan) {
-          filters.push(eq(billings.plan, plan));
+          sqlFilters.push(eq(billings.plan, plan));
         }
 
-        // Get total count with company name search
-        const total = await db
-          .select({ count: count() })
-          .from(billings)
-          .leftJoin(companies, eq(billings.companyId, companies.id))
-          .where(
-            and(
-              ...filters,
-              search ? ilike(companies.companyName, `%${search}%`) : undefined,
-            ),
-          );
+        // Company filter - very selective
+        if (companyIds && companyIds.length > 0) {
+          sqlFilters.push(inArray(billings.companyId, companyIds));
+        }
 
-        // Get paginated results with company name search
-        const allBillings = await db
-          .select({
-            id: billings.id,
-            invoiceId: billings.stripeInvoiceId,
-            companyName: companies.companyName,
-            billingDate: billings.billingDate,
-            amount: sql<number>`CAST(${billings.amount} AS FLOAT)`,
-            status: billings.status,
-            pdfLink: billings.pdfLink,
-            dateCreated: billings.dateCreated,
-            updatedAt: billings.updatedAt,
-          })
-          .from(billings)
-          .leftJoin(companies, eq(billings.companyId, companies.id))
-          .where(
-            and(
-              ...filters,
-              search ? ilike(companies.companyName, `%${search}%`) : undefined,
-            ),
-          )
-          .limit(limit)
-          .offset((page - 1) * limit)
-          .orderBy(getSortOrder());
+        // Date filters - use indexed columns
+        if (startDate && endDate) {
+          sqlFilters.push(between(billings.billingDate, startDate, endDate));
+        } else if (startDate) {
+          sqlFilters.push(gte(billings.billingDate, startDate));
+        } else if (endDate) {
+          sqlFilters.push(lte(billings.billingDate, endDate));
+        }
+
+        // Amount filters - use indexed amount column
+        if (minAmount !== undefined) {
+          sqlFilters.push(
+            gte(sql<number>`CAST(${billings.amount} AS FLOAT)`, minAmount),
+          );
+        }
+
+        if (maxAmount !== undefined) {
+          sqlFilters.push(
+            lte(sql<number>`CAST(${billings.amount} AS FLOAT)`, maxAmount),
+          );
+        }
+
+        // Build the where condition - optimize for indexed columns
+        const whereCondition =
+          sqlFilters.length > 0 ? and(...sqlFilters) : undefined;
+
+        // Add search condition separately to avoid complex AND conditions
+        const searchCondition = search
+          ? ilike(companies.companyName, `%${search}%`)
+          : undefined;
+
+        // Combine conditions efficiently
+        const finalWhereCondition =
+          whereCondition && searchCondition
+            ? and(whereCondition, searchCondition)
+            : (whereCondition ?? searchCondition);
+
+        // Execute queries with timeout protection and optimized structure
+        const [totalResult, allBillings] = await Promise.all([
+          // Count query - simplified for better performance
+          db
+            .select({ count: count() })
+            .from(billings)
+            .leftJoin(companies, eq(billings.companyId, companies.id))
+            .where(finalWhereCondition ?? undefined),
+
+          // Data query - optimized with proper indexing
+          db
+            .select({
+              id: billings.id,
+              invoiceId: billings.stripeInvoiceId,
+              companyName: companies.companyName,
+              billingDate: billings.billingDate,
+              amount: sql<number>`CAST(${billings.amount} AS FLOAT)`,
+              status: billings.status,
+              paymentStatus: billings.paymentStatus,
+              plan: billings.plan,
+              pdfLink: billings.pdfLink,
+              dateCreated: billings.dateCreated,
+              updatedAt: billings.updatedAt,
+            })
+            .from(billings)
+            .leftJoin(companies, eq(billings.companyId, companies.id))
+            .where(finalWhereCondition ?? undefined)
+            .limit(limit)
+            .offset((page - 1) * limit)
+            .orderBy(getSortOrder()),
+        ]);
 
         return {
           message: "Billings fetched successfully",
@@ -95,10 +166,39 @@ export const billingRouter = createTRPCRouter({
           page,
           limit,
           data: allBillings,
-          total: total[0]?.count ?? 0,
+          total: totalResult[0]?.count ?? 0,
         };
       } catch (error) {
-        console.log(error);
+        // Enhanced error handling for timeout issues
+        if (error instanceof Error) {
+          // Check for PostgreSQL timeout errors
+          if (
+            error.message.includes(
+              "canceling statement due to statement timeout",
+            ) ||
+            error.message.includes("57014")
+          ) {
+            throw new TRPCError({
+              code: "TIMEOUT",
+              message:
+                "Query timed out. Please try with more specific filters or contact support.",
+              cause: error,
+            });
+          }
+
+          // Check for other database-related errors
+          if (
+            error.message.includes("connection") ||
+            error.message.includes("timeout")
+          ) {
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: "Database connection issue. Please try again.",
+              cause: error,
+            });
+          }
+        }
+
         if (error instanceof TRPCError) throw error;
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
@@ -289,8 +389,25 @@ export const billingRouter = createTRPCRouter({
     .input(billingRouterSchema.getTotalRevenue)
     .query(async ({ input }) => {
       try {
-        const { startDate, endDate } = input;
-        const filters: SQL[] = [eq(billings.status, "paid")];
+        const { startDate, endDate, status, plan, companyIds } = input;
+        const filters: SQL[] = [];
+
+        // Default to paid status if not specified
+        if (status) {
+          filters.push(eq(billings.status, status));
+        } else {
+          filters.push(eq(billings.status, "paid"));
+        }
+
+        // Add plan filter if provided
+        if (plan) {
+          filters.push(eq(billings.plan, plan));
+        }
+
+        // Add company filter if provided
+        if (companyIds && companyIds.length > 0) {
+          filters.push(inArray(billings.companyId, companyIds));
+        }
 
         // Add date range filters if provided
         if (startDate) {
@@ -328,6 +445,7 @@ export const billingRouter = createTRPCRouter({
   //  get outstanding invoices sum where status is unpaid
   getOutstandingInvoicesSum: protectedProcedure.query(async () => {
     try {
+      // Use the status filter to leverage the status index
       const total = await db
         .select({
           total: sql<number>`CAST(${sum(billings.amount)} AS FLOAT)`,
@@ -343,6 +461,22 @@ export const billingRouter = createTRPCRouter({
         data: total[0]?.total ?? 0,
       };
     } catch (error) {
+      // Enhanced error handling for timeout issues
+      if (error instanceof Error) {
+        if (
+          error.message.includes(
+            "canceling statement due to statement timeout",
+          ) ||
+          error.message.includes("57014")
+        ) {
+          throw new TRPCError({
+            code: "TIMEOUT",
+            message: "Outstanding invoices query timed out. Please try again.",
+            cause: error,
+          });
+        }
+      }
+
       if (error instanceof TRPCError) throw error;
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",

@@ -99,7 +99,7 @@ export function useUserColumns() {
         header: () => <div className="text-left font-medium">ID</div>,
         cell: ({ row }) => {
           const { id } = row.original;
-          console.log("row.original", row.original);
+
           return (
             <div className="text-left">
               <span className="hidden xl:inline">{id}</span>
@@ -224,7 +224,6 @@ export function useUserColumns() {
         id: "actions",
         cell: ({ row }) => {
           const user = row.original;
-          console.log("user", user);
           return (
             <>
               <EntityActions<User>

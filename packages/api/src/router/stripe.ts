@@ -113,10 +113,12 @@ export const stripeRouter = createTRPCRouter({
             { price: customSetup.id, quantity: 1 },
           );
         } else {
-          line_items.push(
-            { price: product.recurringPriceId, quantity: 1 },
-            { price: product.setupFeePriceId, quantity: 1 },
-          );
+          line_items.push({ price: product.recurringPriceId, quantity: 1 });
+
+          // Only add setup fee if company doesn't have a preferred subscription plan
+          if (!company.preferredSubscriptionPlan) {
+            line_items.push({ price: product.setupFeePriceId, quantity: 1 });
+          }
 
           if (product.usagePriceId) {
             line_items.push({
@@ -234,10 +236,8 @@ export const stripeRouter = createTRPCRouter({
           return_url: `${process.env.NEXT_PUBLIC_APP_URL}/billing`,
           configuration: configuration.id,
         });
-
         return { url: session.url };
       } catch (error) {
-        console.log("error", error);
         if (error instanceof TRPCError) {
           throw error;
         }
@@ -248,7 +248,7 @@ export const stripeRouter = createTRPCRouter({
       }
     }),
 
-  // Add new endpoint for handling user addition and overage
+  //  user addition and overage usage
   handleUserAddition: protectedProcedure
     .input(
       z.object({
@@ -292,14 +292,12 @@ export const stripeRouter = createTRPCRouter({
         // Report the overage using the new metered billing system
         const meterEvent = await stripe.billing.meterEvents.create({
           event_name: "user.overage",
-          timestamp: Math.floor(Date.now() / 1000), // Current timestamp
+          timestamp: Math.floor(Date.now() / 1000),
           payload: {
             stripe_customer_id: stripeCustomerId,
             value: "1",
           },
         });
-
-        console.log("meterEvent", meterEvent);
 
         if (!meterEvent.timestamp) {
           throw new TRPCError({
@@ -340,11 +338,6 @@ export const stripeRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       const { companyId, newTier } = input;
 
-      console.log("[Upgrade Subscription] Starting upgrade process", {
-        companyId,
-        newTier,
-      });
-
       try {
         // Get current subscription
         const currentSubscription = await db.query.subscriptions.findFirst({
@@ -355,10 +348,6 @@ export const stripeRouter = createTRPCRouter({
               eq(subscriptions.status, "trialing"),
             ),
           ),
-        });
-
-        console.log("[Upgrade Subscription] Current subscription found:", {
-          subscription: currentSubscription,
         });
 
         if (!currentSubscription) {
@@ -384,11 +373,6 @@ export const stripeRouter = createTRPCRouter({
           .split(" ")
           .join("_") as Tier;
         const newPlan = tierProducts[newTier];
-
-        console.log("[Upgrade Subscription] Plan details:", {
-          currentPlan,
-          newPlan,
-        });
 
         // Check if the new plan is a custom plan
         if (newPlan.custom) {
@@ -430,11 +414,6 @@ export const stripeRouter = createTRPCRouter({
           currentSubscription.stripeSubscriptionId,
         );
 
-        console.log("[Upgrade Subscription] Stripe subscription retrieved:", {
-          stripeSubscriptionId: stripeSubscription.id,
-          status: stripeSubscription.status,
-        });
-
         // Check if subscription has items
         if (!stripeSubscription.items.data.length) {
           throw new TRPCError({
@@ -469,14 +448,6 @@ export const stripeRouter = createTRPCRouter({
           },
         );
 
-        console.log(
-          "[Upgrade Subscription] Subscription updated successfully:",
-          {
-            updatedSubscriptionId: updatedSubscription.id,
-            newStatus: updatedSubscription.status,
-          },
-        );
-
         return {
           success: true,
           subscription: updatedSubscription,
@@ -493,5 +464,22 @@ export const stripeRouter = createTRPCRouter({
           message: "Failed to upgrade subscription",
         });
       }
+    }),
+
+  // get the overage usage for a customerId
+  getOverageUsage: protectedProcedure
+    .input(
+      z.object({
+        companyId: z.string().uuid(),
+      }),
+    )
+    .query(async ({ input }) => {
+      const { companyId } = input;
+
+      const meters = await stripe.billing.meters.list({
+        limit: 100,
+      });
+
+      return meters;
     }),
 });

@@ -32,7 +32,6 @@ export default function SuperDashboard() {
   );
   // Extract actual company data array from the response
   const companies = companyData?.data ?? [];
-  console.log("companies", companies);
   const handleSearchChange = useCallback((value: string) => {
     setSearchInput(value);
     setPagination((prev) => ({ ...prev, page: 1 })); // Reset to first page on search

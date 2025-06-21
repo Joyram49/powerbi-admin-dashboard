@@ -28,8 +28,54 @@ export const subscriptionRouter = createTRPCRouter({
     .input(subscriptionRouterSchema.getAllSubscriptions)
     .query(async ({ input }) => {
       try {
-        const { search, limit, page, sortBy, status, plan } = input;
+        const { timeframe, search, limit, page, sortBy, status, plan } = input;
+        const now = new Date();
+        let startDate: Date | null;
+
+        // Calculate start date based on timeframe
+        switch (timeframe) {
+          case "all":
+            startDate = null; // No date filter for all time
+            break;
+          case "1d":
+            startDate = new Date(now.setDate(now.getDate() - 1));
+            break;
+          case "7d":
+            startDate = new Date(now.setDate(now.getDate() - 7));
+            break;
+          case "1m":
+            startDate = new Date(now.setMonth(now.getMonth() - 1));
+            break;
+          case "3m":
+            startDate = new Date(now.setMonth(now.getMonth() - 3));
+            break;
+          case "6m":
+            startDate = new Date(now.setMonth(now.getMonth() - 6));
+            break;
+          case "1y":
+            startDate = new Date(now.setFullYear(now.getFullYear() - 1));
+            break;
+          default:
+            startDate = null; // Default to all time
+        }
+
         const filters: SQL[] = [];
+
+        // Add date filters only if timeframe is not "all"
+        if (startDate) {
+          filters.push(gte(subscriptions.dateCreated, startDate));
+          filters.push(lte(subscriptions.dateCreated, new Date()));
+        }
+
+        // Add status filter if provided
+        if (status) {
+          filters.push(eq(subscriptions.status, status));
+        }
+
+        // Add plan filter if provided
+        if (plan) {
+          filters.push(eq(subscriptions.plan, plan));
+        }
 
         // Get sort order based on the selected option
         const getSortOrder = () => {
@@ -47,14 +93,6 @@ export const subscriptionRouter = createTRPCRouter({
           }
         };
 
-        if (status) {
-          filters.push(eq(subscriptions.status, status));
-        }
-
-        if (plan) {
-          filters.push(eq(subscriptions.plan, plan));
-        }
-
         // Get total count with company name search
         const total = await db
           .select({ count: count() })
@@ -68,7 +106,7 @@ export const subscriptionRouter = createTRPCRouter({
           );
 
         // Get paginated results with company name search
-        const allSubscriptions = await db
+        const subscriptionsData = await db
           .select({
             id: subscriptions.id,
             stripeSubscriptionId: subscriptions.stripeSubscriptionId,
@@ -96,12 +134,20 @@ export const subscriptionRouter = createTRPCRouter({
           .orderBy(getSortOrder());
 
         return {
-          message: "Subscriptions fetched successfully",
           success: true,
-          page,
-          limit,
-          data: allSubscriptions,
+          message:
+            timeframe === "all"
+              ? "All subscriptions fetched successfully"
+              : `Subscription stats for ${timeframe} fetched successfully`,
           total: total[0]?.count ?? 0,
+          limit,
+          page,
+          data: {
+            timeframe,
+            startDate,
+            endDate: new Date(),
+            subscriptions: subscriptionsData,
+          },
         };
       } catch (error) {
         if (error instanceof TRPCError) throw error;
@@ -110,12 +156,11 @@ export const subscriptionRouter = createTRPCRouter({
           message:
             error instanceof Error
               ? error.message
-              : "Failed to fetch all subscriptions",
+              : "Failed to fetch subscription stats",
           cause: error,
         });
       }
     }),
-
   // Get subscription by company ID
   getCompanySubscription: protectedProcedure
     .input(subscriptionRouterSchema.getCompanySubscription)
@@ -243,135 +288,6 @@ export const subscriptionRouter = createTRPCRouter({
             error instanceof Error
               ? error.message
               : "Failed to fetch company subscription",
-        });
-      }
-    }),
-
-  getSubscriptionStatsByTimeframe: protectedProcedure
-    .input(subscriptionRouterSchema.getSubscriptionStatsByTimeframe)
-    .query(async ({ input }) => {
-      try {
-        const { timeframe, search, limit, page, sortBy, status, plan } = input;
-        const now = new Date();
-        let startDate: Date;
-
-        // Calculate start date based on timeframe
-        switch (timeframe) {
-          case "1d":
-            startDate = new Date(now.setDate(now.getDate() - 1));
-            break;
-          case "7d":
-            startDate = new Date(now.setDate(now.getDate() - 7));
-            break;
-          case "1m":
-            startDate = new Date(now.setMonth(now.getMonth() - 1));
-            break;
-          case "3m":
-            startDate = new Date(now.setMonth(now.getMonth() - 3));
-            break;
-          case "6m":
-            startDate = new Date(now.setMonth(now.getMonth() - 6));
-            break;
-          case "1y":
-            startDate = new Date(now.setFullYear(now.getFullYear() - 1));
-            break;
-          default:
-            startDate = new Date(now.setDate(now.getDate() - 1));
-        }
-
-        const filters: SQL[] = [
-          gte(subscriptions.dateCreated, startDate),
-          lte(subscriptions.dateCreated, new Date()),
-        ];
-
-        // Add status filter if provided
-        if (status) {
-          filters.push(eq(subscriptions.status, status));
-        }
-
-        // Add plan filter if provided
-        if (plan) {
-          filters.push(eq(subscriptions.plan, plan));
-        }
-
-        // Get sort order based on the selected option
-        const getSortOrder = () => {
-          switch (sortBy) {
-            case "old_to_new_date":
-              return asc(subscriptions.dateCreated);
-            case "new_to_old_date":
-              return desc(subscriptions.dateCreated);
-            case "high_to_low_overage":
-              return desc(subscriptions.overageUser);
-            case "low_to_high_overage":
-              return asc(subscriptions.overageUser);
-            default:
-              return desc(subscriptions.dateCreated);
-          }
-        };
-
-        // Get total count with company name search
-        const total = await db
-          .select({ count: count() })
-          .from(subscriptions)
-          .leftJoin(companies, eq(subscriptions.companyId, companies.id))
-          .where(
-            and(
-              ...filters,
-              search ? ilike(companies.companyName, `%${search}%`) : undefined,
-            ),
-          );
-
-        // Get paginated results with company name search
-        const subscriptionsData = await db
-          .select({
-            id: subscriptions.id,
-            stripeSubscriptionId: subscriptions.stripeSubscriptionId,
-            companyName: companies.companyName,
-            plan: subscriptions.plan,
-            amount: sql<number>`CAST(${subscriptions.amount} AS FLOAT)`,
-            billingInterval: subscriptions.billingInterval,
-            status: subscriptions.status,
-            userLimit: subscriptions.userLimit,
-            overageUser: subscriptions.overageUser,
-            currentPeriodEnd: subscriptions.currentPeriodEnd,
-            dateCreated: subscriptions.dateCreated,
-            updatedAt: subscriptions.updatedAt,
-          })
-          .from(subscriptions)
-          .leftJoin(companies, eq(subscriptions.companyId, companies.id))
-          .where(
-            and(
-              ...filters,
-              search ? ilike(companies.companyName, `%${search}%`) : undefined,
-            ),
-          )
-          .limit(limit)
-          .offset((page - 1) * limit)
-          .orderBy(getSortOrder());
-
-        return {
-          success: true,
-          message: `Subscription stats for ${timeframe} fetched successfully`,
-          total: total[0]?.count ?? 0,
-          limit,
-          page,
-          data: {
-            timeframe,
-            startDate,
-            endDate: new Date(),
-            subscriptions: subscriptionsData,
-          },
-        };
-      } catch (error) {
-        if (error instanceof TRPCError) throw error;
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Failed to fetch subscription stats",
-          cause: error,
         });
       }
     }),

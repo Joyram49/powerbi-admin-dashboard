@@ -16,6 +16,7 @@ interface UserErrorModalProps {
   onClose: () => void;
   errorType: "SUBSCRIPTION_REQUIRED" | "USER_LIMIT_EXCEEDED" | null;
   onProceed?: () => void;
+  userRole: "super-admin" | "admin" | "user";
 }
 
 export function UserErrorModal({
@@ -23,12 +24,17 @@ export function UserErrorModal({
   onClose,
   errorType,
   onProceed,
+  userRole,
 }: UserErrorModalProps) {
   const router = useRouter();
 
   const handleProceed = () => {
     if (errorType === "SUBSCRIPTION_REQUIRED") {
-      router.push("/billing");
+      if (userRole === "super-admin") {
+        router.push("/super-admin");
+      } else {
+        router.push("/admin/billing");
+      }
     } else if (errorType === "USER_LIMIT_EXCEEDED" && onProceed) {
       onProceed();
     }
@@ -64,7 +70,9 @@ export function UserErrorModal({
             className="bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
           >
             {errorType === "SUBSCRIPTION_REQUIRED"
-              ? "Go to Billing"
+              ? userRole === "super-admin"
+                ? "Go to Dashboard"
+                : "Go to Subscription"
               : "Purchase Additional User"}
           </Button>
         </DialogFooter>

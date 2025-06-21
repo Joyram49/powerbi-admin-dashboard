@@ -1,5 +1,6 @@
 "use client";
 
+import type { FieldError } from "react-hook-form";
 import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
@@ -191,7 +192,6 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
 
     try {
       if (initialData) {
-        console.log("formData", values);
         // Update existing company
         updateCompanyMutation.mutate({
           companyId: initialData.id,
@@ -223,7 +223,7 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
           adminIds: selectedAdminIds,
           preferredSubscriptionPlan: isOldCompany
             ? values.preferredSubscriptionPlan
-            : "data_foundation",
+            : null,
         });
       }
     } catch (error) {
@@ -257,6 +257,10 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
     ]);
     await companyForm.trigger("adminIds");
   };
+
+  // const submitBtnClick = () => {
+  //   console.log(">>> submitted values", companyForm.getValues());
+  // };
 
   if (!mounted) return null;
 
@@ -404,7 +408,7 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
                     <FormField
                       control={companyForm.control}
                       name="isOldCompany"
-                      render={({ field }) => (
+                      render={() => (
                         <FormItem className="flex flex-row items-start space-x-3 space-y-0">
                           <FormControl>
                             <Checkbox
@@ -549,6 +553,16 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
                     />
                   </motion.div>
                   <Separator className="my-2 dark:bg-gray-800" />
+                  {/* Generic error display for all form errors */}
+                  {Object.keys(companyForm.formState.errors).length > 0 && (
+                    <div className="mb-2 text-sm text-red-500">
+                      {Object.values(companyForm.formState.errors).map(
+                        (err: FieldError, idx) => (
+                          <div key={idx}>{err.message?.toString()}</div>
+                        ),
+                      )}
+                    </div>
+                  )}
                   <motion.div
                     className="flex flex-wrap justify-between gap-3 pt-2"
                     variants={itemVariants}
@@ -591,6 +605,7 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
                       >
                         <Button
                           type="submit"
+                          // onClick={submitBtnClick}
                           className="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
                           disabled={companyFormSubmitted}
                         >

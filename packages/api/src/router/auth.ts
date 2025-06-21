@@ -445,11 +445,6 @@ export const authRouter = createTRPCRouter({
       const { data, error } = await supabase.auth.getUser();
 
       if (error) {
-        // Instead of throwing an error, return a default response
-        console.log(
-          "User not authenticated or session expired:",
-          error.message,
-        );
         return { user: null };
       }
 
@@ -920,7 +915,7 @@ export const authRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       try {
         // Check if user has permission
-        if (ctx.session.user.role === "user") {
+        if (ctx.session.user.role && ctx.session.user.role === "user") {
           throw new TRPCError({
             code: "FORBIDDEN",
             message: "You are not authorized to purchase additional users",

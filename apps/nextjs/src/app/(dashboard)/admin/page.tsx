@@ -54,6 +54,8 @@ export default function AdminPage() {
       { enabled: !!userId && selectedCompanyId === "all" },
     );
 
+  console.log("usersData", usersData);
+
   const { data: companyUsersData, isLoading: isLoadingCompanyUsers } =
     api.user.getUsersByCompanyId.useQuery(
       {

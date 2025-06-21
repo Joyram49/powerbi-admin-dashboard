@@ -362,7 +362,6 @@ export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
   const onSubmit = (values: FormValues) => {
     setIsSubmitting(true);
     setFormSubmitError(null);
-    console.log("Form submitted with values:", values);
 
     // Check if we're updating or creating
     const isUpdateMode = values.id && values.id.trim() !== "";
@@ -390,7 +389,6 @@ export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
         prevStatus: initialData?.status,
       };
 
-      console.log("Updating user:", updateData);
       updateUserMutation.mutate(updateData);
     } else {
       // Create flow
@@ -836,6 +834,7 @@ export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
         onClose={() => setErrorModalOpen(false)}
         errorType={errorType}
         onProceed={handlePurchaseAdditionalUser}
+        userRole={userRole}
       />
     </Form>
   );
