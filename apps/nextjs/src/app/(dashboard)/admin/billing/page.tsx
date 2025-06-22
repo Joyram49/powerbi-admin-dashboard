@@ -17,8 +17,8 @@ import {
 } from "@acme/ui/select";
 import { toast } from "@acme/ui/toast";
 
-import { BillingTable } from "~/app/(dashboard)/super-admin/billing/_components/BillingTable";
 import { api } from "~/trpc/react";
+import { BillingTable } from "./_components/BillingTable";
 import { PricingTierCard } from "./_components/PricingTierCard";
 
 type TierId =
@@ -57,7 +57,22 @@ export default function BillingPage() {
       },
     );
 
-  // Add effect to handle URL parameters
+  // Auto-select first company if available and no company is selected
+  useEffect(() => {
+    if (
+      companiesData?.data &&
+      companiesData.data.length > 0 &&
+      !selectedCompanyId
+    ) {
+      const firstCompany = companiesData.data[0];
+      setSelectedCompanyId(firstCompany.id);
+      // Update URL without triggering navigation
+      const newUrl = `/admin/billing?companyId=${firstCompany.id}`;
+      window.history.replaceState({}, "", newUrl);
+    }
+  }, [companiesData?.data, selectedCompanyId]);
+
+  // Handle URL parameters for direct links
   useEffect(() => {
     const companyIdFromUrl = searchParams.get("companyId");
     if (companyIdFromUrl && companiesData?.data) {
@@ -66,12 +81,7 @@ export default function BillingPage() {
       );
       if (companyExists) {
         setSelectedCompanyId(companyIdFromUrl);
-      } else {
-        setSelectedCompanyId(undefined);
       }
-    } else {
-      // Reset to default state if no companyId in URL
-      setSelectedCompanyId(undefined);
     }
   }, [searchParams, companiesData?.data]);
 
@@ -116,8 +126,8 @@ export default function BillingPage() {
       : api.billing.getBillingsByDateRange.useQuery(
           {
             companyId: selectedCompanyId ?? "",
-            startDate: startDate!,
-            endDate: endDate!,
+            startDate: startDate,
+            endDate: endDate ?? new Date(),
           },
           {
             enabled:
@@ -272,28 +282,65 @@ export default function BillingPage() {
 
   const hasPreferredPlan = selectedCompany?.preferredSubscriptionPlan;
 
+  // Show loading state while companies are loading
+  if (companiesLoading) {
+    return (
+      <div className="container mx-auto px-4 py-16">
+        <div className="flex items-center justify-center space-x-2 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 p-6 dark:from-blue-950/50 dark:to-indigo-950/50">
+          <Loader2 className="h-6 w-6 animate-spin text-blue-600 dark:text-blue-400" />
+          <p className="text-gray-700 dark:text-gray-300">
+            Loading your companies...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show warning if no companies are available
+  if (!companiesData?.data || companiesData.data.length === 0) {
+    return (
+      <div className="container mx-auto px-4 py-16">
+        <Alert className="mb-6 border-orange-200 bg-orange-50 dark:border-orange-900 dark:bg-orange-950/50">
+          <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+          <AlertTitle className="text-orange-800 dark:text-orange-300">
+            No Companies Found
+          </AlertTitle>
+          <AlertDescription className="text-orange-700 dark:text-orange-400">
+            You don't have any companies associated with your account. Please
+            contact your administrator to get access to company billing
+            information.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  // Show company selector if multiple companies exist
+  const showCompanySelector = companiesData.data.length > 1;
+
   const renderSubscriptionContent = () => {
     if (!selectedCompanyId) {
       return (
         <Alert className="mb-6 border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/50">
           <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
           <AlertTitle className="text-blue-800 dark:text-blue-300">
-            Select a Company
+            Loading Company Data
           </AlertTitle>
           <AlertDescription className="text-blue-700 dark:text-blue-400">
-            Please select a company from the dropdown below to view subscription
-            details.
+            Please wait while we load the company information...
           </AlertDescription>
         </Alert>
       );
     }
 
-    if (subscriptionLoading) {
+    if (subscriptionLoading || isChangingCompany) {
       return (
         <div className="mb-6 flex items-center justify-center space-x-2 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 p-6 dark:from-blue-950/50 dark:to-indigo-950/50">
           <Loader2 className="h-6 w-6 animate-spin text-blue-600 dark:text-blue-400" />
           <p className="text-gray-700 dark:text-gray-300">
-            Loading subscription details...
+            {isChangingCompany
+              ? "Switching company..."
+              : "Loading subscription details..."}
           </p>
         </div>
       );
@@ -310,7 +357,7 @@ export default function BillingPage() {
             Error
           </AlertTitle>
           <AlertDescription className="text-red-700 dark:text-red-400">
-            {subscriptionError.message}
+            {subscriptionError}
           </AlertDescription>
         </Alert>
       );
@@ -587,15 +634,94 @@ export default function BillingPage() {
 
   return (
     <div className="container mx-auto px-4 py-16">
+      {/* Company Selector - Only show if multiple companies exist */}
+      {showCompanySelector && (
+        <div className="mb-8">
+          <div className="mx-auto max-w-lg">
+            <div className="mb-4 text-center">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Select Company
+              </h2>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                Choose a company to view its billing information
+              </p>
+            </div>
+            <div className="relative">
+              <Select
+                value={selectedCompanyId}
+                onValueChange={(value) => {
+                  setIsChangingCompany(true);
+                  if (value === "") {
+                    setSelectedCompanyId(undefined);
+                    router.push("/admin/billing");
+                  } else {
+                    setSelectedCompanyId(value);
+                    router.push(`/admin/billing?companyId=${value}`);
+                  }
+                  setTimeout(() => {
+                    setIsChangingCompany(false);
+                  }, 100);
+                }}
+                disabled={isChangingCompany}
+              >
+                <SelectTrigger className="h-12 w-full border-2 border-gray-200 bg-white px-4 text-left text-gray-900 shadow-sm transition-all hover:border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:hover:border-gray-500 dark:focus:border-blue-400 dark:focus:ring-blue-800">
+                  {isChangingCompany ? (
+                    <div className="flex items-center gap-3">
+                      <Loader2 className="h-5 w-5 animate-spin text-blue-600 dark:text-blue-400" />
+                      <span className="text-sm font-medium">
+                        Switching company...
+                      </span>
+                    </div>
+                  ) : (
+                    <SelectValue placeholder="Select a company to continue" />
+                  )}
+                </SelectTrigger>
+                <SelectContent className="border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                  {companiesData.success && companiesData.data.length > 0 ? (
+                    companiesData.data.map((company) => (
+                      <SelectItem
+                        key={company.id}
+                        value={company.id}
+                        className="cursor-pointer px-4 py-3 text-gray-900 transition-colors hover:bg-blue-50 focus:bg-blue-50 focus:text-blue-900 dark:text-gray-100 dark:hover:bg-gray-700 dark:focus:bg-gray-700 dark:focus:text-gray-100"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                            {company.companyName.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="font-medium">
+                              {company.companyName}
+                            </span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              {company.email ?? "No email"}
+                            </span>
+                          </div>
+                        </div>
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem
+                      value="no-companies"
+                      disabled
+                      className="px-4 py-3 text-gray-500 dark:text-gray-400"
+                    >
+                      No companies available
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+      )}
+
       {renderSubscriptionContent()}
 
       {!subscriptionState.data &&
         !hasPreferredPlan &&
         !isChangingCompany &&
         !subscriptionLoading &&
-        !companiesLoading &&
         !billingsLoading &&
-        companiesData?.data &&
         selectedCompanyId && (
           <>
             <h1 className="mb-12 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-700 bg-clip-text text-center text-4xl font-bold text-transparent dark:from-blue-400 dark:via-purple-400 dark:to-pink-400">
@@ -635,69 +761,6 @@ export default function BillingPage() {
             </div>
           </>
         )}
-
-      {!selectedCompanyId && !companiesLoading && (
-        <div className="mb-12 text-center">
-          <h1 className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-700 bg-clip-text text-3xl font-bold text-transparent dark:from-blue-400 dark:via-purple-400 dark:to-pink-400">
-            Please select a company to view subscription plans.
-          </h1>
-          <div className="mx-auto mt-6 max-w-md">
-            <Select
-              value={selectedCompanyId}
-              onValueChange={(value) => {
-                setIsChangingCompany(true);
-                if (value === "") {
-                  setSelectedCompanyId(undefined);
-                  router.push("/admin/billing");
-                } else {
-                  setSelectedCompanyId(value);
-                  router.push(`/admin/billing?companyId=${value}`);
-                }
-                setTimeout(() => {
-                  setIsChangingCompany(false);
-                }, 100);
-              }}
-              disabled={companiesLoading}
-            >
-              <SelectTrigger className="w-full border-gray-200 bg-white text-gray-900 ring-offset-white focus:ring-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-50 dark:ring-offset-gray-800 dark:focus:ring-gray-600">
-                {companiesLoading ? (
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Loading companies...</span>
-                  </div>
-                ) : (
-                  <SelectValue placeholder="Select a company" />
-                )}
-              </SelectTrigger>
-              <SelectContent className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-                {companiesData?.success &&
-                Array.isArray(companiesData.data) &&
-                companiesData.data.length > 0 ? (
-                  companiesData.data.map((company) => (
-                    <SelectItem
-                      key={company.id}
-                      value={company.id}
-                      className="text-gray-900 focus:bg-gray-100 focus:text-gray-900 dark:text-slate-50 dark:focus:bg-gray-700 dark:focus:text-slate-50"
-                    >
-                      {company.companyName}
-                    </SelectItem>
-                  ))
-                ) : (
-                  <SelectItem
-                    value="no-companies"
-                    disabled
-                    className="text-gray-500 dark:text-gray-400"
-                  >
-                    {companiesLoading
-                      ? "Loading companies..."
-                      : "No companies available"}
-                  </SelectItem>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

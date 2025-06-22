@@ -9,16 +9,7 @@ export default function SettingsPage() {
     isError,
     error,
   } = api.billing.getAllBillings.useQuery(
-    {
-      limit: 10,
-      page: 1,
-      sortBy: "new_to_old_billing",
-      filters: {
-        status: "paid",
-        minAmount: 500,
-        maxAmount: 1000,
-      },
-    },
+    {},
     {
       refetchOnWindowFocus: false,
       retry: 1,

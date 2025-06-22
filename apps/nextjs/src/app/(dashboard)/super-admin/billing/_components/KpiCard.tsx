@@ -4,19 +4,26 @@ import { useState } from "react";
 
 import { cn } from "@acme/ui";
 
+import type { SubscriptionResponse } from "../types";
 import { SubscriptionDetailsModal } from "./SubscriptionDetailsModal";
 
 interface KpiCardProps {
   title: string;
   value: string | number;
   className?: string;
+  subscriptionData?: SubscriptionResponse;
 }
 
-export function KpiCard({ title, value, className }: KpiCardProps) {
+export function KpiCard({
+  title,
+  value,
+  className,
+  subscriptionData,
+}: KpiCardProps) {
   const [showModal, setShowModal] = useState(false);
 
   const handleClick = () => {
-    if (title === "Monthly Recurring" || title === "New Subs 30-Day") {
+    if (title === "Monthly Recurring") {
       setShowModal(true);
     }
   };
@@ -38,17 +45,11 @@ export function KpiCard({ title, value, className }: KpiCardProps) {
         </p>
       </div>
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="rounded-lg bg-white p-4 shadow-lg">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              {title}
-            </h2>
-            <SubscriptionDetailsModal
-              isOpen={showModal}
-              onClose={() => setShowModal(false)}
-            />
-          </div>
-        </div>
+        <SubscriptionDetailsModal
+          isOpen={showModal}
+          onClose={() => setShowModal(false)}
+          subscriptionData={subscriptionData}
+        />
       )}
     </>
   );

@@ -56,7 +56,7 @@ export const subscriptionRouter = createTRPCRouter({
             startDate = new Date(now.setFullYear(now.getFullYear() - 1));
             break;
           default:
-            startDate = null; // Default to all time
+            startDate = new Date(2025, 0, 1); // Default to all time
         }
 
         const filters: SQL[] = [];

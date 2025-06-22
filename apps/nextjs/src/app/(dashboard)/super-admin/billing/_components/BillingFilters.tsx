@@ -17,6 +17,7 @@ import {
 } from "@acme/ui/dropdown-menu";
 import { Input } from "@acme/ui/input";
 import { Label } from "@acme/ui/label";
+import { toast } from "@acme/ui/toast";
 
 import type { BillingFilters, BillingPlan, BillingStatus } from "../types";
 
@@ -149,6 +150,7 @@ export function BillingFilters({
     // Validate dates before applying
     if (tempStartDate && tempEndDate && tempStartDate > tempEndDate) {
       setDateError("End date must be after start date");
+      toast.error("End date must be after start date");
       return;
     }
 
@@ -162,8 +164,26 @@ export function BillingFilters({
   };
 
   const applyAmountFilter = () => {
-    updateFilter("minAmount", tempMinAmount);
-    updateFilter("maxAmount", tempMaxAmount);
+    // Validate amount range before applying
+    if (
+      tempMinAmount !== undefined &&
+      tempMaxAmount !== undefined &&
+      tempMinAmount > tempMaxAmount
+    ) {
+      toast.error(
+        "Minimum amount must be less than or equal to maximum amount",
+        {
+          icon: <AlertCircle className="mr-2 h-6 w-6" />,
+        },
+      );
+      return;
+    }
+
+    onFiltersChange({
+      ...filters,
+      minAmount: tempMinAmount,
+      maxAmount: tempMaxAmount,
+    });
     setAmountFilterOpen(false);
   };
 

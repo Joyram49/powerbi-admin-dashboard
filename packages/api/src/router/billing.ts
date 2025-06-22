@@ -15,6 +15,7 @@ import {
   sql,
   sum,
 } from "drizzle-orm";
+import { z } from "zod";
 
 import { billings, db, paymentMethods, subscriptions } from "@acme/db";
 import { billingRouterSchema, companies } from "@acme/db/schema";
@@ -34,13 +35,17 @@ export const billingRouter = createTRPCRouter({
           paymentStatus,
           plan,
           companyIds,
-          startDate,
-          endDate,
+          startDate = new Date(2025, 0, 1),
+          endDate = new Date(),
           minAmount,
           maxAmount,
         } = filters;
 
+        console.log(filters);
+
         const sqlFilters: SQL[] = [];
+        // Date filters - use indexed columns
+        sqlFilters.push(between(billings.billingDate, startDate, endDate));
 
         // Get sort order based on the selected option - optimized for indexed columns
         const getSortOrder = () => {
@@ -89,15 +94,6 @@ export const billingRouter = createTRPCRouter({
         // Company filter - very selective
         if (companyIds && companyIds.length > 0) {
           sqlFilters.push(inArray(billings.companyId, companyIds));
-        }
-
-        // Date filters - use indexed columns
-        if (startDate && endDate) {
-          sqlFilters.push(between(billings.billingDate, startDate, endDate));
-        } else if (startDate) {
-          sqlFilters.push(gte(billings.billingDate, startDate));
-        } else if (endDate) {
-          sqlFilters.push(lte(billings.billingDate, endDate));
         }
 
         // Amount filters - use indexed amount column
@@ -456,7 +452,7 @@ export const billingRouter = createTRPCRouter({
         );
 
       return {
-        message: "Outstanding invoices sum fetched successfully",
+        message: "Outstanding invoices total fetched successfully",
         success: true,
         data: total[0]?.total ?? 0,
       };
@@ -485,4 +481,59 @@ export const billingRouter = createTRPCRouter({
       });
     }
   }),
+
+  // Get PDF for a specific billing record (proxy to avoid CORS)
+  getBillingPdf: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ input }) => {
+      try {
+        const billing = await db.query.billings.findFirst({
+          where: eq(billings.id, input.id),
+        });
+
+        if (!billing) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Billing record not found",
+          });
+        }
+
+        if (!billing.pdfLink) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "PDF not available for this invoice",
+          });
+        }
+
+        // Fetch the PDF from Stripe
+        const response = await fetch(billing.pdfLink);
+
+        if (!response.ok) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: `Failed to fetch PDF: ${response.statusText}`,
+          });
+        }
+
+        const pdfBuffer = await response.arrayBuffer();
+
+        return {
+          message: "PDF fetched successfully",
+          success: true,
+          data: {
+            pdf: Buffer.from(pdfBuffer),
+            filename: `invoice-${billing.stripeInvoiceId}.pdf`,
+            contentType:
+              response.headers.get("content-type") ?? "application/pdf",
+          },
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch PDF",
+          cause: error,
+        });
+      }
+    }),
 });

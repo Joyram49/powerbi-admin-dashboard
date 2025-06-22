@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { format } from "date-fns";
+import { Loader2 } from "lucide-react";
 
 import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
@@ -23,6 +24,7 @@ interface BillingTableProps {
   onBulkDownload?: (ids: string[]) => void;
   emptyMessage?: string;
   onLoading?: boolean;
+  isDownloading?: boolean;
   currentSort: BillingSortBy;
   onSortChange: (sortBy: BillingSortBy) => void;
 }
@@ -33,6 +35,7 @@ export function BillingTable({
   onBulkDownload,
   emptyMessage,
   onLoading,
+  isDownloading,
   currentSort,
   onSortChange,
 }: BillingTableProps) {
@@ -61,9 +64,17 @@ export function BillingTable({
         <div className="flex items-center gap-4">
           <Button
             onClick={() => onBulkDownload?.(selectedInvoices)}
+            disabled={isDownloading}
             className="bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-600"
           >
-            Download Selected ({selectedInvoices.length})
+            {isDownloading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Opening PDFs...
+              </>
+            ) : (
+              `Download Selected (${selectedInvoices.length})`
+            )}
           </Button>
           <Button
             variant="outline"
