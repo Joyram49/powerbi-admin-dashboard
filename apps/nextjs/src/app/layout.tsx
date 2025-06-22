@@ -7,7 +7,7 @@ import { cn } from "@acme/ui";
 import { ThemeProvider } from "@acme/ui/theme";
 import { Toaster } from "@acme/ui/toast";
 
-import { ActivityTracker } from "~/components/ActivityTracker";
+import { ActivityTracker } from "~/app/(dashboard)/super-admin/_components/report-metrics/ActivityTracker";
 import { TRPCReactProvider } from "~/trpc/react";
 
 import "~/app/globals.css";

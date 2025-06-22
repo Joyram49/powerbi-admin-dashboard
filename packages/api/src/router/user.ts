@@ -1,7 +1,7 @@
 import type { AdminUserAttributes } from "@supabase/supabase-js";
 import type { SQL } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, ilike, inArray, ne } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, ne, or, sql } from "drizzle-orm";
 
 import {
   companies,
@@ -277,7 +277,10 @@ export const userRouter = createTRPCRouter({
 
       try {
         // Build where conditions
-        const whereConditions = [eq(users.companyId, companyId)];
+        const whereConditions = [
+          eq(users.companyId, companyId),
+          eq(users.role, "user"), // Only show users with role "user"
+        ];
 
         if (searched) {
           whereConditions.push(ilike(users.email, `%${searched}%`));
@@ -465,8 +468,12 @@ export const userRouter = createTRPCRouter({
         const totalUsers = await db.$count(
           users,
           whereConditions.length > 0
-            ? and(inArray(users.companyId, companyIds), ...whereConditions)
-            : inArray(users.companyId, companyIds),
+            ? and(
+                inArray(users.companyId, companyIds),
+                eq(users.role, "user"),
+                ...whereConditions,
+              )
+            : and(inArray(users.companyId, companyIds), eq(users.role, "user")),
         );
 
         // Get users from all companies
@@ -485,8 +492,15 @@ export const userRouter = createTRPCRouter({
           },
           where:
             whereConditions.length > 0
-              ? and(inArray(users.companyId, companyIds), ...whereConditions)
-              : inArray(users.companyId, companyIds),
+              ? and(
+                  inArray(users.companyId, companyIds),
+                  eq(users.role, "user"),
+                  ...whereConditions,
+                )
+              : and(
+                  inArray(users.companyId, companyIds),
+                  eq(users.role, "user"),
+                ),
           limit,
           offset: (page - 1) * limit,
           orderBy: orderByCondition,
@@ -643,23 +657,28 @@ export const userRouter = createTRPCRouter({
         }
         authUpdateData.user_metadata = { role: input.role };
 
-        // Check company status if status is being updated
-        if (input.status) {
-          // If company is not being changed, check prevCompanyId status
-          if (input.companyId === input.prevCompanyId) {
-            if (!input.prevCompanyId) {
-              throw new TRPCError({
-                code: "BAD_REQUEST",
-                message:
-                  "Previous company ID is required when updating user status",
-              });
-            }
+        // Check company status if status is being updated and user is not an admin
+        if (input.status && input.role === "user") {
+          // If company is not being changed, check current company status
+          if (!input.prevCompanyId) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Company ID is required for user status update",
+            });
+          }
 
-            const prevCompany = await db.query.companies.findFirst({
+          if (!input.companyId) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Company ID is required for user status update",
+            });
+          }
+          if (input.companyId === input.prevCompanyId) {
+            const currentCompany = await db.query.companies.findFirst({
               where: eq(companies.id, input.prevCompanyId),
             });
 
-            if (!prevCompany || prevCompany.status !== "active") {
+            if (!currentCompany || currentCompany.status !== "active") {
               throw new TRPCError({
                 code: "BAD_REQUEST",
                 message:
@@ -667,13 +686,7 @@ export const userRouter = createTRPCRouter({
               });
             }
           } else {
-            if (!input.companyId) {
-              throw new TRPCError({
-                code: "BAD_REQUEST",
-                message: "Company ID is required when updating user status",
-              });
-            }
-
+            // If company is being changed, check new company status
             const newCompany = await db.query.companies.findFirst({
               where: eq(companies.id, input.companyId),
             });
@@ -687,25 +700,97 @@ export const userRouter = createTRPCRouter({
           }
         }
 
-        // check if the companyId has active subscription or not
-        if (input.companyId) {
-          const companySubscription = await db.query.subscriptions.findFirst({
-            where: eq(subscriptions.companyId, input.companyId),
-          });
-
-          if (!companySubscription || companySubscription.status !== "active") {
+        // Only check subscription and user limits if user is being made active and is a regular user
+        if (input.status === "active" && input.role === "user") {
+          if (!input.companyId) {
             throw new TRPCError({
               code: "BAD_REQUEST",
-              message: "Cannot update user: Company has no active subscription",
+              message: "Company ID is required for user status update",
+            });
+          }
+
+          const companySubscription = await db.query.subscriptions.findFirst({
+            where: and(
+              eq(subscriptions.companyId, input.companyId),
+              or(
+                eq(subscriptions.status, "active"),
+                eq(subscriptions.status, "trialing"),
+              ),
+            ),
+          });
+
+          if (!companySubscription) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "SUBSCRIPTION_REQUIRED: Company has no active subscription. Please purchase a subscription plan to add users.",
+            });
+          }
+
+          // Get current active users count for the company
+          const activeUsersCount = await db
+            .select({ count: sql<number>`count(*)` })
+            .from(users)
+            .where(
+              and(
+                eq(users.companyId, input.companyId),
+                eq(users.status, "active"),
+                eq(users.role, "user"),
+              ),
+            );
+
+          const currentActiveCount = Number(activeUsersCount[0]?.count ?? 0);
+          const userLimit = companySubscription.userLimit;
+          const overageUser = companySubscription.overageUser;
+          const totalUser = userLimit + overageUser;
+
+          // Check user limit only if:
+          // 1. Moving to a new company AND making active
+          // 2. Reactivating in the same company
+          if (
+            (input.prevCompanyId !== input.companyId ||
+              input.prevStatus === "inactive") &&
+            currentActiveCount >= totalUser
+          ) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "USER_LIMIT_EXCEEDED: Company has reached the user limit. Please purchase additional user access for $25 per user.",
             });
           }
         }
 
-        // if the company id isn't same as the present company id, then delete all the user's related reports
-        if (input.prevCompanyId !== input.companyId) {
+        // Handle company change operations only for regular users
+        if (input.role === "user" && input.prevCompanyId !== input.companyId) {
+          if (!input.companyId || !input.prevCompanyId) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "Both current and previous company IDs are required for company change",
+            });
+          }
+
+          // Delete user's report relations
           await db
             .delete(userReports)
             .where(eq(userReports.userId, input.userId));
+
+          // Update employee counts for both companies
+          // Decrement previous company's count
+          await db
+            .update(companies)
+            .set({
+              numOfEmployees: sql`${companies.numOfEmployees} - 1`,
+            })
+            .where(eq(companies.id, input.prevCompanyId));
+
+          // Increment new company's count
+          await db
+            .update(companies)
+            .set({
+              numOfEmployees: sql`${companies.numOfEmployees} + 1`,
+            })
+            .where(eq(companies.id, input.companyId));
         }
 
         // Update Supabase Auth
@@ -726,7 +811,17 @@ export const userRouter = createTRPCRouter({
           Object.entries({
             ...input,
             lastModifiedAt: new Date(),
-          }).filter(([_, value]) => value !== ""),
+          }).filter(([key, value]) => {
+            // Only include companyId if role is user
+            if (key === "companyId" && input.role !== "user") {
+              return false;
+            } else if (key === "prevCompanyId") {
+              return false;
+            } else if (key === "prevStatus") {
+              return false;
+            }
+            return value !== "";
+          }),
         );
 
         const updateUser = await db
@@ -797,8 +892,26 @@ export const userRouter = createTRPCRouter({
           });
         }
 
-        // delete users from supbase database user table
+        // Get the user's company before deleting
+        const userToDelete = await db.query.users.findFirst({
+          where: eq(users.id, input.userId),
+          columns: {
+            companyId: true,
+          },
+        });
+
+        // Delete user from database
         await db.delete(users).where(eq(users.id, input.userId));
+
+        // Decrement the company's employee count if the user was associated with a company
+        if (userToDelete?.companyId) {
+          await db
+            .update(companies)
+            .set({
+              numOfEmployees: sql`${companies.numOfEmployees} - 1`,
+            })
+            .where(eq(companies.id, userToDelete.companyId));
+        }
 
         return {
           success: true,

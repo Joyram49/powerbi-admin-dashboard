@@ -8,7 +8,6 @@ export default defineConfig({
   schema: [
     "./src/schema/company.ts",
     "./src/schema/user.ts",
-    "./src/schema/post.ts",
     "./src/schema/login-attempts.ts",
     "./src/schema/report.ts",
     "./src/schema/userReports.ts",

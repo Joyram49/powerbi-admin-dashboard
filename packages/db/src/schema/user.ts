@@ -1,5 +1,7 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
+  index,
   jsonb,
   pgEnum,
   pgTable,
@@ -20,23 +22,59 @@ export const userRoleEnum = pgEnum("user_role", [
 // Export the enum to register it with the database
 export const userStatusEnum = pgEnum("user_status", ["active", "inactive"]);
 
-export const users = pgTable("user", {
-  id: uuid("id").notNull().primaryKey().defaultRandom(),
-  userName: varchar("user_name", { length: 255 }).unique().notNull(),
-  isSuperAdmin: boolean("is_super_admin").notNull().default(false),
-  email: varchar("email", { length: 255 }).unique().notNull(),
-  companyId: uuid("company_id").references(() => companies.id, {
-    onDelete: "set null",
+export const users = pgTable(
+  "user",
+  {
+    id: uuid("id").notNull().primaryKey().defaultRandom(),
+    userName: varchar("user_name", { length: 255 }).unique().notNull(),
+    isSuperAdmin: boolean("is_super_admin").notNull().default(false),
+    email: varchar("email", { length: 255 }).unique().notNull(),
+    companyId: uuid("company_id").references(() => companies.id, {
+      onDelete: "set null",
+    }),
+    role: userRoleEnum("role").notNull().default("user"),
+    dateCreated: timestamp("date_created", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    lastLogin: timestamp("last_login", { withTimezone: true }),
+    modifiedBy: varchar("modified_by", { length: 255 }),
+    status: userStatusEnum("status").default("active"),
+    passwordHistory: jsonb("password_history").$type<string[]>().default([]),
+  },
+  (table) => ({
+    // Single column indexes
+    emailIdx: index("user_email_idx").on(table.email),
+    userNameIdx: index("user_username_idx").on(table.userName),
+    roleIdx: index("user_role_idx").on(table.role),
+    statusIdx: index("user_status_idx").on(table.status),
+    companyIdIdx: index("user_company_id_idx").on(table.companyId),
+    dateCreatedIdx: index("user_date_created_idx").on(table.dateCreated),
+    lastLoginIdx: index("user_last_login_idx").on(table.lastLogin),
+    isSuperAdminIdx: index("user_super_admin_idx").on(table.isSuperAdmin),
+
+    // Composite indexes for common query patterns
+    companyRoleIdx: index("user_company_role_idx").on(
+      table.companyId,
+      table.role,
+    ),
+    companyStatusIdx: index("user_company_status_idx").on(
+      table.companyId,
+      table.status,
+    ),
+    roleStatusIdx: index("user_role_status_idx").on(table.role, table.status),
+    dateRoleIdx: index("user_date_role_idx").on(table.dateCreated, table.role),
+
+    // Partial indexes for active users (most common query)
+    activeUsersIdx: index("user_active_idx")
+      .on(table.companyId, table.role, table.dateCreated)
+      .where(sql`${table.status} = 'active'`),
+
+    // Index for super admins
+    superAdminsIdx: index("user_super_admins_idx")
+      .on(table.dateCreated, table.email)
+      .where(sql`${table.isSuperAdmin} = true`),
   }),
-  role: userRoleEnum("role").notNull().default("user"),
-  dateCreated: timestamp("date_created", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-  lastLogin: timestamp("last_login", { withTimezone: true }),
-  modifiedBy: varchar("modified_by", { length: 255 }),
-  status: userStatusEnum("status").default("active"),
-  passwordHistory: jsonb("password_history").$type<string[]>().default([]),
-});
+);
 
 // frontend schema validation
 // Base validation schema for creating a admin
@@ -149,20 +187,25 @@ export const updateUserSchema = z
     modifiedBy: z.string().uuid(),
     role: z.enum(["user", "admin", "superAdmin"]),
     status: z.enum(["active", "inactive"]).optional(),
-    companyId: z.string().uuid().optional(),
-    prevCompanyId: z.string().uuid().optional(),
+    prevStatus: z.enum(["active", "inactive"]).optional(),
+    companyId: z.string().uuid().nullable().optional(),
+    prevCompanyId: z.string().uuid().nullable().optional(),
     userName: z.string().optional().or(z.literal("")),
   })
   .refine(
     (data) => {
-      if (data.companyId) {
-        return !!data.prevCompanyId;
+      // Only require company IDs for regular users
+      if (data.role === "user") {
+        if (data.companyId) {
+          return !!data.prevCompanyId;
+        }
+        return true;
       }
       return true;
     },
     {
       message:
-        "When updating company, both new and previous company IDs must be provided",
+        "When updating company for a regular user, both new and previous company IDs must be provided",
       path: ["prevCompanyId"],
     },
   );

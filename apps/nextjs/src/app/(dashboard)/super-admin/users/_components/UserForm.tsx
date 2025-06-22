@@ -29,6 +29,7 @@ import { toast } from "@acme/ui/toast";
 
 import { UpdatePasswordForm } from "~/app/(auth)/_components/UpdatePasswordForm";
 import { api } from "~/trpc/react";
+import { UserErrorModal } from "./UserErrorModal";
 
 // Form schema that matches both our create and update API expectations
 const userSchema = z
@@ -196,6 +197,10 @@ export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [formSubmitError, setFormSubmitError] = useState<string | null>(null);
+  const [errorModalOpen, setErrorModalOpen] = useState(false);
+  const [errorType, setErrorType] = useState<
+    "SUBSCRIPTION_REQUIRED" | "USER_LIMIT_EXCEEDED" | null
+  >(null);
 
   const utils = api.useUtils();
   const { data: profileData } = api.auth.getProfile.useQuery();
@@ -225,11 +230,19 @@ export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
     },
     onError: (error) => {
       console.error("Create user error:", error);
-      setFormSubmitError(error.message);
-      toast.error("Failed to add user", {
-        description: error.message || "An error occurred",
-      });
-      // setIsSubmitting(false);
+      if (error.message.startsWith("SUBSCRIPTION_REQUIRED")) {
+        setErrorType("SUBSCRIPTION_REQUIRED");
+        setErrorModalOpen(true);
+      } else if (error.message.startsWith("USER_LIMIT_EXCEEDED")) {
+        setErrorType("USER_LIMIT_EXCEEDED");
+        setErrorModalOpen(true);
+      } else {
+        setFormSubmitError(error.message);
+        toast.error("Failed to add user", {
+          description: error.message || "An error occurred",
+        });
+      }
+      setIsSubmitting(false);
     },
   });
 
@@ -250,13 +263,39 @@ export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
     },
     onError: (error) => {
       console.error("Update user error:", error);
-      setFormSubmitError(error.message);
-      toast.error("Failed to update user", {
-        description: error.message || "An error occurred",
-      });
+      if (error.message.startsWith("SUBSCRIPTION_REQUIRED")) {
+        setErrorType("SUBSCRIPTION_REQUIRED");
+        setErrorModalOpen(true);
+      } else if (error.message.startsWith("USER_LIMIT_EXCEEDED")) {
+        setErrorType("USER_LIMIT_EXCEEDED");
+        setErrorModalOpen(true);
+      } else {
+        setFormSubmitError(error.message);
+        toast.error("Failed to update user", {
+          description: error.message || "An error occurred",
+        });
+      }
       setIsSubmitting(false);
     },
   });
+
+  // Update the purchaseAdditionalUser mutation to use handleUserAddition
+  const purchaseAdditionalUserMutation =
+    api.stripe.handleUserAddition.useMutation({
+      onSuccess: () => {
+        toast.success("Additional user purchased successfully");
+        // Close the error modal and keep the form in its current state
+        setErrorModalOpen(false);
+        setErrorType(null);
+        setIsSubmitting(false);
+      },
+      onError: (error) => {
+        toast.error("Failed to purchase additional user", {
+          description: error.message,
+        });
+        setIsSubmitting(false);
+      },
+    });
 
   // Initialize form with default or user data
   const form = useForm<FormValues>({
@@ -323,7 +362,6 @@ export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
   const onSubmit = (values: FormValues) => {
     setIsSubmitting(true);
     setFormSubmitError(null);
-    console.log("Form submitted with values:", values);
 
     // Check if we're updating or creating
     const isUpdateMode = values.id && values.id.trim() !== "";
@@ -343,13 +381,14 @@ export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
         modifiedBy: currentUserId ?? "",
         role: values.role,
         status: values.status ?? "active",
-        companyId: values.companyId,
+        companyId: values.role === "user" ? values.companyId : null,
         userName: values.userName,
         password: values.password,
-        prevCompanyId: initialData?.companyId ?? undefined,
+        prevCompanyId:
+          values.role === "user" ? (initialData?.companyId ?? null) : null,
+        prevStatus: initialData?.status ?? undefined,
       };
 
-      console.log("Updating user:", updateData);
       updateUserMutation.mutate(updateData);
     } else {
       // Create flow
@@ -407,6 +446,15 @@ export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
 
   const handlePasswordModalClose = () => {
     setIsPasswordModalOpen(false);
+  };
+
+  // Update the handlePurchaseAdditionalUser function
+  const handlePurchaseAdditionalUser = () => {
+    const companyId = form.getValues().companyId;
+    if (!companyId) return;
+    purchaseAdditionalUserMutation.mutate({
+      companyId: companyId,
+    });
   };
 
   return (
@@ -780,6 +828,15 @@ export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
           onSuccess={handlePasswordUpdateSuccess}
         />
       )}
+
+      {/* Replace ErrorModal with UserErrorModal */}
+      <UserErrorModal
+        isOpen={errorModalOpen}
+        onClose={() => setErrorModalOpen(false)}
+        errorType={errorType}
+        onProceed={handlePurchaseAdditionalUser}
+        userRole={userRole as "superAdmin" | "admin" | "user"}
+      />
     </Form>
   );
 }
