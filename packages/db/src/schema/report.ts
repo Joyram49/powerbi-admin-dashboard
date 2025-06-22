@@ -1,4 +1,6 @@
+import { sql } from "drizzle-orm";
 import {
+  index,
   integer,
   pgEnum,
   pgTable,
@@ -14,19 +16,56 @@ import { companies } from "./company";
 // Export the enum so it can be properly registered with the database
 export const reportStatusEnum = pgEnum("report_status", ["active", "inactive"]);
 
-export const reports = pgTable("report", {
-  id: uuid("id").notNull().primaryKey().defaultRandom(),
-  reportName: varchar("report_name", { length: 255 }).notNull().unique(),
-  dateCreated: timestamp("date_created", { withTimezone: true }).defaultNow(),
-  modifiedBy: varchar("modified_by", { length: 255 }),
-  lastModifiedAt: timestamp("last_modified_at", { withTimezone: true }),
-  status: reportStatusEnum("status").default("active"),
-  companyId: uuid("company_id").references(() => companies.id, {
-    onDelete: "cascade",
+export const reports = pgTable(
+  "report",
+  {
+    id: uuid("id").notNull().primaryKey().defaultRandom(),
+    reportName: varchar("report_name", { length: 255 }).notNull().unique(),
+    dateCreated: timestamp("date_created", { withTimezone: true }).defaultNow(),
+    modifiedBy: varchar("modified_by", { length: 255 }),
+    lastModifiedAt: timestamp("last_modified_at", { withTimezone: true }),
+    status: reportStatusEnum("status").default("active"),
+    companyId: uuid("company_id").references(() => companies.id, {
+      onDelete: "cascade",
+    }),
+    reportUrl: text("report_url").notNull().unique(),
+    accessCount: integer("access_count").notNull().default(0),
+  },
+  (table) => ({
+    // Single column indexes
+    reportNameIdx: index("report_name_idx").on(table.reportName),
+    companyIdIdx: index("report_company_id_idx").on(table.companyId),
+    statusIdx: index("report_status_idx").on(table.status),
+    dateCreatedIdx: index("report_date_created_idx").on(table.dateCreated),
+    lastModifiedAtIdx: index("report_last_modified_idx").on(
+      table.lastModifiedAt,
+    ),
+    accessCountIdx: index("report_access_count_idx").on(table.accessCount),
+
+    // Composite indexes for common query patterns
+    companyStatusIdx: index("report_company_status_idx").on(
+      table.companyId,
+      table.status,
+    ),
+    companyDateIdx: index("report_company_date_idx").on(
+      table.companyId,
+      table.dateCreated,
+    ),
+    statusDateIdx: index("report_status_date_idx").on(
+      table.status,
+      table.dateCreated,
+    ),
+    nameStatusIdx: index("report_name_status_idx").on(
+      table.reportName,
+      table.status,
+    ),
+
+    // Partial indexes for active reports (most common query)
+    activeReportsIdx: index("report_active_idx")
+      .on(table.companyId, table.dateCreated, table.reportName)
+      .where(sql`${table.status} = 'active'`),
   }),
-  reportUrl: text("report_url").notNull().unique(),
-  accessCount: integer("access_count").notNull().default(0),
-});
+);
 
 export const reportRouterSchema = {
   create: z.object({

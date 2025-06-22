@@ -20,6 +20,7 @@ import type {
 import { createCompanySchema, updateCompanySchema } from "@acme/db/schema";
 import { Button } from "@acme/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@acme/ui/card";
+import { Checkbox } from "@acme/ui/checkbox";
 import {
   Form,
   FormControl,
@@ -30,6 +31,13 @@ import {
   FormMessage,
 } from "@acme/ui/form";
 import { Input } from "@acme/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@acme/ui/select";
 import { Separator } from "@acme/ui/separator";
 import { toast } from "@acme/ui/toast";
 
@@ -75,6 +83,7 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
   const [mounted, setMounted] = useState(false);
   const [formStep, setFormStep] = useState(0);
   const [selectedAdmins, setSelectedAdmins] = useState<Admins[]>([]);
+  const [isOldCompany, setIsOldCompany] = useState(false);
 
   const { data: admins, isLoading: adminsLoading } =
     api.user.getAdminUsers.useQuery(
@@ -102,6 +111,12 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
           phone: initialData.phone ?? "",
           email: initialData.email ?? "",
           adminIds: initialData.admins.map((admin) => admin.id),
+          preferredSubscriptionPlan: initialData.preferredSubscriptionPlan as
+            | "data_foundation"
+            | "insight_accelerator"
+            | "strategic_navigator"
+            | "enterprise"
+            | null,
         }
       : {
           companyName: "",
@@ -109,6 +124,7 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
           phone: "",
           email: "",
           adminIds: [],
+          preferredSubscriptionPlan: null,
         },
     mode: "onChange",
   });
@@ -123,8 +139,15 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
         phone: initialData.phone ?? "",
         email: initialData.email ?? "",
         adminIds: initialData.admins.map((admin) => admin.id),
+        preferredSubscriptionPlan: initialData.preferredSubscriptionPlan as
+          | "data_foundation"
+          | "insight_accelerator"
+          | "strategic_navigator"
+          | "enterprise"
+          | null,
       });
       setSelectedAdmins([...initialData.admins]);
+      setIsOldCompany(!!initialData.preferredSubscriptionPlan);
     }
   }, [initialData, companyForm]);
 
@@ -177,7 +200,6 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
 
     try {
       if (initialData) {
-        console.log("formData", values);
         // Update existing company
         updateCompanyMutation.mutate({
           companyId: initialData.id,
@@ -186,6 +208,7 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
           phone: values.phone,
           email: values.email,
           adminIds: values.adminIds,
+          preferredSubscriptionPlan: values.preferredSubscriptionPlan,
         });
       } else {
         // For new company, we need admin information
@@ -206,6 +229,9 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
           phone: values.phone,
           email: values.email,
           adminIds: selectedAdminIds,
+          preferredSubscriptionPlan: isOldCompany
+            ? values.preferredSubscriptionPlan
+            : null,
         });
       }
     } catch (error) {
@@ -239,6 +265,10 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
     ]);
     await companyForm.trigger("adminIds");
   };
+
+  // const submitBtnClick = () => {
+  //   console.log(">>> submitted values", companyForm.getValues());
+  // };
 
   if (!mounted) return null;
 
@@ -280,7 +310,9 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
           </div>
         </CardHeader>
 
-        <CardContent className="p-4 sm:pt-6">
+        <CardContent
+          className={`p-4 sm:pt-6 ${isOldCompany ? "max-h-[600px] overflow-y-auto" : ""}`}
+        >
           <Form {...companyForm}>
             <motion.form
               onSubmit={companyForm.handleSubmit(onSubmitCompany)}
@@ -380,6 +412,90 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
                     />
                   </motion.div>
 
+                  <motion.div variants={itemVariants} className="space-y-4">
+                    {!initialData && (
+                      <div className="flex flex-row items-start space-x-3 space-y-0">
+                        <Checkbox
+                          checked={isOldCompany}
+                          onCheckedChange={(checked) => {
+                            setIsOldCompany(checked as boolean);
+                            if (!checked) {
+                              companyForm.setValue(
+                                "preferredSubscriptionPlan",
+                                null,
+                              );
+                            }
+                          }}
+                        />
+                        <div className="space-y-1 leading-none">
+                          <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                            This is an old company
+                          </label>
+                          <p className="text-sm text-muted-foreground">
+                            Check this if you want to set a specific
+                            subscription plan
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {(isOldCompany ||
+                      initialData?.preferredSubscriptionPlan) && (
+                      <FormField
+                        control={companyForm.control}
+                        name="preferredSubscriptionPlan"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-sm font-medium dark:text-gray-300">
+                              Subscription Plan
+                            </FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              defaultValue={field.value ?? undefined}
+                            >
+                              <FormControl>
+                                <SelectTrigger className="border-gray-200 bg-white text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:focus:border-blue-400 dark:focus:ring-blue-400">
+                                  <SelectValue placeholder="Select subscription plan" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+                                <SelectItem
+                                  value="data_foundation"
+                                  className="text-gray-900 focus:bg-gray-100 dark:text-gray-100 dark:focus:bg-gray-700"
+                                >
+                                  Data Foundation
+                                </SelectItem>
+                                <SelectItem
+                                  value="insight_accelerator"
+                                  className="text-gray-900 focus:bg-gray-100 dark:text-gray-100 dark:focus:bg-gray-700"
+                                >
+                                  Insight Accelerator
+                                </SelectItem>
+                                <SelectItem
+                                  value="strategic_navigator"
+                                  className="text-gray-900 focus:bg-gray-100 dark:text-gray-100 dark:focus:bg-gray-700"
+                                >
+                                  Strategic Navigator
+                                </SelectItem>
+                                <SelectItem
+                                  value="enterprise"
+                                  className="text-gray-900 focus:bg-gray-100 dark:text-gray-100 dark:focus:bg-gray-700"
+                                >
+                                  Enterprise
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormDescription className="text-xs text-gray-500 dark:text-gray-400">
+                              Select the preferred subscription plan for this
+                              company
+                            </FormDescription>
+                            <FormMessage className="text-xs dark:text-red-400" />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </motion.div>
+
                   <motion.div
                     className="flex justify-end pt-2"
                     variants={itemVariants}
@@ -442,6 +558,21 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
                     />
                   </motion.div>
                   <Separator className="my-2 dark:bg-gray-800" />
+                  {/* Generic error display for all form errors */}
+                  {Object.keys(companyForm.formState.errors).length > 0 && (
+                    <div className="mb-2 text-sm text-red-500">
+                      {Object.values(companyForm.formState.errors)
+                        .flatMap((err) => {
+                          if (typeof err === "object" && "message" in err) {
+                            return [err.message?.toString()].filter(Boolean);
+                          }
+                          return [];
+                        })
+                        .map((message, idx) => (
+                          <div key={idx}>{message}</div>
+                        ))}
+                    </div>
+                  )}
                   <motion.div
                     className="flex flex-wrap justify-between gap-3 pt-2"
                     variants={itemVariants}
@@ -484,6 +615,7 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
                       >
                         <Button
                           type="submit"
+                          // onClick={submitBtnClick}
                           className="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
                           disabled={companyFormSubmitted}
                         >

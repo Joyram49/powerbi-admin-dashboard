@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { compareSync, hash } from "bcryptjs";
-import { and, eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 
 import {
   companies,
@@ -69,30 +69,33 @@ export const authRouter = createTRPCRouter({
             .where(
               and(
                 eq(subscriptions.companyId, input.companyId),
-                eq(subscriptions.status, "active"),
+                or(
+                  eq(subscriptions.status, "active"),
+                  eq(subscriptions.status, "trialing"),
+                ),
               ),
             );
 
           if (!companySubscription[0]) {
             throw new TRPCError({
               code: "BAD_REQUEST",
-              message: "Company has no active subscription",
+              message:
+                "SUBSCRIPTION_REQUIRED: Company has no active subscription. Please purchase a subscription plan to add users.",
             });
           }
 
           const currentEmployeeCount = company[0]?.numOfEmployees ?? 0;
           const userLimit = companySubscription[0]?.userLimit ?? 0;
+          const overageUser = companySubscription[0]?.overageUser ?? 0;
+          const totalUser = userLimit + overageUser;
 
-          // Check if company has reached user limit
-          if (currentEmployeeCount >= userLimit) {
-            // Check if company has purchased additional user
-            if (!company[0]?.hasAdditionalUserPurchase) {
-              throw new TRPCError({
-                code: "BAD_REQUEST",
-                message:
-                  "Company has reached the user limit. Please purchase additional user access for $25 per user.",
-              });
-            }
+          // Check if adding a new user would exceed the user limit
+          if (currentEmployeeCount >= totalUser) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "USER_LIMIT_EXCEEDED: Company has reached the user limit. Please purchase additional user access for $25 per user.",
+            });
           }
 
           // Use admin API to create user without affecting current session
@@ -136,7 +139,6 @@ export const authRouter = createTRPCRouter({
             .update(companies)
             .set({
               numOfEmployees: currentEmployeeCount + 1,
-              hasAdditionalUserPurchase: false,
             })
             .where(eq(companies.id, input.companyId));
 
@@ -443,11 +445,6 @@ export const authRouter = createTRPCRouter({
       const { data, error } = await supabase.auth.getUser();
 
       if (error) {
-        // Instead of throwing an error, return a default response
-        console.log(
-          "User not authenticated or session expired:",
-          error.message,
-        );
         return { user: null };
       }
 
@@ -918,7 +915,7 @@ export const authRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       try {
         // Check if user has permission
-        if (ctx.session.user.role === "user") {
+        if (ctx.session.user.role && ctx.session.user.role === "user") {
           throw new TRPCError({
             code: "FORBIDDEN",
             message: "You are not authorized to purchase additional users",
@@ -966,7 +963,6 @@ export const authRouter = createTRPCRouter({
         await db
           .update(companies)
           .set({
-            hasAdditionalUserPurchase: true,
             modifiedBy: ctx.session.user.email,
             lastActivity: new Date(),
           })

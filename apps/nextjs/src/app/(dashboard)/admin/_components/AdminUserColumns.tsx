@@ -5,14 +5,19 @@ import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { ArrowUpDown, UserPlus } from "lucide-react";
 
+
+
 import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
 import { Checkbox } from "@acme/ui/checkbox";
+
+
 
 import { UpdatePasswordForm } from "~/app/(auth)/_components/UpdatePasswordForm";
 import { EntityActions } from "~/app/(dashboard)/_components/EntityActions";
 import { api } from "~/trpc/react";
 import UserModal from "../../super-admin/users/_components/UserModal";
+
 
 interface CompanyUserType {
   id: string;
@@ -133,8 +138,8 @@ export function useUserColumns() {
       },
       {
         accessorKey: "role",
-        header: () => <div className="text-center font-medium">Role</div>,
-        cell: ({ row }: { row: Row<CompanyUserType> }) => {
+        header: () => <div className="text-left font-medium">Role</div>,
+        cell: ({ row }) => {
           const role = row.getValue("role");
           return (
             <Badge
@@ -143,9 +148,11 @@ export function useUserColumns() {
                   ? "default"
                   : role === "superAdmin"
                     ? "destructive"
-                    : "secondary"
+                    : "outline"
               }
-              className="justify-center text-white"
+              className={`border-primary ${
+                role === "admin" ? "bg-primary text-white" : ""
+              }`}
             >
               {role as string}
             </Badge>
@@ -158,12 +165,13 @@ export function useUserColumns() {
         cell: ({ row }: { row: Row<CompanyUserType> }) => {
           const status = row.getValue("status");
           return (
-            <Badge
-              variant={status === "active" ? "success" : "destructive"}
-              className="justify-center"
-            >
-              {(status as string) || "N/A"}
-            </Badge>
+            <div className="flex justify-center">
+              <Badge
+                variant={status === "active" ? "success" : "destructive"}
+              >
+                {(status as string) || "N/A"}
+              </Badge>
+            </div>
           );
         },
       },

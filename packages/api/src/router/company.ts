@@ -36,6 +36,7 @@ export const companyRouter = createTRPCRouter({
             phone: input.phone ?? null,
             email: input.email,
             modifiedBy: ctx.session.user.email,
+            preferredSubscriptionPlan: input.preferredSubscriptionPlan ?? null,
           })
           .returning();
 
@@ -142,8 +143,13 @@ export const companyRouter = createTRPCRouter({
           },
           extras: {
             employeeCount: sql<number>`(
-            SELECT COUNT(*)::int FROM "user" WHERE "user"."company_id" = companies.id
-          )`.as("employee_count"),
+              SELECT COUNT(*)::int FROM "user" u 
+              WHERE u."company_id" = companies.id 
+              AND NOT EXISTS (
+                SELECT 1 FROM "company_admin" ca 
+                WHERE ca."user_id" = u.id
+              )
+            )`.as("employee_count"),
             reportCount:
               sql<number>`(SELECT COUNT(*)::int FROM "report" WHERE "report"."company_id" = companies.id)`.as(
                 "report_count",
@@ -400,6 +406,55 @@ export const companyRouter = createTRPCRouter({
           limit,
           page,
           data: transformedCompaniesByAdminId,
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: String(error),
+        });
+      }
+    }),
+
+  // get all the admins of a company
+  getAllAdminsOfACompany: protectedProcedure
+    .input(companyRouterSchema.getById)
+    .query(async ({ ctx, input }) => {
+      const { companyId } = input;
+
+      if (ctx.session.user.role === "user") {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You are not authorized to view companies",
+        });
+      }
+
+      try {
+        const admins = await db.query.companyAdmins.findMany({
+          where: eq(companyAdmins.companyId, companyId),
+          with: {
+            user: true,
+          },
+        });
+
+        const transformedAdmins = admins.map((admin) => ({
+          id: admin.user.id,
+          userName: admin.user.userName,
+          email: admin.user.email,
+          role: admin.user.role,
+          status: admin.user.status,
+          dateCreated: admin.user.dateCreated,
+          companyId: admin.user.companyId,
+          lastLogin: admin.user.lastLogin,
+          modifiedBy: admin.user.modifiedBy,
+        }));
+
+        return {
+          success: true,
+          message: "Admins fetched successfully",
+          data: transformedAdmins,
         };
       } catch (error) {
         if (error instanceof TRPCError) {
@@ -754,6 +809,54 @@ export const companyRouter = createTRPCRouter({
           success: true,
           message: "Company added to the company admin history successfully",
         };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: String(error),
+        });
+      }
+    }),
+
+  // reset null company preferred subscription plan
+  resetNullCompanyPreferredSubscriptionPlan: protectedProcedure
+    .input(companyRouterSchema.getById)
+    .mutation(async ({ ctx, input }) => {
+      const { companyId } = input;
+
+      if (ctx.session.user.role === "user") {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message:
+            "You are not authorized to reset null company preferred subscription plan",
+        });
+      }
+
+      if (ctx.session.user.role === "admin") {
+        // check if the company's admin is the same as the user
+        const companyAdmin = await db.query.companyAdmins.findFirst({
+          where: and(
+            eq(companyAdmins.companyId, companyId),
+            eq(companyAdmins.userId, ctx.session.user.id),
+          ),
+        });
+
+        if (!companyAdmin) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message:
+              "You are not authorized to reset null company preferred subscription plan",
+          });
+        }
+      }
+
+      try {
+        await db
+          .update(companies)
+          .set({ preferredSubscriptionPlan: null })
+          .where(eq(companies.id, companyId));
       } catch (error) {
         if (error instanceof TRPCError) {
           throw error;

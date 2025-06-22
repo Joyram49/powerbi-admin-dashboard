@@ -1,5 +1,6 @@
+import { sql } from "drizzle-orm";
 import {
-  boolean,
+  index,
   integer,
   pgEnum,
   pgTable,
@@ -17,21 +18,52 @@ export const companyStatus = pgEnum("company_status", [
   "suspended",
 ]);
 
-export const companies = pgTable("company", {
-  id: uuid("id").notNull().primaryKey().defaultRandom(),
-  companyName: varchar("company_name", { length: 255 }).notNull(),
-  address: varchar("address", { length: 255 }),
-  phone: varchar("phone", { length: 50 }),
-  email: varchar("email", { length: 255 }).unique(),
-  dateJoined: timestamp("date_joined", { withTimezone: true }).defaultNow(),
-  status: companyStatus("status").default("active"),
-  lastActivity: timestamp("last_activity", { withTimezone: true }),
-  modifiedBy: varchar("modified_by", { length: 255 }),
-  numOfEmployees: integer("num_of_employees").notNull().default(0),
-  hasAdditionalUserPurchase: boolean("has_additional_user_purchase")
-    .notNull()
-    .default(false),
-});
+export const subscriptionTier = pgEnum("subscription_tier", [
+  "data_foundation",
+  "insight_accelerator",
+  "strategic_navigator",
+  "enterprise",
+]);
+
+export const companies = pgTable(
+  "company",
+  {
+    id: uuid("id").notNull().primaryKey().defaultRandom(),
+    companyName: varchar("company_name", { length: 255 }).notNull(),
+    address: varchar("address", { length: 255 }),
+    phone: varchar("phone", { length: 50 }),
+    email: varchar("email", { length: 255 }).unique(),
+    dateJoined: timestamp("date_joined", { withTimezone: true }).defaultNow(),
+    status: companyStatus("status").default("active"),
+    lastActivity: timestamp("last_activity", { withTimezone: true }),
+    modifiedBy: varchar("modified_by", { length: 255 }),
+    numOfEmployees: integer("num_of_employees").notNull().default(0),
+    preferredSubscriptionPlan: subscriptionTier("preferred_subscription_plan"),
+  },
+  (table) => ({
+    // Indexes for common query patterns
+    companyNameIdx: index("company_name_idx").on(table.companyName),
+    statusIdx: index("company_status_idx").on(table.status),
+    dateJoinedIdx: index("company_date_joined_idx").on(table.dateJoined),
+    emailIdx: index("company_email_idx").on(table.email),
+    lastActivityIdx: index("company_last_activity_idx").on(table.lastActivity),
+
+    // Composite indexes for common filter combinations
+    statusDateIdx: index("company_status_date_idx").on(
+      table.status,
+      table.dateJoined,
+    ),
+    nameStatusIdx: index("company_name_status_idx").on(
+      table.companyName,
+      table.status,
+    ),
+
+    // Partial indexes for active companies (most common query)
+    activeCompaniesIdx: index("company_active_idx")
+      .on(table.dateJoined, table.companyName)
+      .where(sql`${table.status} = 'active'`),
+  }),
+);
 
 // Base company schema without adminIds
 export const baseCompanySchema = createInsertSchema(companies).omit({
@@ -40,7 +72,7 @@ export const baseCompanySchema = createInsertSchema(companies).omit({
   lastActivity: true,
   modifiedBy: true,
   numOfEmployees: true,
-  hasAdditionalUserPurchase: true,
+  preferredSubscriptionPlan: true,
 });
 
 const PHONE_NUMBER_REGEX =
@@ -69,6 +101,10 @@ export const createCompanySchema = baseCompanyValidationSchema.extend({
     required_error: "At least one admin must be assigned",
     invalid_type_error: "Admin IDs must be valid UUIDs",
   }),
+  preferredSubscriptionPlan: z
+    .enum(subscriptionTier.enumValues)
+    .optional()
+    .nullable(),
 });
 
 // Validation schema for updating a company
@@ -83,6 +119,10 @@ export const updateCompanySchema = baseCompanyValidationSchema.extend({
       }),
     )
     .optional(),
+  preferredSubscriptionPlan: z
+    .enum(subscriptionTier.enumValues)
+    .optional()
+    .nullable(),
 });
 
 // Unified schema for all company router endpoints
@@ -189,7 +229,7 @@ export interface CompanyWithAdmins {
   employeeCount: number;
   reportCount: number;
   numOfEmployees: number;
-  hasAdditionalUserPurchase: boolean;
+  preferredSubscriptionPlan: string | null;
   admins: {
     id: string;
     userName: string;
@@ -204,5 +244,11 @@ export interface CompanyFormValues {
   phone?: string;
   email: string;
   adminIds: string[];
-  companyId?: string; // Optional for update operations
+  companyId?: string;
+  preferredSubscriptionPlan?:
+    | "data_foundation"
+    | "insight_accelerator"
+    | "strategic_navigator"
+    | "enterprise"
+    | null;
 }
