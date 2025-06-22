@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useState } from "react";
 
 import { cn } from "@acme/ui";
@@ -9,7 +10,7 @@ import { SubscriptionDetailsModal } from "./SubscriptionDetailsModal";
 
 interface KpiCardProps {
   title: string;
-  value: string | number;
+  value: string | number | ReactNode;
   className?: string;
   subscriptionData?: SubscriptionResponse;
 }

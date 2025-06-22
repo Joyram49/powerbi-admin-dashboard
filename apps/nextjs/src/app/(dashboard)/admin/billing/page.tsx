@@ -65,10 +65,12 @@ export default function BillingPage() {
       !selectedCompanyId
     ) {
       const firstCompany = companiesData.data[0];
-      setSelectedCompanyId(firstCompany.id);
-      // Update URL without triggering navigation
-      const newUrl = `/admin/billing?companyId=${firstCompany.id}`;
-      window.history.replaceState({}, "", newUrl);
+      if (firstCompany) {
+        setSelectedCompanyId(firstCompany.id);
+        // Update URL without triggering navigation
+        const newUrl = `/admin/billing?companyId=${firstCompany.id}`;
+        window.history.replaceState({}, "", newUrl);
+      }
     }
   }, [companiesData?.data, selectedCompanyId]);
 
@@ -126,7 +128,7 @@ export default function BillingPage() {
       : api.billing.getBillingsByDateRange.useQuery(
           {
             companyId: selectedCompanyId ?? "",
-            startDate: startDate,
+            startDate: startDate ?? new Date("2025-01-01"),
             endDate: endDate ?? new Date(),
           },
           {
@@ -357,7 +359,7 @@ export default function BillingPage() {
             Error
           </AlertTitle>
           <AlertDescription className="text-red-700 dark:text-red-400">
-            {subscriptionError}
+            {subscriptionState.error}
           </AlertDescription>
         </Alert>
       );
@@ -533,7 +535,7 @@ export default function BillingPage() {
                 onDownload={handleDownload}
                 onBulkDownload={handleBulkDownload}
                 onCompanyFilter={setCompanyFilter}
-                onLoading={billingsLoading}
+                loading={billingsLoading}
                 onDateFilter={(val) => setDateRange(val as "all" | "30" | "90")}
               />
             </div>

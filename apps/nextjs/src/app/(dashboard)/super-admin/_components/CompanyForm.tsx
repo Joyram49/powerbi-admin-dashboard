@@ -1,6 +1,5 @@
 "use client";
 
-import type { FieldError } from "react-hook-form";
 import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
@@ -112,8 +111,12 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
           phone: initialData.phone ?? "",
           email: initialData.email ?? "",
           adminIds: initialData.admins.map((admin) => admin.id),
-          preferredSubscriptionPlan:
-            initialData.preferredSubscriptionPlan ?? null,
+          preferredSubscriptionPlan: initialData.preferredSubscriptionPlan as
+            | "data_foundation"
+            | "insight_accelerator"
+            | "strategic_navigator"
+            | "enterprise"
+            | null,
         }
       : {
           companyName: "",
@@ -136,10 +139,15 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
         phone: initialData.phone ?? "",
         email: initialData.email ?? "",
         adminIds: initialData.admins.map((admin) => admin.id),
-        preferredSubscriptionPlan:
-          initialData.preferredSubscriptionPlan ?? null,
+        preferredSubscriptionPlan: initialData.preferredSubscriptionPlan as
+          | "data_foundation"
+          | "insight_accelerator"
+          | "strategic_navigator"
+          | "enterprise"
+          | null,
       });
       setSelectedAdmins([...initialData.admins]);
+      setIsOldCompany(!!initialData.preferredSubscriptionPlan);
     }
   }, [initialData, companyForm]);
 
@@ -405,37 +413,34 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
                   </motion.div>
 
                   <motion.div variants={itemVariants} className="space-y-4">
-                    <FormField
-                      control={companyForm.control}
-                      name="isOldCompany"
-                      render={() => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                          <FormControl>
-                            <Checkbox
-                              checked={isOldCompany}
-                              onCheckedChange={(checked) => {
-                                setIsOldCompany(checked as boolean);
-                                if (!checked) {
-                                  companyForm.setValue(
-                                    "preferredSubscriptionPlan",
-                                    undefined,
-                                  );
-                                }
-                              }}
-                            />
-                          </FormControl>
-                          <div className="space-y-1 leading-none">
-                            <FormLabel>This is an old company</FormLabel>
-                            <FormDescription>
-                              Check this if you want to set a specific
-                              subscription plan
-                            </FormDescription>
-                          </div>
-                        </FormItem>
-                      )}
-                    />
+                    {!initialData && (
+                      <div className="flex flex-row items-start space-x-3 space-y-0">
+                        <Checkbox
+                          checked={isOldCompany}
+                          onCheckedChange={(checked) => {
+                            setIsOldCompany(checked as boolean);
+                            if (!checked) {
+                              companyForm.setValue(
+                                "preferredSubscriptionPlan",
+                                null,
+                              );
+                            }
+                          }}
+                        />
+                        <div className="space-y-1 leading-none">
+                          <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                            This is an old company
+                          </label>
+                          <p className="text-sm text-muted-foreground">
+                            Check this if you want to set a specific
+                            subscription plan
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
-                    {isOldCompany && (
+                    {(isOldCompany ||
+                      initialData?.preferredSubscriptionPlan) && (
                       <FormField
                         control={companyForm.control}
                         name="preferredSubscriptionPlan"
@@ -556,11 +561,16 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
                   {/* Generic error display for all form errors */}
                   {Object.keys(companyForm.formState.errors).length > 0 && (
                     <div className="mb-2 text-sm text-red-500">
-                      {Object.values(companyForm.formState.errors).map(
-                        (err: FieldError, idx) => (
-                          <div key={idx}>{err.message?.toString()}</div>
-                        ),
-                      )}
+                      {Object.values(companyForm.formState.errors)
+                        .flatMap((err) => {
+                          if (typeof err === "object" && "message" in err) {
+                            return [err.message?.toString()].filter(Boolean);
+                          }
+                          return [];
+                        })
+                        .map((message, idx) => (
+                          <div key={idx}>{message}</div>
+                        ))}
                     </div>
                   )}
                   <motion.div

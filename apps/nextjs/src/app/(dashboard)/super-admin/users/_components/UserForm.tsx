@@ -386,7 +386,7 @@ export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
         password: values.password,
         prevCompanyId:
           values.role === "user" ? (initialData?.companyId ?? null) : null,
-        prevStatus: initialData?.status,
+        prevStatus: initialData?.status ?? undefined,
       };
 
       updateUserMutation.mutate(updateData);
@@ -450,9 +450,10 @@ export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
 
   // Update the handlePurchaseAdditionalUser function
   const handlePurchaseAdditionalUser = () => {
-    if (!form.getValues().companyId) return;
+    const companyId = form.getValues().companyId;
+    if (!companyId) return;
     purchaseAdditionalUserMutation.mutate({
-      companyId: form.getValues().companyId,
+      companyId: companyId,
     });
   };
 
@@ -834,7 +835,7 @@ export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
         onClose={() => setErrorModalOpen(false)}
         errorType={errorType}
         onProceed={handlePurchaseAdditionalUser}
-        userRole={userRole}
+        userRole={userRole as "superAdmin" | "admin" | "user"}
       />
     </Form>
   );

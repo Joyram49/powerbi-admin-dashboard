@@ -119,6 +119,10 @@ export const updateCompanySchema = baseCompanyValidationSchema.extend({
       }),
     )
     .optional(),
+  preferredSubscriptionPlan: z
+    .enum(subscriptionTier.enumValues)
+    .optional()
+    .nullable(),
 });
 
 // Unified schema for all company router endpoints
@@ -241,5 +245,10 @@ export interface CompanyFormValues {
   email: string;
   adminIds: string[];
   companyId?: string;
-  preferredSubscriptionPlan?: string;
+  preferredSubscriptionPlan?:
+    | "data_foundation"
+    | "insight_accelerator"
+    | "strategic_navigator"
+    | "enterprise"
+    | null;
 }

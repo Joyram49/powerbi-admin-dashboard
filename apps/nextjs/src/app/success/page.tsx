@@ -27,7 +27,7 @@ function generatePaymentDetails(checkoutSession: Stripe.Checkout.Session) {
   // Get payment method from payment_method_types
   let paymentMethod = "Unknown";
   if (checkoutSession.payment_method_types.length > 0) {
-    paymentMethod = checkoutSession.payment_method_types[0];
+    paymentMethod = checkoutSession.payment_method_types[0] ?? "Unknown";
   }
 
   // Format date
@@ -43,7 +43,7 @@ function generatePaymentDetails(checkoutSession: Stripe.Checkout.Session) {
   );
 
   return {
-    amount: (checkoutSession.amount_total / 100).toFixed(2),
+    amount: ((checkoutSession.amount_total ?? 0) / 100).toFixed(2),
     currency: checkoutSession.currency?.toUpperCase() ?? "USD",
     paymentStatus: checkoutSession.payment_status,
     paymentMethod: paymentMethod,
@@ -73,7 +73,10 @@ export default async function Success({ searchParams }: SuccessPageProps) {
         companyId,
       });
     } catch (error) {
-      toast.error("Failed to reset subscription plan:", error);
+      toast.error("Failed to reset subscription plan:", {
+        description:
+          error instanceof Error ? error.message : "Unknown error occurred",
+      });
     }
   }
 

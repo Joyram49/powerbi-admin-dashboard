@@ -465,21 +465,4 @@ export const stripeRouter = createTRPCRouter({
         });
       }
     }),
-
-  // get the overage usage for a customerId
-  getOverageUsage: protectedProcedure
-    .input(
-      z.object({
-        companyId: z.string().uuid(),
-      }),
-    )
-    .query(async ({ input }) => {
-      const { companyId } = input;
-
-      const meters = await stripe.billing.meters.list({
-        limit: 100,
-      });
-
-      return meters;
-    }),
 });

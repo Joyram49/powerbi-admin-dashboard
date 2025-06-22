@@ -138,110 +138,34 @@ export default function BillingPage() {
 
   // Handle bulk download
   const handleBulkDownload = async (ids: string[]) => {
-    if (ids.length === 0) {
-      toast.error("Please select invoices to download");
-      return;
-    }
-
-    // Get the billing data for selected IDs
-    const selectedBillings =
-      billingsData?.data.filter((billing) => ids.includes(billing.id)) ?? [];
-
-    if (selectedBillings.length === 0) {
-      toast.error("No valid invoices found for download");
-      return;
-    }
-
-    // Filter out billings without PDF links
-    const billingsWithPdf = selectedBillings.filter(
-      (billing) => billing.pdfLink,
-    );
-
-    if (billingsWithPdf.length === 0) {
-      toast.error("No PDFs available for selected invoices");
-      return;
-    }
-
-    let successCount = 0;
-    let cancelledCount = 0;
-
-    // Show initial progress
-    toast.info(
-      `Starting sequential download of ${billingsWithPdf.length} invoices. Each PDF will open one by one.`,
-      { duration: 4000 },
-    );
-
     setIsDownloading(true);
-
-    // Process each PDF sequentially
-    for (let i = 0; i < billingsWithPdf.length; i++) {
-      const billing = billingsWithPdf[i];
-      const pdfUrl = billing.pdfLink!;
-
-      // Show current progress
-      toast.info(
-        `Opening invoice ${i + 1} of ${billingsWithPdf.length}: ${billing.invoiceId || billing.id}`,
-        { duration: 3000 },
-      );
-
-      // Open PDF in new window
-      const newWindow = window.open(
-        pdfUrl,
-        "_blank",
-        "width=800,height=600,scrollbars=yes",
-      );
-
-      if (newWindow) {
-        // Wait for user to interact with the PDF window
-        // We'll assume the user has completed their action after a reasonable delay
-        // and then move to the next PDF
-        await new Promise((resolve) => {
-          // Check if window is closed or if user has been on the page for a while
-          const checkWindow = setInterval(() => {
-            if (newWindow.closed) {
-              clearInterval(checkWindow);
-              resolve(true);
-            }
-          }, 1000);
-
-          // Also resolve after a reasonable time (30 seconds) to prevent infinite waiting
-          setTimeout(() => {
-            clearInterval(checkWindow);
-            resolve(true);
-          }, 30000);
-        });
-
-        successCount++;
-
-        // Small delay before opening next PDF
-        if (i < billingsWithPdf.length - 1) {
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-        }
-      } else {
-        // Popup blocked
-        toast.error(
-          `Popup blocked for invoice ${billing.invoiceId || billing.id}. Please allow popups and try again.`,
-          { duration: 5000 },
-        );
-        cancelledCount++;
+    try {
+      const pdfLinks = ids
+        .map(
+          (id) =>
+            billingsData?.data.find((b: BillingData) => b.id === id)?.pdfLink,
+        )
+        .filter((link): link is string => !!link);
+      if (pdfLinks.length === 0) {
+        toast.error("No PDFs available for selected invoices");
+        setIsDownloading(false);
+        return;
       }
-    }
-
-    setIsDownloading(false);
-
-    // Show final results
-    if (successCount > 0) {
-      toast.success(
-        `Completed! ${successCount} invoices opened successfully.`,
-        { duration: 5000 },
-      );
-    }
-
-    if (cancelledCount > 0) {
-      toast.error(
-        `${cancelledCount} invoices could not be opened due to popup blockers.`,
-        { duration: 5000 },
-      );
+      const downloadQueue = async () => {
+        for (const link of pdfLinks) {
+          const linkElement = document.createElement("a");
+          linkElement.href = link;
+          linkElement.target = "_blank";
+          linkElement.click();
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      };
+      await downloadQueue();
+      setIsDownloading(false);
+    } catch (error) {
+      toast.error("Error downloading invoices");
+      console.error("Bulk download error:", error);
+      setIsDownloading(false);
     }
   };
 
