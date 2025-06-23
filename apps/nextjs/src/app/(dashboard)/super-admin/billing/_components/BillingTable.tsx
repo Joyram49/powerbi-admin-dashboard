@@ -1,10 +1,15 @@
 import { useState } from "react";
 import { format } from "date-fns";
-import { Loader2 } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 
 import { Badge } from "@acme/ui/badge";
 import { Button } from "@acme/ui/button";
 import { Checkbox } from "@acme/ui/checkbox";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@acme/ui/hover-card";
 import {
   Table,
   TableBody,
@@ -62,20 +67,35 @@ export function BillingTable({
       {/* Bulk Actions */}
       {selectedInvoices.length > 0 && (
         <div className="flex items-center gap-4">
-          <Button
-            onClick={() => onBulkDownload?.(selectedInvoices)}
-            disabled={isDownloading}
-            className="bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-600"
-          >
-            {isDownloading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Opening PDFs...
-              </>
-            ) : (
-              `Download Selected (${selectedInvoices.length})`
-            )}
-          </Button>
+          <HoverCard>
+            <HoverCardTrigger asChild>
+              <Button
+                onClick={() => onBulkDownload?.(selectedInvoices)}
+                disabled={isDownloading}
+                className="bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-600"
+              >
+                {isDownloading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Opening PDFs...
+                  </>
+                ) : (
+                  `Download Selected (${selectedInvoices.length})`
+                )}
+              </Button>
+            </HoverCardTrigger>
+            <HoverCardContent className="min-w-fit max-w-xl border-gray-200 bg-white text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">
+              <p className="mb-2 text-sm">
+                Download the selected invoices as PDFs.
+              </p>
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-6 w-6 text-red-500" />
+                <p className="text-sm font-medium">
+                  Please unblock popups for this site to download the invoices.
+                </p>
+              </div>
+            </HoverCardContent>
+          </HoverCard>
           <Button
             variant="outline"
             onClick={() => setSelectedInvoices([])}
