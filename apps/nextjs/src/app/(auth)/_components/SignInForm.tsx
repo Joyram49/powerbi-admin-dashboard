@@ -60,6 +60,7 @@ export function SignInForm() {
     defaultValues: {
       email: "",
       password: "",
+      isLoggedIn: true,
     },
     mode: "onChange",
   });
@@ -101,8 +102,10 @@ export function SignInForm() {
   });
 
   async function onSubmit(data: z.infer<typeof authRouterSchema.signIn>) {
+    const requestData = { ...data, isLoggedIn: true };
+
     try {
-      await signIn.mutateAsync(data);
+      await signIn.mutateAsync(requestData);
     } catch (error) {
       // Error is already handled in the mutation's onError callback
       console.error("Sign in error:", error);

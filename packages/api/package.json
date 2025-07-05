@@ -16,7 +16,8 @@
     "dev": "tsc",
     "format": "prettier --check . --ignore-path ../../.gitignore",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit --emitDeclarationOnly false"
+    "typecheck": "tsc --noEmit --emitDeclarationOnly false",
+    "cleanup-sessions": "tsx src/cron/cleanupLoggedInUsers.ts"
   },
   "dependencies": {
     "@acme/auth": "workspace:*",
@@ -26,9 +27,12 @@
     "@t3-oss/env-nextjs": "^0.11.1",
     "@trpc/server": "catalog:",
     "bcryptjs": "^3.0.2",
+    "dotenv": "^17.0.1",
     "jquery": "^3.7.1",
+    "node-cron": "^4.2.0",
     "stripe": "^14.25.0",
     "superjson": "2.2.1",
+    "tsx": "^4.20.3",
     "zod": "catalog:"
   },
   "devDependencies": {

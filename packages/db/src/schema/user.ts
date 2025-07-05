@@ -37,6 +37,8 @@ export const users = pgTable(
       .defaultNow()
       .notNull(),
     lastLogin: timestamp("last_login", { withTimezone: true }),
+    lastActivity: timestamp("last_activity", { withTimezone: true }),
+    isLoggedIn: boolean("is_logged_in").notNull().default(false),
     modifiedBy: varchar("modified_by", { length: 255 }),
     status: userStatusEnum("status").default("active"),
     passwordHistory: jsonb("password_history").$type<string[]>().default([]),
@@ -51,6 +53,8 @@ export const users = pgTable(
     dateCreatedIdx: index("user_date_created_idx").on(table.dateCreated),
     lastLoginIdx: index("user_last_login_idx").on(table.lastLogin),
     isSuperAdminIdx: index("user_super_admin_idx").on(table.isSuperAdmin),
+    isLoggedInIdx: index("user_is_logged_in_idx").on(table.isLoggedIn),
+    lastActivityIdx: index("user_last_activity_idx").on(table.lastActivity),
 
     // Composite indexes for common query patterns
     companyRoleIdx: index("user_company_role_idx").on(
@@ -227,6 +231,7 @@ export const authRouterSchema = {
             "Password must include at least one uppercase letter, one number, and one special character",
         },
       ),
+    isLoggedIn: z.boolean().default(true),
   }),
   updateProfile: z.object({
     userName: z.string().optional(),

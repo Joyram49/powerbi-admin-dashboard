@@ -359,6 +359,7 @@ export const authRouter = createTRPCRouter({
           .update(users)
           .set({
             lastLogin: new Date(),
+            isLoggedIn: input.isLoggedIn,
           })
           .where(eq(users.email, input.email));
 
@@ -392,7 +393,7 @@ export const authRouter = createTRPCRouter({
     }),
 
   // Signout procedure
-  signOut: protectedProcedure.mutation(async () => {
+  signOut: protectedProcedure.mutation(async ({ ctx }) => {
     try {
       const supabase = createClientServer();
       // Perform sign out
@@ -405,9 +406,14 @@ export const authRouter = createTRPCRouter({
         });
       }
 
+      // update user isLoggedIn to false
+      await db
+        .update(users)
+        .set({ isLoggedIn: false })
+        .where(eq(users.id, ctx.session.user.id));
+
       return {
         success: true,
-
         clearCookies: true,
       };
     } catch (error) {
@@ -652,6 +658,7 @@ export const authRouter = createTRPCRouter({
           .update(users)
           .set({
             passwordHistory: updatedHistory,
+            isLoggedIn: false,
           })
           .where(eq(users.id, userId));
 

@@ -310,8 +310,6 @@ tiny-t3-turbo
 │  │  ├─ src
 │  │  │  ├─ app
 │  │  │  │  ├─ index.tsx
-│  │  │  │  ├─ post
-│  │  │  │  │  └─ [id].tsx
 │  │  │  │  └─ _layout.tsx
 │  │  │  ├─ styles.css
 │  │  │  ├─ types
@@ -333,6 +331,8 @@ tiny-t3-turbo
 │     │  ├─ favicon.ico
 │     │  ├─ joc-logo-color.png
 │     │  ├─ joc-logo.png
+│     │  ├─ logo_joc.svg
+│     │  ├─ menu_logo_joc.svg
 │     │  └─ t3-icon.svg
 │     ├─ README.md
 │     ├─ src
@@ -358,47 +358,83 @@ tiny-t3-turbo
 │     │  │  │     └─ UpdatePasswordForm.tsx
 │     │  │  ├─ (dashboard)
 │     │  │  │  ├─ admin
+│     │  │  │  │  ├─ billing
+│     │  │  │  │  │  ├─ manage
+│     │  │  │  │  │  │  └─ page.tsx
+│     │  │  │  │  │  ├─ page.tsx
+│     │  │  │  │  │  └─ _components
+│     │  │  │  │  │     ├─ BillingTable.tsx
+│     │  │  │  │  │     ├─ DownloadButton.tsx
+│     │  │  │  │  │     ├─ FundsInAccount.tsx
+│     │  │  │  │  │     ├─ MonthlyEarnings.tsx
+│     │  │  │  │  │     ├─ PricingTierCard.tsx
+│     │  │  │  │  │     └─ StatusBadge.tsx
 │     │  │  │  │  ├─ page.tsx
-│     │  │  │  │  └─ reports
-│     │  │  │  │     ├─ page.tsx
-│     │  │  │  │     └─ _components
-│     │  │  │  │        └─ ReportColumns.tsx
+│     │  │  │  │  ├─ reports
+│     │  │  │  │  │  ├─ page.tsx
+│     │  │  │  │  │  └─ _components
+│     │  │  │  │  │     ├─ AdminReportColumns.tsx
+│     │  │  │  │  │     ├─ AdminReportForm.tsx
+│     │  │  │  │  │     └─ AdminReportModal.tsx
+│     │  │  │  │  └─ _components
+│     │  │  │  │     ├─ AdminUserColumns.tsx
+│     │  │  │  │     └─ CompanySelector.tsx
 │     │  │  │  ├─ layout.tsx
 │     │  │  │  ├─ super-admin
 │     │  │  │  │  ├─ billing
-│     │  │  │  │  │  └─ page.tsx
-│     │  │  │  │  ├─ change-password
-│     │  │  │  │  │  └─ page.tsx
+│     │  │  │  │  │  ├─ manage
+│     │  │  │  │  │  │  ├─ components
+│     │  │  │  │  │  │  │  ├─ ConfirmSubscriptionModal.tsx
+│     │  │  │  │  │  │  │  └─ UpgradePlanModal.tsx
+│     │  │  │  │  │  │  ├─ constants.ts
+│     │  │  │  │  │  │  └─ types.ts
+│     │  │  │  │  │  ├─ page.tsx
+│     │  │  │  │  │  ├─ types.ts
+│     │  │  │  │  │  └─ _components
+│     │  │  │  │  │     ├─ BillingFilters.tsx
+│     │  │  │  │  │     ├─ BillingTable.tsx
+│     │  │  │  │  │     ├─ BillingTableSkeleton.tsx
+│     │  │  │  │  │     ├─ ColumnSortPopup.tsx
+│     │  │  │  │  │     ├─ DownloadButton.tsx
+│     │  │  │  │  │     ├─ FundsInAccount.tsx
+│     │  │  │  │  │     ├─ KpiCard.tsx
+│     │  │  │  │  │     ├─ MonthlyEarnings.tsx
+│     │  │  │  │  │     ├─ StatusBadge.tsx
+│     │  │  │  │  │     ├─ SubscriptionDetailsModal.tsx
+│     │  │  │  │  │     ├─ TransactionFilter.tsx
+│     │  │  │  │  │     └─ TransactionsTable.tsx
 │     │  │  │  │  ├─ layout.tsx
 │     │  │  │  │  ├─ page.tsx
 │     │  │  │  │  ├─ reports
 │     │  │  │  │  │  ├─ page.tsx
 │     │  │  │  │  │  └─ _components
-│     │  │  │  │  │     ├─ add-report-form.tsx
 │     │  │  │  │  │     ├─ ReportColumns.tsx
 │     │  │  │  │  │     ├─ ReportForm.tsx
-│     │  │  │  │  │     ├─ ReportModal.tsx
-│     │  │  │  │  │     └─ update-report-form.tsx
+│     │  │  │  │  │     └─ ReportModal.tsx
 │     │  │  │  │  ├─ settings
 │     │  │  │  │  │  └─ page.tsx
 │     │  │  │  │  ├─ users
 │     │  │  │  │  │  ├─ page.tsx
 │     │  │  │  │  │  └─ _components
 │     │  │  │  │  │     ├─ UserColumns.tsx
+│     │  │  │  │  │     ├─ UserErrorModal.tsx
 │     │  │  │  │  │     ├─ UserForm.tsx
 │     │  │  │  │  │     └─ UserModal.tsx
 │     │  │  │  │  └─ _components
+│     │  │  │  │     ├─ CompanyAdminForm.tsx
 │     │  │  │  │     ├─ CompanyColumns.tsx
 │     │  │  │  │     ├─ CompanyForm.tsx
 │     │  │  │  │     ├─ CompanyModal.tsx
 │     │  │  │  │     ├─ report-metrics
 │     │  │  │  │     │  ├─ active-accounts.tsx
+│     │  │  │  │     │  ├─ ActivityTracker.tsx
 │     │  │  │  │     │  ├─ error-card.tsx
 │     │  │  │  │     │  ├─ report-metrics.tsx
 │     │  │  │  │     │  ├─ skeleton-card.tsx
 │     │  │  │  │     │  ├─ total-reports-card.tsx
 │     │  │  │  │     │  ├─ total-users-card.tsx
 │     │  │  │  │     │  └─ user-engagement.tsx
+│     │  │  │  │     ├─ SuperAdminLayoutWrapper.tsx
 │     │  │  │  │     └─ SuperAdminTab.tsx
 │     │  │  │  ├─ user
 │     │  │  │  │  ├─ page.tsx
@@ -406,6 +442,7 @@ tiny-t3-turbo
 │     │  │  │  │     └─ ReportColumns.tsx
 │     │  │  │  └─ _components
 │     │  │  │     ├─ DataTable.tsx
+│     │  │  │     ├─ DataTableSkeleton.tsx
 │     │  │  │     ├─ EntityActions.tsx
 │     │  │  │     ├─ Header.tsx
 │     │  │  │     ├─ MultiSelect.tsx
@@ -433,9 +470,8 @@ tiny-t3-turbo
 │     │  │  ├─ globals.css
 │     │  │  ├─ layout.tsx
 │     │  │  └─ success
-│     │  │     └─ page.tsx
-│     │  ├─ components
-│     │  │  └─ ActivityTracker.tsx
+│     │  │     ├─ page.tsx
+│     │  │     └─ SuccessContent.tsx
 │     │  ├─ env.ts
 │     │  ├─ hooks
 │     │  │  ├─ useActivityTracking.ts
@@ -477,7 +513,6 @@ tiny-t3-turbo
 │  │  │  │  ├─ billing.ts
 │  │  │  │  ├─ company.ts
 │  │  │  │  ├─ payment-method.ts
-│  │  │  │  ├─ post.ts
 │  │  │  │  ├─ report.ts
 │  │  │  │  ├─ session.ts
 │  │  │  │  ├─ stripe.ts
@@ -485,9 +520,11 @@ tiny-t3-turbo
 │  │  │  │  └─ user.ts
 │  │  │  ├─ trpc.ts
 │  │  │  └─ utils
+│  │  │     ├─ generateTrialPeriod.ts
 │  │  │     └─ tierProducts.ts
 │  │  └─ tsconfig.json
 │  ├─ auth
+│  │  ├─ env.d.ts.map
 │  │  ├─ env.ts
 │  │  ├─ eslint.config.js
 │  │  ├─ package.json
@@ -502,21 +539,25 @@ tiny-t3-turbo
 │  │  ├─ package.json
 │  │  ├─ src
 │  │  │  ├─ index.ts
+│  │  │  ├─ migrations
+│  │  │  │  ├─ 0002_update_company_schema.ts
+│  │  │  │  └─ 0003_remove_post_schema.ts
 │  │  │  ├─ schema
 │  │  │  │  ├─ billing.ts
 │  │  │  │  ├─ company-admin-history.ts
+│  │  │  │  ├─ company-admin.ts
 │  │  │  │  ├─ company.ts
 │  │  │  │  ├─ index.ts
 │  │  │  │  ├─ login-attempts.ts
 │  │  │  │  ├─ mouse-activity.ts
 │  │  │  │  ├─ payment-method.ts
-│  │  │  │  ├─ post.ts
 │  │  │  │  ├─ report-metrics.ts
 │  │  │  │  ├─ report.ts
 │  │  │  │  ├─ subscription.ts
 │  │  │  │  ├─ user.ts
 │  │  │  │  ├─ userReports.ts
 │  │  │  │  └─ userSessions.ts
+│  │  │  ├─ schema.ts
 │  │  │  └─ supabase
 │  │  │     ├─ client.ts
 │  │  │     ├─ dbConnect.ts

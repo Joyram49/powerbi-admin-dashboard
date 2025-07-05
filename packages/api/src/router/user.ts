@@ -925,4 +925,37 @@ export const userRouter = createTRPCRouter({
         });
       }
     }),
+
+  // this is used to get all the logged in users I mean the users that are currently online
+  getLoggedInUsersCount: protectedProcedure.query(async ({ ctx }) => {
+    if (ctx.session.user.role !== "superAdmin") {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "You are not authorized to get logged in users",
+      });
+    }
+
+    try {
+      const loggedInUsersCount = await db.$count(
+        users,
+        eq(users.isLoggedIn, true),
+      );
+      return {
+        success: true,
+        message: "Logged in users count fetched successfully",
+        count: loggedInUsersCount,
+      };
+    } catch (error) {
+      if (error instanceof TRPCError) {
+        throw error;
+      }
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message:
+          error instanceof Error
+            ? error.message
+            : "failed to fetch logged in users",
+      });
+    }
+  }),
 });
