@@ -1,8 +1,9 @@
 import { initTRPC, TRPCError } from "@trpc/server";
+import { eq } from "drizzle-orm";
 import superjson from "superjson";
 import { ZodError } from "zod";
 
-import { createClientServer, db } from "@acme/db";
+import { createClientServer, db, users } from "@acme/db";
 
 // Memoize session to reduce unnecessary lookups
 const sessionCache = new Map<string, Session | null>();
@@ -115,6 +116,17 @@ const performanceMiddleware = t.middleware(async ({ next, path }) => {
   return result;
 });
 
+const activityTrackingMiddleware = t.middleware(async ({ ctx, next }) => {
+  if (ctx.session?.user?.id) {
+    await ctx.db
+      .update(users)
+      .set({ lastActivity: new Date() })
+      .where(eq(users.id, ctx.session.user.id));
+  }
+
+  return next();
+});
+
 export const publicProcedure = t.procedure.use(performanceMiddleware);
 
 export const protectedProcedure = t.procedure
@@ -133,4 +145,5 @@ export const protectedProcedure = t.procedure
         },
       },
     });
-  });
+  })
+  .use(activityTrackingMiddleware);

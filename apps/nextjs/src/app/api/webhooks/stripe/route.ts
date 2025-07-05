@@ -6,6 +6,8 @@ import { billings, db, paymentMethods, subscriptions, users } from "@acme/db";
 
 import { env } from "~/env";
 
+export const runtime = "nodejs";
+
 export async function POST(req: Request) {
   const body = await req.text();
   const signature = headers().get("Stripe-Signature");
