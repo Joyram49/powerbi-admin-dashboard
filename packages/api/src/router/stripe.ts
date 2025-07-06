@@ -120,6 +120,11 @@ export const stripeRouter = createTRPCRouter({
             line_items.push({ price: product.setupFeePriceId, quantity: 1 });
           }
 
+          // company has prefferred subscription but also has build fee
+          if (company.preferredSubscriptionPlan && company.isBuildFeeRequired) {
+            line_items.push({ price: product.setupFeePriceId, quantity: 1 });
+          }
+
           if (product.usagePriceId) {
             line_items.push({
               price: product.usagePriceId,

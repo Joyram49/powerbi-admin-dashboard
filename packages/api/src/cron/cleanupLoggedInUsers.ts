@@ -1,5 +1,5 @@
-import { resolve } from "path";
 import { config } from "dotenv";
+import { resolve } from "path";
 
 // Load environment variables from the root .env file FIRST
 config({ path: resolve(process.cwd(), "../../.env") });

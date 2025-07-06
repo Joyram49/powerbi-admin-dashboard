@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   index,
   integer,
   pgEnum,
@@ -39,6 +40,9 @@ export const companies = pgTable(
     modifiedBy: varchar("modified_by", { length: 255 }),
     numOfEmployees: integer("num_of_employees").notNull().default(0),
     preferredSubscriptionPlan: subscriptionTier("preferred_subscription_plan"),
+    isBuildFeeRequired: boolean("is_build_fee_required")
+      .notNull()
+      .default(false),
   },
   (table) => ({
     // Indexes for common query patterns
@@ -47,6 +51,9 @@ export const companies = pgTable(
     dateJoinedIdx: index("company_date_joined_idx").on(table.dateJoined),
     emailIdx: index("company_email_idx").on(table.email),
     lastActivityIdx: index("company_last_activity_idx").on(table.lastActivity),
+    isBuildFeeRequiredIdx: index("company_is_build_fee-required_idx").on(
+      table.isBuildFeeRequired,
+    ),
 
     // Composite indexes for common filter combinations
     statusDateIdx: index("company_status_date_idx").on(
@@ -105,6 +112,7 @@ export const createCompanySchema = baseCompanyValidationSchema.extend({
     .enum(subscriptionTier.enumValues)
     .optional()
     .nullable(),
+  isBuildFeeRequired: z.boolean().optional(),
 });
 
 // Validation schema for updating a company
@@ -123,6 +131,7 @@ export const updateCompanySchema = baseCompanyValidationSchema.extend({
     .enum(subscriptionTier.enumValues)
     .optional()
     .nullable(),
+  isBuildFeeRequired: z.boolean().optional(),
 });
 
 // Unified schema for all company router endpoints
@@ -230,6 +239,7 @@ export interface CompanyWithAdmins {
   reportCount: number;
   numOfEmployees: number;
   preferredSubscriptionPlan: string | null;
+  isBuildFeeRequired?: boolean;
   admins: {
     id: string;
     userName: string;
@@ -251,4 +261,5 @@ export interface CompanyFormValues {
     | "strategic_navigator"
     | "enterprise"
     | null;
+  isBuildFeeRequired?: boolean;
 }

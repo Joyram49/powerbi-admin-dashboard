@@ -37,6 +37,7 @@ export const companyRouter = createTRPCRouter({
             email: input.email,
             modifiedBy: ctx.session.user.email,
             preferredSubscriptionPlan: input.preferredSubscriptionPlan ?? null,
+            isBuildFeeRequired: input.isBuildFeeRequired ?? false,
           })
           .returning();
 

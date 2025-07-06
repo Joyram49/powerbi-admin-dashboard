@@ -117,6 +117,7 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
             | "strategic_navigator"
             | "enterprise"
             | null,
+          isBuildFeeRequired: initialData.isBuildFeeRequired ?? false,
         }
       : {
           companyName: "",
@@ -125,6 +126,7 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
           email: "",
           adminIds: [],
           preferredSubscriptionPlan: null,
+          isBuildFeeRequired: false,
         },
     mode: "onChange",
   });
@@ -145,6 +147,7 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
           | "strategic_navigator"
           | "enterprise"
           | null,
+        isBuildFeeRequired: initialData.isBuildFeeRequired ?? false,
       });
       setSelectedAdmins([...initialData.admins]);
       setIsOldCompany(!!initialData.preferredSubscriptionPlan);
@@ -209,6 +212,7 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
           email: values.email,
           adminIds: values.adminIds,
           preferredSubscriptionPlan: values.preferredSubscriptionPlan,
+          isBuildFeeRequired: values.isBuildFeeRequired,
         });
       } else {
         // For new company, we need admin information
@@ -232,6 +236,7 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
           preferredSubscriptionPlan: isOldCompany
             ? values.preferredSubscriptionPlan
             : null,
+          isBuildFeeRequired: values.isBuildFeeRequired,
         });
       }
     } catch (error) {
@@ -438,6 +443,49 @@ const CompanyForm = ({ onClose, initialData }: CompanyFormProps) => {
                         </div>
                       </div>
                     )}
+
+                    <FormField
+                      control={companyForm.control}
+                      name="isBuildFeeRequired"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium dark:text-gray-300">
+                            Build Fee Requirement
+                          </FormLabel>
+                          <Select
+                            onValueChange={(value) =>
+                              field.onChange(value === "true")
+                            }
+                            defaultValue={field.value ? "true" : "false"}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="border-gray-200 bg-white text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:focus:border-blue-400 dark:focus:ring-blue-400">
+                                <SelectValue placeholder="Select build fee requirement" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+                              <SelectItem
+                                value="true"
+                                className="text-gray-900 focus:bg-gray-100 dark:text-gray-100 dark:focus:bg-gray-700"
+                              >
+                                Yes - Build fee required
+                              </SelectItem>
+                              <SelectItem
+                                value="false"
+                                className="text-gray-900 focus:bg-gray-100 dark:text-gray-100 dark:focus:bg-gray-700"
+                              >
+                                No - Build fee not required
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormDescription className="text-xs text-gray-500 dark:text-gray-400">
+                            Choose whether this company is required to pay a
+                            build fee
+                          </FormDescription>
+                          <FormMessage className="text-xs dark:text-red-400" />
+                        </FormItem>
+                      )}
+                    />
 
                     {(isOldCompany ||
                       initialData?.preferredSubscriptionPlan) && (

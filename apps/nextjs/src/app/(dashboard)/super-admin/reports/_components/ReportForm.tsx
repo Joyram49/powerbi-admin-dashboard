@@ -103,9 +103,12 @@ export default function ReportForm({
 
   // Fetch companies data
   const { data: companiesData, isLoading: isLoadingCompanies } =
-    api.company.getAllCompanies.useQuery(undefined, {
-      enabled: userRole === "superAdmin",
-    });
+    api.company.getAllActiveCompanies.useQuery(
+      { limit: 1000 },
+      {
+        enabled: userRole === "superAdmin",
+      },
+    );
 
   // Fetch report details when editing - only if we have an ID and haven't set the form yet
   const { data: reportData, isLoading: isLoadingReport } =
@@ -282,7 +285,7 @@ export default function ReportForm({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent className="bg-white dark:border-gray-700 dark:bg-gray-800">
-                    {companiesData?.data?.map((company) => (
+                    {companiesData?.data.map((company) => (
                       <SelectItem
                         key={company.id}
                         value={company.id}

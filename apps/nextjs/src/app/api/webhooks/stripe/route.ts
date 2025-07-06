@@ -35,6 +35,18 @@ export async function POST(req: Request) {
             session.subscription as string,
           );
 
+          // Check if subscription already exists
+          const existingSubscription = await db.query.subscriptions.findFirst({
+            where: eq(subscriptions.stripeSubscriptionId, subscription.id),
+          });
+
+          if (existingSubscription) {
+            console.log(
+              `Subscription ${subscription.id} already exists, skipping insertion`,
+            );
+            break;
+          }
+
           // Update subscription metadata with company ID
           await stripe.subscriptions.update(subscription.id, {
             metadata: {
@@ -146,6 +158,18 @@ export async function POST(req: Request) {
           const companyId = subscription.metadata.companyId;
           if (!companyId) {
             console.error("No company ID found in subscription metadata");
+            break;
+          }
+
+          // Check if billing record already exists
+          const existingBilling = await db.query.billings.findFirst({
+            where: eq(billings.stripeInvoiceId, invoice.id),
+          });
+
+          if (existingBilling) {
+            console.log(
+              `Billing record for invoice ${invoice.id} already exists, skipping insertion`,
+            );
             break;
           }
 
@@ -305,6 +329,20 @@ export async function POST(req: Request) {
         const paymentMethod = event.data.object;
 
         if (paymentMethod.customer) {
+          // Check if payment method already exists
+          const existingPaymentMethod = await db.query.paymentMethods.findFirst(
+            {
+              where: eq(paymentMethods.stripePaymentMethodId, paymentMethod.id),
+            },
+          );
+
+          if (existingPaymentMethod) {
+            console.log(
+              `Payment method ${paymentMethod.id} already exists, skipping insertion`,
+            );
+            break;
+          }
+
           // Get the customer's subscriptions to find the company ID
           const subscriptions = await stripe.subscriptions.list({
             customer: paymentMethod.customer as string,

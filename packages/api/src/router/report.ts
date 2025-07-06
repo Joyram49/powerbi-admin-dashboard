@@ -583,7 +583,7 @@ export const reportRouter = createTRPCRouter({
       }
     }),
 
-  // this is the route for the admin to update the user of a report
+  // this is the route for the admin only to update a report (only userids can change)
   updateUserOfReportByAdmin: protectedProcedure
     .input(
       z.object({

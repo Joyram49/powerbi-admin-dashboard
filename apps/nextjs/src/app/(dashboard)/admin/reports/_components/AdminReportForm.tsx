@@ -80,22 +80,24 @@ export default function AdminReportForm({
     }
   }, [usersData]);
 
-  const updateReportMutation = api.report.updateReport.useMutation({
-    onSuccess: async () => {
-      toast.success("Report access updated successfully");
-      setIsSubmitting(false);
-      await utils.report.getAllReports.invalidate();
-      await utils.report.getAllReportsAdmin.invalidate();
-      onClose(true);
+  const updateReportMutation = api.report.updateUserOfReportByAdmin.useMutation(
+    {
+      onSuccess: async () => {
+        toast.success("Report access updated successfully");
+        setIsSubmitting(false);
+        await utils.report.getAllReports.invalidate();
+        await utils.report.getAllReportsAdmin.invalidate();
+        onClose(true);
+      },
+      onError: (error) => {
+        console.error("Update report error:", error);
+        toast.error("Failed to update report access", {
+          description: error.message || "An error occurred",
+        });
+        setIsSubmitting(false);
+      },
     },
-    onError: (error) => {
-      console.error("Update report error:", error);
-      toast.error("Failed to update report access", {
-        description: error.message || "An error occurred",
-      });
-      setIsSubmitting(false);
-    },
-  });
+  );
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
