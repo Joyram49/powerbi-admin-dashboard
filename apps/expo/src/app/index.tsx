@@ -41,7 +41,7 @@ function PostCard(props: { post: Post; onDelete: () => void }) {
         <Link
           asChild
           href={{
-            pathname: "/post/[id]",
+            pathname: '/',
             params: { id: props.post.id },
           }}
         >
