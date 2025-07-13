@@ -75,6 +75,7 @@ export default function AdminReportsPage() {
         />
       ) : (
         <DataTable<ReportType, unknown, "reportName" | "dateCreated">
+          tableId="admin-reports"
           columns={columns}
           data={reports}
           pagination={{

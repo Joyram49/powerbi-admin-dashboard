@@ -65,6 +65,7 @@ export default function UserReportsPage() {
         />
       ) : (
         <DataTable<ReportType, unknown, "reportName" | "dateCreated">
+          tableId="users-report"
           columns={columns}
           data={reports}
           pagination={{

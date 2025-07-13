@@ -54,8 +54,6 @@ export default function AdminPage() {
       { enabled: !!userId && selectedCompanyId === "all" },
     );
 
-  console.log("usersData", usersData);
-
   const { data: companyUsersData, isLoading: isLoadingCompanyUsers } =
     api.user.getUsersByCompanyId.useQuery(
       {
@@ -150,6 +148,7 @@ export default function AdminPage() {
         />
       ) : (
         <DataTable<CompanyUser, unknown, SortField>
+          tableId="admin-users"
           columns={columns}
           data={transformedUsers}
           pagination={{

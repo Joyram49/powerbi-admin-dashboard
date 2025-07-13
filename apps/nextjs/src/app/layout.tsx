@@ -1,7 +1,7 @@
-import type { Metadata, Viewport } from "next";
-import React from "react";
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
+import type { Metadata, Viewport } from "next";
+import React from "react";
 
 import { cn } from "@acme/ui";
 import { ThemeProvider } from "@acme/ui/theme";
@@ -17,7 +17,7 @@ import { env } from "~/env";
 export const metadata: Metadata = {
   metadataBase: new URL(
     env.VERCEL_ENV === "production"
-      ? "https://turbo.t3.gg"
+      ? "https://joc-analytics.vercel.app/"
       : "http://localhost:3000",
   ),
   title: "JOC Analytics",
