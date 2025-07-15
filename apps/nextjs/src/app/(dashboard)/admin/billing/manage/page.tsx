@@ -216,6 +216,8 @@ export default function ManageBillingPage() {
     },
   ];
 
+  // primary-#10568a, secondary-#2c93d0,
+
   const getCurrentTierLevel = (planName: string): number => {
     const tier = tiers.find(
       (t) => t.name.toLowerCase() === planName.toLowerCase(),
@@ -258,16 +260,9 @@ export default function ManageBillingPage() {
 
   return (
     <div className="container mx-auto px-4 py-16">
-      <h1 className="mb-12 text-center text-4xl font-bold">
-        <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-700 bg-clip-text text-transparent dark:from-blue-400 dark:via-purple-400 dark:to-pink-400">
-          {companyData?.data?.preferredSubscriptionPlan
-            ? "ACTIVATE"
-            : "UPGRADE"}{" "}
-          SUBSCRIPTION FOR{" "}
-        </span>
-        <span className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 bg-clip-text text-transparent dark:from-emerald-400 dark:via-teal-400 dark:to-cyan-400">
-          {companyName.toUpperCase()}
-        </span>
+      <h1 className="mb-12 text-center text-4xl font-bold text-[#10568a] dark:text-[#2c93d0]">
+        {companyData?.data?.preferredSubscriptionPlan ? "ACTIVATE" : "UPGRADE"}{" "}
+        SUBSCRIPTION FOR {companyName.toUpperCase()}
       </h1>
 
       {isLoading ? (

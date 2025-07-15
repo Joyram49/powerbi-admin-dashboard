@@ -57,6 +57,7 @@ export default function SuperDashboard() {
         />
       ) : (
         <DataTable<CompanyWithAdmins, unknown, "companyName" | "dateJoined">
+          tableId="super-admin-companies"
           columns={columns}
           data={companies}
           pagination={{

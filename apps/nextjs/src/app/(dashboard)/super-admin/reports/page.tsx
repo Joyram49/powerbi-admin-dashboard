@@ -111,6 +111,7 @@ export default function ReportsDashboard() {
         />
       ) : (
         <DataTable<ReportType, unknown, "reportName" | "dateCreated">
+          tableId="super-admin-reports"
           columns={columns}
           data={reports}
           pagination={{

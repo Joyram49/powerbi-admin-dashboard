@@ -53,20 +53,21 @@ export function PricingTierCard({
       onMouseLeave={() => isActive && setIsHovered(false)}
       className={cn(
         "group relative rounded-lg p-[2px] transition-all duration-500",
+        "[transition-property:background,border-color,box-shadow]",
         isActive
           ? isHovered
-            ? "bg-gradient-to-r from-blue-500 via-pink-500 to-purple-500"
-            : "bg-gradient-to-l from-blue-500 via-purple-500 to-pink-500"
+            ? "bg-gradient-to-r from-[#10568a] to-[#2c93d0]"
+            : "bg-gradient-to-l from-[#10568a] to-[#2c93d0]"
           : isPreferredPlan
-            ? "bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500"
+            ? "bg-gradient-to-r from-[#2c93d0] to-[#10568a]"
             : isUpgrade
-              ? "bg-gradient-to-r from-purple-500 via-indigo-500 to-blue-500"
-              : "from-blue-500 via-purple-500 to-pink-500 hover:bg-gradient-to-l",
+              ? "bg-gradient-to-r from-[#2c93d0] to-[#10568a]"
+              : "bg-gradient-to-l from-[#10568a] to-[#2c93d0] hover:bg-gradient-to-r",
       )}
     >
-      <Card className="relative flex h-full flex-col rounded-lg border-none bg-white transition-all duration-300 hover:shadow-lg dark:bg-gray-800">
+      <Card className="relative flex h-full flex-col rounded-lg border-2 border-transparent bg-white transition-all duration-500 group-hover:border-[#2c93d0] group-hover:shadow-xl dark:bg-gray-800">
         <CardHeader className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900">
-          <CardTitle className="bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-2xl font-bold text-transparent dark:from-gray-100 dark:to-gray-300">
+          <CardTitle className="bg-gradient-to-r from-[#10568a] to-[#2c93d0] bg-clip-text text-2xl font-bold text-transparent dark:from-[#2c93d0] dark:to-[#10568a]">
             {tier.name}
           </CardTitle>
           <CardDescription className="mt-2 text-gray-600 dark:text-gray-300">
@@ -74,7 +75,7 @@ export function PricingTierCard({
           </CardDescription>
         </CardHeader>
         <CardContent className="flex-grow p-6">
-          <p className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-2xl font-bold text-transparent dark:from-blue-400 dark:to-purple-400">
+          <p className="text-2xl font-bold text-[#10568a] dark:text-[#2c93d0]">
             {tier.price}
           </p>
           <div className="mt-4">
@@ -101,12 +102,12 @@ export function PricingTierCard({
         <CardFooter className="p-6">
           <Button
             className={cn(
-              "w-full rounded-lg py-3 font-semibold text-white transition-all duration-300",
+              "w-full rounded-lg bg-gradient-to-r from-[#10568a] to-[#2c93d0] py-3 font-semibold text-white transition-all duration-300 hover:from-[#2c93d0] hover:to-[#10568a]",
               isPreferredPlan
-                ? "bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 dark:from-green-500 dark:to-emerald-500 dark:hover:from-green-600 dark:hover:to-emerald-600"
+                ? "bg-gradient-to-r from-[#2c93d0] to-[#10568a] hover:from-[#10568a] hover:to-[#2c93d0] dark:from-[#2c93d0] dark:to-[#10568a] dark:hover:from-[#10568a] dark:hover:to-[#2c93d0]"
                 : isUpgrade
-                  ? "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 dark:from-purple-500 dark:to-indigo-500 dark:hover:from-purple-600 dark:hover:to-indigo-600"
-                  : "bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 dark:from-blue-500 dark:via-indigo-500 dark:to-purple-500 dark:hover:from-blue-600 dark:hover:via-indigo-600 dark:hover:to-purple-600",
+                  ? "bg-gradient-to-r from-[#2c93d0] to-[#10568a] hover:from-[#10568a] hover:to-[#2c93d0] dark:from-[#2c93d0] dark:to-[#10568a] dark:hover:from-[#10568a] dark:hover:to-[#2c93d0]"
+                  : "bg-gradient-to-r from-[#10568a] to-[#2c93d0] hover:from-[#2c93d0] hover:to-[#10568a] dark:from-[#10568a] dark:to-[#2c93d0] dark:hover:from-[#2c93d0] dark:hover:to-[#10568a]",
             )}
             onClick={() => onSubscribe(tier.id)}
             disabled={loading !== null || isActive || !selectedCompanyId}

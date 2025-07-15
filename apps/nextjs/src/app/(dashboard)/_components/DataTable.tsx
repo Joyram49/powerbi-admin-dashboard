@@ -54,6 +54,7 @@ interface DataTableProps<TData, TValue, TSortField extends string> {
   actionButton?: React.ReactNode; // The action button (e.g., CompanyModalButton, UserModalButton)
   pageSize?: number;
   pageSizeOptions?: number[]; // Added page size options array
+  tableId: string; // Added tableId for localStorage persistence
 }
 
 export function DataTable<TData, TValue, TSortField extends string>({
@@ -67,9 +68,39 @@ export function DataTable<TData, TValue, TSortField extends string>({
   actionButton,
   pageSize = 10,
   pageSizeOptions = [10, 20, 30, 40, 50],
+  tableId,
 }: DataTableProps<TData, TValue, TSortField>) {
+  // Persist columnVisibility to localStorage using tableId
+  const storageKey = `datatable-column-visibility-${tableId}`;
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
+  const [isHydrated, setIsHydrated] = React.useState(false);
+
+  // Load column visibility from localStorage after hydration
+  React.useEffect(() => {
+    setIsHydrated(true);
+    if (typeof window !== "undefined") {
+      const saved = window.localStorage.getItem(storageKey);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved) as VisibilityState;
+          setColumnVisibility(parsed);
+        } catch (error) {
+          console.error(
+            "Failed to parse column visibility from localStorage:",
+            error,
+          );
+        }
+      }
+    }
+  }, [storageKey]);
+
+  // Save column visibility to localStorage
+  React.useEffect(() => {
+    if (typeof window !== "undefined" && isHydrated) {
+      window.localStorage.setItem(storageKey, JSON.stringify(columnVisibility));
+    }
+  }, [columnVisibility, storageKey, isHydrated]);
   const [rowSelection, setRowSelection] = React.useState({});
 
   const table = useReactTable({
@@ -84,7 +115,7 @@ export function DataTable<TData, TValue, TSortField extends string>({
         pageIndex: pagination.page - 1,
         pageSize,
       },
-      columnVisibility,
+      columnVisibility: isHydrated ? columnVisibility : {},
       rowSelection,
     },
     meta: {
@@ -108,7 +139,8 @@ export function DataTable<TData, TValue, TSortField extends string>({
 
   const selectedRowsCount = Object.keys(rowSelection).length;
 
-  if (isLoading) {
+  // Show loading skeleton while hydrating to prevent hydration mismatch
+  if (isLoading || !isHydrated) {
     return (
       <DataTableSkeleton
         columnCount={columns.length}

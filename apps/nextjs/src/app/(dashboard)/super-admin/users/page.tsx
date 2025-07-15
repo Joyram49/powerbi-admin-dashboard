@@ -284,6 +284,7 @@ export default function UsersPage() {
         />
       ) : (
         <DataTable<User, unknown, "userName" | "dateCreated">
+          tableId="super-admin-users"
           columns={columns}
           data={userData}
           pagination={{
