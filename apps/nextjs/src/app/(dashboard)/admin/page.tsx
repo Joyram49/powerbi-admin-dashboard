@@ -128,7 +128,7 @@ export default function AdminPage() {
     isLoadingReportUsers;
 
   return (
-    <div className="container mx-auto w-full max-w-[98%] p-6">
+    <div className="container mx-auto w-full max-w-[100%] p-6">
       {!reportId && (
         <CompanySelector
           selectedCompanyId={selectedCompanyId}

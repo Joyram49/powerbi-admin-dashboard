@@ -235,7 +235,7 @@ export default function ManageBillingPage() {
 
   if (!companyId || !companyName) {
     return (
-      <div className="container mx-auto px-4 py-16">
+      <div className="container mx-auto max-w-[100%] px-6 py-16">
         <Alert
           variant="destructive"
           className="mb-6 border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/50"
@@ -259,7 +259,7 @@ export default function ManageBillingPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-16">
+    <div className="container mx-auto max-w-[100%] px-6 py-16">
       <h1 className="mb-12 text-center text-4xl font-bold text-[#10568a] dark:text-[#2c93d0]">
         {companyData?.data?.preferredSubscriptionPlan ? "ACTIVATE" : "UPGRADE"}{" "}
         SUBSCRIPTION FOR {companyName.toUpperCase()}

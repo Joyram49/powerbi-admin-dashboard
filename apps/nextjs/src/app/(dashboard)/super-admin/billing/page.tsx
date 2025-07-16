@@ -187,7 +187,7 @@ export default function BillingPage() {
 
   return (
     <div className="mt-5 min-h-screen w-full bg-gray-50/50 p-4 dark:bg-slate-900/50 sm:p-6">
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto">
         <h1 className="mb-6 text-2xl font-bold text-gray-900 dark:text-slate-50 sm:mb-8 sm:text-3xl">
           Billing Management
         </h1>

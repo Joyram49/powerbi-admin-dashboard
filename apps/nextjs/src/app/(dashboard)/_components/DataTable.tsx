@@ -84,6 +84,7 @@ export function DataTable<TData, TValue, TSortField extends string>({
       if (saved) {
         try {
           const parsed = JSON.parse(saved) as VisibilityState;
+          parsed.id = true;
           setColumnVisibility(parsed);
         } catch (error) {
           console.error(
@@ -98,7 +99,8 @@ export function DataTable<TData, TValue, TSortField extends string>({
   // Save column visibility to localStorage
   React.useEffect(() => {
     if (typeof window !== "undefined" && isHydrated) {
-      window.localStorage.setItem(storageKey, JSON.stringify(columnVisibility));
+      const visibilityToSave = { ...columnVisibility, id: true };
+      window.localStorage.setItem(storageKey, JSON.stringify(visibilityToSave));
     }
   }, [columnVisibility, storageKey, isHydrated]);
   const [rowSelection, setRowSelection] = React.useState({});
@@ -200,7 +202,7 @@ export function DataTable<TData, TValue, TSortField extends string>({
               <div className="p-2 text-sm font-medium">Toggle columns</div>
               {table
                 .getAllColumns()
-                .filter((column) => column.getCanHide())
+                .filter((column) => column.getCanHide() && column.id !== "id")
                 .map((column) => (
                   <DropdownMenuCheckboxItem
                     key={column.id}
