@@ -73,6 +73,7 @@ export function useCompanyColumns() {
             </div>
           );
         },
+        enableHiding: false,
       },
       {
         accessorKey: "companyName",

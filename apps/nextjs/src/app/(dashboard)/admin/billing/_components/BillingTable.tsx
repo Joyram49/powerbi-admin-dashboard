@@ -143,7 +143,7 @@ export function BillingTable({
               <TableHead className="text-gray-900 dark:text-gray-100">
                 # Invoice
               </TableHead>
-              <TableHead className="text-gray-900 dark:text-gray-100">
+              <TableHead className="text-center text-gray-900 dark:text-gray-100">
                 Date
               </TableHead>
               <TableHead className="text-center text-gray-900 dark:text-gray-100">
@@ -152,7 +152,7 @@ export function BillingTable({
               <TableHead className="text-center text-gray-900 dark:text-gray-100">
                 Amount
               </TableHead>
-              <TableHead className="text-right text-gray-900 dark:text-gray-100">
+              <TableHead className="pr-6 text-right text-gray-900 dark:text-gray-100">
                 Actions
               </TableHead>
             </TableRow>
@@ -176,10 +176,10 @@ export function BillingTable({
                 <TableCell className="text-gray-900 dark:text-gray-100">
                   {inv.id}
                 </TableCell>
-                <TableCell className="text-gray-900 dark:text-gray-100">
+                <TableCell className="text-center text-gray-900 dark:text-gray-100">
                   {inv.date}
                 </TableCell>
-                <TableCell className="text-gray-900 dark:text-gray-100">
+                <TableCell className="text-center text-gray-900 dark:text-gray-100">
                   <Badge
                     variant={
                       inv.status === "paid"
@@ -195,19 +195,17 @@ export function BillingTable({
                     {inv.status}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-right text-gray-900 dark:text-gray-100">
+                <TableCell className="text-center text-gray-900 dark:text-gray-100">
                   ${inv.amount.toLocaleString()}
                 </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      className="bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-600"
-                      onClick={() => onDownload?.(inv.id)}
-                    >
-                      Download
-                    </Button>
-                  </div>
+                <TableCell className="text-right">
+                  <Button
+                    size="sm"
+                    className="bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-600"
+                    onClick={() => onDownload?.(inv.id)}
+                  >
+                    Download
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}

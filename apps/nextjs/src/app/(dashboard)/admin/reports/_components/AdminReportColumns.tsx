@@ -73,6 +73,7 @@ export function useReportColumns() {
             </div>
           );
         },
+        enableHiding: false,
       },
       {
         accessorKey: "reportName",

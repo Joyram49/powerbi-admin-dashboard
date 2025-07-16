@@ -301,7 +301,7 @@ export default function BillingPage() {
   // Show warning if no companies are available
   if (!companiesData?.data || companiesData.data.length === 0) {
     return (
-      <div className="container mx-auto px-4 py-16">
+      <div className="container mx-auto max-w-[100%] px-6 py-16">
         <Alert className="mb-6 border-orange-200 bg-orange-50 dark:border-orange-900 dark:bg-orange-950/50">
           <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
           <AlertTitle className="text-orange-800 dark:text-orange-300">
@@ -635,7 +635,7 @@ export default function BillingPage() {
   ];
 
   return (
-    <div className="container mx-auto px-4 py-16">
+    <div className="container mx-auto max-w-[100%] px-6 py-16">
       {/* Company Selector - Only show if multiple companies exist */}
       {showCompanySelector && (
         <div className="mb-8">

@@ -63,7 +63,7 @@ export default function AdminReportsPage() {
   }, []);
 
   return (
-    <div className="container mx-auto w-full p-6">
+    <div className="container mx-auto w-full max-w-[100%] p-6">
       <h1 className="mb-6 text-2xl font-bold">Admin Reports</h1>
       {isLoading ? (
         <DataTableSkeleton

@@ -190,6 +190,7 @@ export const authRouter = createTRPCRouter({
           modifiedBy: ctx.session.user.id,
           passwordHistory: [hashedPassword],
         });
+
         return {
           success: true,
           user: user,

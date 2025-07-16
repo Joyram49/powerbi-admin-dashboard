@@ -64,6 +64,21 @@ export function useUserColumns() {
         enableHiding: false,
       },
       {
+        accessorKey: "id",
+        header: () => <div className="text-left font-medium">ID</div>,
+        cell: ({ row }) => {
+          const { id } = row.original;
+
+          return (
+            <div className="text-left">
+              <span className="hidden xl:inline">{id}</span>
+              <span className="xl:hidden">{id.slice(0, 10)}...</span>
+            </div>
+          );
+        },
+        enableHiding: false,
+      },
+      {
         accessorKey: "userName",
         header: ({
           column,
@@ -93,20 +108,6 @@ export function useUserColumns() {
         cell: ({ row }) => (
           <div>{row.original.userName || "Not specified"}</div>
         ),
-      },
-      {
-        accessorKey: "id",
-        header: () => <div className="text-left font-medium">ID</div>,
-        cell: ({ row }) => {
-          const { id } = row.original;
-
-          return (
-            <div className="text-left">
-              <span className="hidden xl:inline">{id}</span>
-              <span className="xl:hidden">{id.slice(0, 10)}...</span>
-            </div>
-          );
-        },
       },
       {
         accessorKey: "email",

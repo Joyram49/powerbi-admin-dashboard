@@ -143,33 +143,39 @@ export function BillingTable({
                 </ColumnSortPopup>
               </TableHead>
               <TableHead className="text-center text-gray-900 dark:text-gray-100">
-                <ColumnSortPopup
-                  column="status"
-                  currentSort={currentSort}
-                  onSortChange={onSortChange}
-                >
-                  Status
-                </ColumnSortPopup>
+                <div className="flex w-full justify-center">
+                  <ColumnSortPopup
+                    column="status"
+                    currentSort={currentSort}
+                    onSortChange={onSortChange}
+                  >
+                    Status
+                  </ColumnSortPopup>
+                </div>
               </TableHead>
               <TableHead className="text-center text-gray-900 dark:text-gray-100">
-                <ColumnSortPopup
-                  column="plan"
-                  currentSort={currentSort}
-                  onSortChange={onSortChange}
-                >
-                  Plan
-                </ColumnSortPopup>
+                <div className="flex w-full justify-center">
+                  <ColumnSortPopup
+                    column="plan"
+                    currentSort={currentSort}
+                    onSortChange={onSortChange}
+                  >
+                    Plan
+                  </ColumnSortPopup>
+                </div>
               </TableHead>
               <TableHead className="text-center text-gray-900 dark:text-gray-100">
-                <ColumnSortPopup
-                  column="amount"
-                  currentSort={currentSort}
-                  onSortChange={onSortChange}
-                >
-                  Amount
-                </ColumnSortPopup>
+                <div className="flex w-full justify-center">
+                  <ColumnSortPopup
+                    column="amount"
+                    currentSort={currentSort}
+                    onSortChange={onSortChange}
+                  >
+                    Amount
+                  </ColumnSortPopup>
+                </div>
               </TableHead>
-              <TableHead className="text-right text-gray-900 dark:text-gray-100">
+              <TableHead className="pr-6 text-right text-gray-900 dark:text-gray-100">
                 Actions
               </TableHead>
             </TableRow>
@@ -190,11 +196,12 @@ export function BillingTable({
                   key={billing.id}
                   className="hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
                 >
-                  <TableCell className="flex h-[56px] items-center justify-center">
+                  <TableCell className="">
                     <Checkbox
                       checked={selectedInvoices.includes(billing.id)}
                       onCheckedChange={() => handleSelectInvoice(billing.id)}
                       aria-label={`Select invoice ${billing.id}`}
+                      className="ml-3"
                     />
                   </TableCell>
                   <TableCell className="text-gray-900 dark:text-gray-100">
