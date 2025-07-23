@@ -207,6 +207,23 @@ export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
   const currentUserId = profileData?.user?.id;
   const userRole = profileData?.user?.user_metadata.role as string;
 
+  // Initialize form with default or user data
+  const form = useForm<FormValues>({
+    resolver: zodResolver(userSchema),
+    defaultValues: {
+      id: initialData?.id ?? "",
+      userName: initialData?.userName ?? "",
+      password: "",
+      confirmPassword: "",
+      email: initialData?.email ?? "",
+      role: initialData?.role ?? "user",
+      companyId: initialData?.companyId ?? companyId ?? "",
+      sendWelcomeEmail: true,
+      status: initialData?.status ?? "active",
+    },
+    mode: "onChange",
+  });
+
   // Fetch companies based on user role
   const { data: companies } =
     userRole === "admin"
@@ -217,8 +234,22 @@ export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
 
   // Create and update mutations
   const createUserMutation = api.auth.createUser.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (userData) => {
       toast.success("User added successfully");
+      const toSend = {
+        to: userData.user?.email,
+        name:
+          (userData.user?.user_metadata.userName as string) ||
+          userData.user?.email,
+        pass: form.getValues("password"),
+      };
+      await fetch("/api/emails/welcome-email", {
+        method: "POST",
+        body: JSON.stringify(toSend),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
       setIsSubmitting(false);
       setFormSubmitError(null);
       await utils.user.getAllUsers.invalidate();
@@ -296,23 +327,6 @@ export function UserForm({ onClose, initialData, companyId }: UserFormProps) {
         setIsSubmitting(false);
       },
     });
-
-  // Initialize form with default or user data
-  const form = useForm<FormValues>({
-    resolver: zodResolver(userSchema),
-    defaultValues: {
-      id: initialData?.id ?? "",
-      userName: initialData?.userName ?? "",
-      password: "",
-      confirmPassword: "",
-      email: initialData?.email ?? "",
-      role: initialData?.role ?? "user",
-      companyId: initialData?.companyId ?? companyId ?? "",
-      sendWelcomeEmail: true,
-      status: initialData?.status ?? "active",
-    },
-    mode: "onChange",
-  });
 
   // Reset form when initial data changes
   useEffect(() => {

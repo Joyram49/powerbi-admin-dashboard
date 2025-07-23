@@ -59,7 +59,10 @@
     "JWT_SECRET",
     "NEXT_PUBLIC_APP_URL",
     "STRIPE_SECRET_KEY",
-    "STRIPE_WEBHOOK_SECRET"
+    "STRIPE_WEBHOOK_SECRET",
+    "SMTP_USER",
+    "SMTP_PASS",
+    "SMTP_FROM"
   ],
   "globalPassThroughEnv": [
     "NODE_ENV",
