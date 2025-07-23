@@ -13,6 +13,9 @@ export const env = createEnv({
     SUPABASE_SERVICE_ROLE_KEY: z.string(),
     STRIPE_WEBHOOK_SECRET: z.string(),
     STRIPE_SECRET_KEY: z.string(),
+    SMTP_USER: z.string().min(1),
+    SMTP_PASS: z.string().min(1),
+    SMTP_FROM: z.string().min(1).email(),
   },
 
   client: {

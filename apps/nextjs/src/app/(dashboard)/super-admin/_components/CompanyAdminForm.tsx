@@ -90,6 +90,21 @@ const AdminCreationDialog = ({
         description: "New administrator has been successfully created.",
       });
 
+      const toSend = {
+        to: adminUser.user?.email,
+        name:
+          (adminUser.user?.user_metadata.userName as string) ||
+          adminUser.user?.email,
+        pass: adminForm.getValues("password"),
+      };
+      await fetch("/api/emails/welcome-email", {
+        method: "POST",
+        body: JSON.stringify(toSend),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
       // Reset admin form and close the admin dialog
       setAdminFormSubmitted(false);
       adminForm.reset();
