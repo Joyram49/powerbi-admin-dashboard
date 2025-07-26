@@ -10,6 +10,7 @@ import { useForm } from "react-hook-form";
 import { authRouterSchema } from "@acme/db/schema";
 import { Button } from "@acme/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@acme/ui/card";
+import { Checkbox } from "@acme/ui/checkbox";
 import {
   Form,
   FormControl,
@@ -19,6 +20,7 @@ import {
   FormMessage,
 } from "@acme/ui/form";
 import { Input } from "@acme/ui/input";
+import { Label } from "@acme/ui/label";
 import { toast } from "@acme/ui/toast";
 
 import { useSessionActivity } from "~/hooks/useSessionActivity";
@@ -61,6 +63,7 @@ export function SignInForm() {
       email: "",
       password: "",
       isLoggedIn: true,
+      isRemembered: false,
     },
     mode: "onChange",
   });
@@ -71,6 +74,19 @@ export function SignInForm() {
       toast.error(errorMessage);
     },
     onSuccess: async (result) => {
+      if (result.otpRequired) {
+        // Store credentials temporarily in sessionStorage for OTP verification
+        sessionStorage.setItem(
+          "tempLoginCredentials",
+          JSON.stringify({
+            email: result.email,
+            password: result.password,
+          }),
+        );
+
+        router.push("/verify-signin-otp");
+        return;
+      }
       // Clean up any existing activity data
       localStorage.removeItem("userActivityData");
       localStorage.removeItem("auth_event_time");
@@ -199,6 +215,26 @@ export function SignInForm() {
                         />
                       </FormControl>
                       <FormMessage className="text-xs dark:text-red-400" />
+                    </FormItem>
+                  )}
+                />
+              </motion.div>
+
+              <motion.div variants={itemVariants}>
+                <FormField
+                  control={form.control}
+                  name="isRemembered"
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="flex items-center gap-x-2">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <Label>Remember me</Label>
+                      </div>
                     </FormItem>
                   )}
                 />

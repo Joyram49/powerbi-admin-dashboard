@@ -232,6 +232,7 @@ export const authRouterSchema = {
         },
       ),
     isLoggedIn: z.boolean().default(true),
+    isRemembered: z.boolean().default(false).optional(),
   }),
   updateProfile: z.object({
     userName: z.string().optional(),
@@ -251,6 +252,24 @@ export const authRouterSchema = {
       .string()
       .min(1, { message: "Email is required" })
       .email({ message: "Invalid email address" }),
+    token: z.string().length(6),
+  }),
+  verifySigninOTP: z.object({
+    email: z
+      .string()
+      .min(1, { message: "Email is required" })
+      .email({ message: "Invalid email address" }),
+    password: z
+      .string()
+      .min(12, { message: "Password must be between 12-20 characters" })
+      .max(20, { message: "Password must be between 12-20 characters" })
+      .regex(
+        /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};:'"\\|,.<>/?]).+$/,
+        {
+          message:
+            "Password must include at least one uppercase letter, one number, and one special character",
+        },
+      ),
     token: z.string().length(6),
   }),
   updatePassword: z.object({
