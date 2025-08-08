@@ -36,6 +36,8 @@ function SignInOtpForm() {
   const [tempCredentials, setTempCredentials] =
     useState<TempCredentials | null>(null);
   const [rememberMe, setRememberMe] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [hasSentOnce, setHasSentOnce] = useState(false);
   const router = useRouter();
   const { createSession } = useSessionActivity();
   const utils = api.useUtils();
@@ -119,6 +121,32 @@ function SignInOtpForm() {
       setIsSubmitting(false);
     },
   });
+
+  const sendOTP = api.auth.sendOTP.useMutation({
+    onSuccess: (response) => {
+      if (response.success) {
+        setHasSentOnce(true);
+        setTimeLeft(30);
+        toast.success("OTP resent. Please check your email.");
+      } else {
+        toast.error("Failed to resend OTP", { description: response.message });
+      }
+    },
+    onError: (error) => {
+      toast.error("Error", { description: error.message });
+    },
+  });
+
+  useEffect(() => {
+    if (timeLeft <= 0) return;
+    const timerId = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
+    return () => clearTimeout(timerId);
+  }, [timeLeft]);
+
+  const handleResend = () => {
+    if (!tempCredentials) return;
+    sendOTP.mutate({ email: tempCredentials.email });
+  };
 
   const handleOTPChange = (value: string) => {
     setValue("token", value, { shouldValidate: true });
@@ -249,6 +277,22 @@ function SignInOtpForm() {
             {errors.token.message}
           </p>
         )}
+
+        {/* Resend OTP Button */}
+        <div className="mt-4 flex justify-center">
+          <Button
+            type="button"
+            onClick={handleResend}
+            disabled={timeLeft > 0}
+            className="bg-blue-500 hover:bg-blue-600"
+          >
+            {timeLeft > 0
+              ? `Resend OTP (${timeLeft}s)`
+              : hasSentOnce
+                ? "Resend OTP"
+                : "Send OTP Again"}
+          </Button>
+        </div>
       </div>
 
       {/* Remember Me Checkbox */}

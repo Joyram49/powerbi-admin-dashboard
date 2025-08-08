@@ -21,12 +21,10 @@ import { env } from "../../../auth/env";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { sendOTPToEmail } from "../utils/sendOTPToEmail";
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 const sign: (
   payload: string | Buffer | object,
   secretOrPrivateKey: Secret,
   options?: SignOptions,
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 ) => string = jwt.sign;
 
 export const authRouter = createTRPCRouter({
@@ -356,7 +354,6 @@ export const authRouter = createTRPCRouter({
         let skipOtp = false;
         if (rememberMeCookie) {
           try {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
             const decoded = verify(
               rememberMeCookie.value,
               process.env.REMEMBER_ME_SECRET ?? "default-remember-me-secret",
