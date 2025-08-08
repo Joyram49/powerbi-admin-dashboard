@@ -29,6 +29,7 @@
     "bcryptjs": "^3.0.2",
     "dotenv": "^17.0.1",
     "jquery": "^3.7.1",
+    "jsonwebtoken": "^9.0.2",
     "node-cron": "^4.2.0",
     "stripe": "^14.25.0",
     "superjson": "2.2.1",
@@ -39,6 +40,7 @@
     "@acme/eslint-config": "workspace:*",
     "@acme/prettier-config": "workspace:*",
     "@acme/tsconfig": "workspace:*",
+    "@types/jsonwebtoken": "^9.0.10",
     "eslint": "catalog:",
     "prettier": "catalog:",
     "typescript": "catalog:"

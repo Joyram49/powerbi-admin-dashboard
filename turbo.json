@@ -62,7 +62,8 @@
     "STRIPE_WEBHOOK_SECRET",
     "SMTP_USER",
     "SMTP_PASS",
-    "SMTP_FROM"
+    "SMTP_FROM",
+    "REMEMBER_ME_SECRET"
   ],
   "globalPassThroughEnv": [
     "NODE_ENV",

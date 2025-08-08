@@ -14,7 +14,7 @@ interface CustomCookieOptions {
   expires?: Date;
 }
 
-interface StoredCookie {
+export interface StoredCookie {
   value: string;
   options: CustomCookieOptions;
 }

@@ -1,6 +1,8 @@
+import type { Secret, SignOptions } from "jsonwebtoken";
 import { TRPCError } from "@trpc/server";
 import { compareSync, hash } from "bcryptjs";
 import { and, eq, or } from "drizzle-orm";
+import jwt, { verify } from "jsonwebtoken";
 
 import {
   companies,
@@ -8,6 +10,7 @@ import {
   createAdminClient,
   createClientServer,
   db,
+  globalCookieStore,
   loginAttempts,
   subscriptions,
   users,
@@ -17,6 +20,12 @@ import { authRouterSchema } from "@acme/db/schema";
 import { env } from "../../../auth/env";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { sendOTPToEmail } from "../utils/sendOTPToEmail";
+
+const sign: (
+  payload: string | Buffer | object,
+  secretOrPrivateKey: Secret,
+  options?: SignOptions,
+) => string = jwt.sign;
 
 export const authRouter = createTRPCRouter({
   // Create user procedure with optional metadata
@@ -225,8 +234,6 @@ export const authRouter = createTRPCRouter({
           .from(users)
           .where(eq(users.email, input.email))
           .limit(1);
-
-        // check if user exists if not then return error
         const user = userExists[0];
         if (!user || userExists.length === 0) {
           throw new TRPCError({
@@ -234,27 +241,22 @@ export const authRouter = createTRPCRouter({
             message: "Invalid login credentials",
           });
         }
-
         // check if user is not active
         const isInactive = userExists[0]?.status === "inactive";
-
         if (isInactive) {
           throw new TRPCError({
             code: "UNAUTHORIZED",
             message: "Account is inactive. Please contact your administrator.",
           });
         }
-
         // Check if account is locked
         const lockRecord = await db
           .select()
           .from(loginAttempts)
           .where(eq(loginAttempts.email, input.email))
           .limit(1);
-
         const now = new Date();
         const lockRecordExists = lockRecord.length > 0;
-
         // if account is locked for a certain period of time, return error
         if (
           lockRecordExists &&
@@ -270,7 +272,6 @@ export const authRouter = createTRPCRouter({
             message: `Account locked. Try again in ${lockRemainingMin} minute(s).`,
           });
         }
-
         // if account is locked and the lock has expired(more than 30 minutes), reset the lock
         if (
           lockRecordExists &&
@@ -288,27 +289,22 @@ export const authRouter = createTRPCRouter({
             })
             .where(eq(loginAttempts.email, input.email));
         }
-
         // generate the active password from password history
         const activePassword = user.passwordHistory?.[0] ?? "";
-
         // check if the password is correct
         const isPasswordCorrect = compareSync(input.password, activePassword);
-
-        // if the password is incorrect, update the user loging attempts and lock the account if the attempts are more than 5
+        // if the password is incorrect, update the user logging attempts and lock the account if the attempts are more than 5
         if (!isPasswordCorrect) {
           if (lockRecordExists) {
             const attempts = (lockRecord[0]?.attempts ?? 0) + 1;
             const MAX_ATTEMPTS = 5;
             const LOCK_DURATION_MINUTES = 30;
-
             // Check if we need to lock the account
             if (attempts > MAX_ATTEMPTS) {
               const lockedUntil = new Date();
               lockedUntil.setMinutes(
                 lockedUntil.getMinutes() + LOCK_DURATION_MINUTES,
               );
-
               await db
                 .update(loginAttempts)
                 .set({
@@ -319,7 +315,6 @@ export const authRouter = createTRPCRouter({
                   updatedAt: now,
                 })
                 .where(eq(loginAttempts.email, input.email));
-
               throw new TRPCError({
                 code: "FORBIDDEN",
                 message: `Too many failed login attempts. Account locked for ${LOCK_DURATION_MINUTES} minutes.`,
@@ -345,7 +340,6 @@ export const authRouter = createTRPCRouter({
               updatedAt: now,
             });
           }
-
           // Rethrow the original error
           throw new TRPCError({
             code: "UNAUTHORIZED",
@@ -353,15 +347,63 @@ export const authRouter = createTRPCRouter({
           });
         }
 
-        // check remember me and last login date
-        const daySinceLastLogin = userExists[0]?.lastLogin
-          ? Math.floor(
-              (now.getTime() - userExists[0]?.lastLogin.getTime()) /
-                (1000 * 60 * 60 * 24),
-            )
-          : Infinity;
+        // check remember me cookie only after all checks pass
+        // --- Remember Me Cookie Logic ---
 
-        if (!input.isRemembered || daySinceLastLogin > 30) {
+        const rememberMeCookie = globalCookieStore.remember_me_token;
+        let skipOtp = false;
+        if (rememberMeCookie) {
+          try {
+            const decoded = verify(
+              rememberMeCookie.value,
+              process.env.REMEMBER_ME_SECRET ?? "default-remember-me-secret",
+            ) as { email: string; createdAt: number };
+            // If the email matches and token is not expired, skip OTP
+            if (decoded.email === input.email) {
+              skipOtp = true;
+            }
+          } catch {
+            // intentionally ignore invalid/expired token
+          }
+        }
+        // --- End Remember Me Cookie Logic ---
+        if (skipOtp) {
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email: input.email,
+            password: input.password,
+          });
+          if (error) {
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: error.message || "Failed to sign in",
+            });
+          }
+          // update last login date for the user
+          await db
+            .update(users)
+            .set({
+              lastLogin: new Date(),
+              isLoggedIn: input.isLoggedIn,
+            })
+            .where(eq(users.email, input.email));
+          // If login successful, reset attempts
+          if (lockRecordExists) {
+            await db
+              .update(loginAttempts)
+              .set({
+                attempts: 0,
+                isLocked: false,
+                updatedAt: now,
+              })
+              .where(eq(loginAttempts.email, input.email));
+          }
+          return {
+            success: true,
+            user: data.user,
+            session: data.session,
+          };
+        } else {
+          // If skipOtp is false, send OTP and return otpRequired response
           await sendOTPToEmail(input.email);
           return {
             otpRequired: true,
@@ -369,45 +411,6 @@ export const authRouter = createTRPCRouter({
             password: input.password,
           };
         }
-
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: input.email,
-          password: input.password,
-        });
-
-        if (error) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: error.message || "Failed to sign in",
-          });
-        }
-
-        // update last login date for the user
-        await db
-          .update(users)
-          .set({
-            lastLogin: new Date(),
-            isLoggedIn: input.isLoggedIn,
-          })
-          .where(eq(users.email, input.email));
-
-        // If login successful, reset attempts
-        if (lockRecordExists) {
-          await db
-            .update(loginAttempts)
-            .set({
-              attempts: 0,
-              isLocked: false,
-              updatedAt: now,
-            })
-            .where(eq(loginAttempts.email, input.email));
-        }
-
-        return {
-          success: true,
-          user: data.user,
-          session: data.session,
-        };
       } catch (err) {
         if (err instanceof TRPCError) {
           throw err;
@@ -439,6 +442,19 @@ export const authRouter = createTRPCRouter({
         .update(users)
         .set({ isLoggedIn: false })
         .where(eq(users.id, ctx.session.user.id));
+
+      // Clear the remember_me_token cookie by setting it expired
+
+      globalCookieStore.remember_me_token = {
+        value: "",
+        options: {
+          path: "/",
+          httpOnly: true,
+          secure: true,
+          sameSite: "lax",
+          expires: new Date(0), // Expire immediately
+        },
+      };
 
       return {
         success: true,
@@ -639,7 +655,6 @@ export const authRouter = createTRPCRouter({
           .where(eq(users.email, input.email));
 
         // update login attempts if user is locked
-
         const lockedAccount = await db
           .select()
           .from(loginAttempts)
@@ -658,6 +673,34 @@ export const authRouter = createTRPCRouter({
             })
             .where(eq(loginAttempts.email, input.email));
         }
+
+        // --- Remember Me Cookie Logic ---
+        if (input.rememberMe) {
+          // Generate a signed JWT token
+          const token: string = sign(
+            {
+              email: input.email,
+              createdAt: Date.now(),
+            },
+            process.env.REMEMBER_ME_SECRET ?? "default-remember-me-secret",
+            { expiresIn: "30d" },
+          );
+
+          // Set the cookie in the globalCookieStore for Next.js API route
+
+          globalCookieStore.remember_me_token = {
+            value: token,
+            options: {
+              path: "/",
+              httpOnly: true,
+              secure: true,
+              sameSite: "lax",
+              maxAge: 60 * 60 * 24 * 30, // 30 days
+              expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
+            },
+          };
+        }
+        // --- End Remember Me Cookie Logic ---
 
         return {
           success: true,

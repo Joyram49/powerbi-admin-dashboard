@@ -20,6 +20,7 @@ const verifySigninOtpSchema = z.object({
     .string()
     .min(6, { message: "OTP must be 6 characters" })
     .max(6, { message: "OTP must be 6 characters" }),
+  rememberMe: z.boolean().optional().default(false),
 });
 
 type FormValues = z.infer<typeof verifySigninOtpSchema>;
@@ -27,7 +28,6 @@ type FormValues = z.infer<typeof verifySigninOtpSchema>;
 interface TempCredentials {
   email: string;
   password: string;
-  isRemembered: boolean;
 }
 
 function SignInOtpForm() {
@@ -35,6 +35,9 @@ function SignInOtpForm() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [tempCredentials, setTempCredentials] =
     useState<TempCredentials | null>(null);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [hasSentOnce, setHasSentOnce] = useState(false);
   const router = useRouter();
   const { createSession } = useSessionActivity();
   const utils = api.useUtils();
@@ -49,6 +52,7 @@ function SignInOtpForm() {
     resolver: zodResolver(verifySigninOtpSchema),
     defaultValues: {
       token: "",
+      rememberMe: false,
     },
   });
 
@@ -118,6 +122,32 @@ function SignInOtpForm() {
     },
   });
 
+  const sendOTP = api.auth.sendOTP.useMutation({
+    onSuccess: (response) => {
+      if (response.success) {
+        setHasSentOnce(true);
+        setTimeLeft(30);
+        toast.success("OTP resent. Please check your email.");
+      } else {
+        toast.error("Failed to resend OTP", { description: response.message });
+      }
+    },
+    onError: (error) => {
+      toast.error("Error", { description: error.message });
+    },
+  });
+
+  useEffect(() => {
+    if (timeLeft <= 0) return;
+    const timerId = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
+    return () => clearTimeout(timerId);
+  }, [timeLeft]);
+
+  const handleResend = () => {
+    if (!tempCredentials) return;
+    sendOTP.mutate({ email: tempCredentials.email });
+  };
+
   const handleOTPChange = (value: string) => {
     setValue("token", value, { shouldValidate: true });
 
@@ -149,6 +179,7 @@ function SignInOtpForm() {
         email: tempCredentials.email,
         password: tempCredentials.password,
         token: data.token,
+        rememberMe: data.rememberMe,
       });
     } catch (err) {
       // Error is handled in the mutation callbacks
@@ -246,6 +277,43 @@ function SignInOtpForm() {
             {errors.token.message}
           </p>
         )}
+
+        {/* Resend OTP Button */}
+        <div className="mt-4 flex justify-center">
+          <Button
+            type="button"
+            onClick={handleResend}
+            disabled={timeLeft > 0}
+            className="bg-blue-500 hover:bg-blue-600"
+          >
+            {timeLeft > 0
+              ? `Resend OTP (${timeLeft}s)`
+              : hasSentOnce
+                ? "Resend OTP"
+                : "Send OTP Again"}
+          </Button>
+        </div>
+      </div>
+
+      {/* Remember Me Checkbox */}
+      <div className="flex items-center space-x-2">
+        <input
+          id="rememberMe"
+          type="checkbox"
+          checked={rememberMe}
+          {...register("rememberMe")}
+          onChange={(e) => {
+            setRememberMe(e.target.checked);
+            setValue("rememberMe", e.target.checked);
+          }}
+          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:checked:bg-blue-600"
+        />
+        <label
+          htmlFor="rememberMe"
+          className="text-sm text-gray-700 dark:text-gray-300"
+        >
+          Remember Me (keep me signed in for 1 month)
+        </label>
       </div>
 
       <div className="mt-6">
