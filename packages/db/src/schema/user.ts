@@ -232,7 +232,6 @@ export const authRouterSchema = {
         },
       ),
     isLoggedIn: z.boolean().default(true),
-    isRemembered: z.boolean().default(false).optional(),
   }),
   updateProfile: z.object({
     userName: z.string().optional(),
@@ -271,6 +270,7 @@ export const authRouterSchema = {
         },
       ),
     token: z.string().length(6),
+    rememberMe: z.boolean().optional().default(false),
   }),
   updatePassword: z.object({
     password: z

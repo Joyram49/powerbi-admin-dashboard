@@ -41,8 +41,8 @@ function PostCard(props: { post: Post; onDelete: () => void }) {
         <Link
           asChild
           href={{
-            pathname: "/post/[id]",
-            params: { id: props.post.id },
+            pathname: "/",
+            params: { id: props.post.id.toString() },
           }}
         >
           <Pressable className="">

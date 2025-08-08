@@ -20,6 +20,7 @@ const verifySigninOtpSchema = z.object({
     .string()
     .min(6, { message: "OTP must be 6 characters" })
     .max(6, { message: "OTP must be 6 characters" }),
+  rememberMe: z.boolean().optional().default(false),
 });
 
 type FormValues = z.infer<typeof verifySigninOtpSchema>;
@@ -27,7 +28,6 @@ type FormValues = z.infer<typeof verifySigninOtpSchema>;
 interface TempCredentials {
   email: string;
   password: string;
-  isRemembered: boolean;
 }
 
 function SignInOtpForm() {
@@ -35,6 +35,7 @@ function SignInOtpForm() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [tempCredentials, setTempCredentials] =
     useState<TempCredentials | null>(null);
+  const [rememberMe, setRememberMe] = useState(false);
   const router = useRouter();
   const { createSession } = useSessionActivity();
   const utils = api.useUtils();
@@ -49,6 +50,7 @@ function SignInOtpForm() {
     resolver: zodResolver(verifySigninOtpSchema),
     defaultValues: {
       token: "",
+      rememberMe: false,
     },
   });
 
@@ -149,6 +151,7 @@ function SignInOtpForm() {
         email: tempCredentials.email,
         password: tempCredentials.password,
         token: data.token,
+        rememberMe: data.rememberMe,
       });
     } catch (err) {
       // Error is handled in the mutation callbacks
@@ -246,6 +249,27 @@ function SignInOtpForm() {
             {errors.token.message}
           </p>
         )}
+      </div>
+
+      {/* Remember Me Checkbox */}
+      <div className="flex items-center space-x-2">
+        <input
+          id="rememberMe"
+          type="checkbox"
+          checked={rememberMe}
+          {...register("rememberMe")}
+          onChange={(e) => {
+            setRememberMe(e.target.checked);
+            setValue("rememberMe", e.target.checked);
+          }}
+          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:checked:bg-blue-600"
+        />
+        <label
+          htmlFor="rememberMe"
+          className="text-sm text-gray-700 dark:text-gray-300"
+        >
+          Remember Me (keep me signed in for 1 month)
+        </label>
       </div>
 
       <div className="mt-6">
