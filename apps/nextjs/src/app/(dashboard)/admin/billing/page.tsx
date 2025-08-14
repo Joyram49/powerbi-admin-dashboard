@@ -298,6 +298,8 @@ export default function BillingPage() {
     );
   }
 
+  console.log(companiesData?.data);
+
   // Show warning if no companies are available
   if (!companiesData?.data || companiesData.data.length === 0) {
     return (

@@ -219,7 +219,7 @@ export const authRouter = createTRPCRouter({
   // Signin procedure
   signIn: publicProcedure
     .input(authRouterSchema.signIn)
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const supabase = createClientServer();
       try {
         // First, check if the user exists in our database
@@ -350,12 +350,13 @@ export const authRouter = createTRPCRouter({
         // check remember me cookie only after all checks pass
         // --- Remember Me Cookie Logic ---
 
-        const rememberMeCookie = globalCookieStore.remember_me_token;
+        const rememberMeCookie = ctx.session?.rememberMeToken as string;
+
         let skipOtp = false;
         if (rememberMeCookie) {
           try {
             const decoded = verify(
-              rememberMeCookie.value,
+              rememberMeCookie,
               process.env.REMEMBER_ME_SECRET ?? "default-remember-me-secret",
             ) as { email: string; createdAt: number };
             // If the email matches and token is not expired, skip OTP
@@ -445,16 +446,16 @@ export const authRouter = createTRPCRouter({
 
       // Clear the remember_me_token cookie by setting it expired
 
-      globalCookieStore.remember_me_token = {
-        value: "",
-        options: {
-          path: "/",
-          httpOnly: true,
-          secure: true,
-          sameSite: "lax",
-          expires: new Date(0), // Expire immediately
-        },
-      };
+      // globalCookieStore.remember_me_token = {
+      //   value: "",
+      //   options: {
+      //     path: "/",
+      //     httpOnly: true,
+      //     secure: true,
+      //     sameSite: "lax",
+      //     expires: new Date(0), // Expire immediately
+      //   },
+      // };
 
       return {
         success: true,
