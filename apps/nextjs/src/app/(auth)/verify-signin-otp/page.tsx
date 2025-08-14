@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense } from "react";
-import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 
 import SignInOtpForm from "../_components/SignInOtpForm";
@@ -24,15 +23,6 @@ function VerifyOtpContent() {
         </div>
 
         <SignInOtpForm />
-
-        <div className="mt-6 text-center">
-          <Link
-            href="/login"
-            className="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-          >
-            Return to sign in
-          </Link>
-        </div>
       </div>
     </div>
   );

@@ -16,11 +16,31 @@ export interface Session {
   } | null;
 }
 
+// get remember me token
+function getCookieFromHeader(
+  cookieHeader: string | null,
+  cookieName: string,
+): string | undefined {
+  if (!cookieHeader) return undefined;
+  const cookies = cookieHeader.split(";").map((c) => c.trim());
+  for (const cookie of cookies) {
+    if (cookie.startsWith(cookieName + "=")) {
+      return decodeURIComponent(cookie.substring(cookieName.length + 1));
+    }
+  }
+  return undefined;
+}
+
 const isomorphicGetSession = async (
   headers: Headers,
 ): Promise<Session | null> => {
   const authHeader = headers.get("authorization");
   const cookieHeader = headers.get("cookie");
+
+  const rememberMeToken = getCookieFromHeader(
+    cookieHeader,
+    "remember_me_token",
+  );
 
   const cacheKey = authHeader ?? cookieHeader ?? "default";
 
@@ -38,6 +58,12 @@ const isomorphicGetSession = async (
     } = await supabase.auth.getUser();
 
     if (error || !user) {
+      // If no user, but we have a rememberMeToken, return a session with just the token
+      if (rememberMeToken) {
+        const processedSession = { user: null, rememberMeToken };
+        sessionCache.set(cacheKey, processedSession);
+        return processedSession;
+      }
       sessionCache.set(cacheKey, null);
       return null;
     }

@@ -20,6 +20,7 @@ const verifySigninOtpSchema = z.object({
     .string()
     .min(6, { message: "OTP must be 6 characters" })
     .max(6, { message: "OTP must be 6 characters" }),
+  rememberMe: z.boolean().optional().default(false),
 });
 
 type FormValues = z.infer<typeof verifySigninOtpSchema>;
@@ -27,14 +28,17 @@ type FormValues = z.infer<typeof verifySigninOtpSchema>;
 interface TempCredentials {
   email: string;
   password: string;
-  isRemembered: boolean;
 }
 
 function SignInOtpForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [tempCredentials, setTempCredentials] =
     useState<TempCredentials | null>(null);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [hasSentOnce, setHasSentOnce] = useState(false);
   const router = useRouter();
   const { createSession } = useSessionActivity();
   const utils = api.useUtils();
@@ -49,6 +53,7 @@ function SignInOtpForm() {
     resolver: zodResolver(verifySigninOtpSchema),
     defaultValues: {
       token: "",
+      rememberMe: false,
     },
   });
 
@@ -72,6 +77,7 @@ function SignInOtpForm() {
     onSuccess: async (result) => {
       if (result.success) {
         setErrorMessage(null);
+        setIsVerified(true);
 
         // Clean up stored credentials
         sessionStorage.removeItem("tempLoginCredentials");
@@ -118,6 +124,32 @@ function SignInOtpForm() {
     },
   });
 
+  const sendOTP = api.auth.sendOTP.useMutation({
+    onSuccess: (response) => {
+      if (response.success) {
+        setHasSentOnce(true);
+        setTimeLeft(30);
+        toast.success("OTP resent. Please check your email.");
+      } else {
+        toast.error("Failed to resend OTP", { description: response.message });
+      }
+    },
+    onError: (error) => {
+      toast.error("Error", { description: error.message });
+    },
+  });
+
+  useEffect(() => {
+    if (timeLeft <= 0) return;
+    const timerId = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
+    return () => clearTimeout(timerId);
+  }, [timeLeft]);
+
+  const handleResend = () => {
+    if (!tempCredentials) return;
+    sendOTP.mutate({ email: tempCredentials.email });
+  };
+
   const handleOTPChange = (value: string) => {
     setValue("token", value, { shouldValidate: true });
 
@@ -149,6 +181,7 @@ function SignInOtpForm() {
         email: tempCredentials.email,
         password: tempCredentials.password,
         token: data.token,
+        rememberMe: data.rememberMe,
       });
     } catch (err) {
       // Error is handled in the mutation callbacks
@@ -189,82 +222,147 @@ function SignInOtpForm() {
   }
 
   return (
-    <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
-      {errorMessage && (
-        <div className="rounded-md bg-red-50 p-4 dark:bg-red-900/20">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <AlertCircle className="h-5 w-5 text-red-400 dark:text-red-300" />
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800 dark:text-red-300">
-                Error
-              </h3>
-              <div className="mt-1 text-sm text-red-700 dark:text-red-300">
-                <p>{errorMessage}</p>
+    <div className="relative">
+      {isVerified && (
+        <div className="pointer-events-auto absolute inset-0 z-20 flex items-center justify-center bg-white/70 dark:bg-gray-900/80">
+          <Loader2 className="h-10 w-10 animate-spin text-blue-600 dark:text-blue-400" />
+        </div>
+      )}
+      <form
+        className="space-y-4"
+        onSubmit={handleSubmit(onSubmit)}
+        aria-disabled={isVerified}
+      >
+        {errorMessage && (
+          <div className="rounded-md bg-red-50 p-4 dark:bg-red-900/20">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <AlertCircle className="h-5 w-5 text-red-400 dark:text-red-300" />
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800 dark:text-red-300">
+                  Error
+                </h3>
+                <div className="mt-1 text-sm text-red-700 dark:text-red-300">
+                  <p>{errorMessage}</p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
-
-      <div className="flex flex-col items-center space-y-4">
-        <InputOTP maxLength={6} onChange={handleOTPChange} className="gap-2">
-          <InputOTPGroup className="flex w-full items-center justify-center gap-2">
-            <InputOTPSlot
-              index={0}
-              className="h-10 w-10 rounded-md border-gray-300 text-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-            />
-            <InputOTPSlot
-              index={1}
-              className="h-10 w-10 rounded-md border-gray-300 text-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-            />
-            <InputOTPSlot
-              index={2}
-              className="h-10 w-10 rounded-md border-gray-300 text-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-            />
-            <InputOTPSlot
-              index={3}
-              className="h-10 w-10 rounded-md border-gray-300 text-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-            />
-            <InputOTPSlot
-              index={4}
-              className="h-10 w-10 rounded-md border-gray-300 text-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-            />
-            <InputOTPSlot
-              index={5}
-              className="h-10 w-10 rounded-md border-gray-300 text-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-            />
-          </InputOTPGroup>
-        </InputOTP>
-
-        {/* Hidden input for form handling */}
-        <input type="hidden" {...register("token")} />
-
-        {errors.token && (
-          <p className="text-sm text-red-600 dark:text-red-400">
-            {errors.token.message}
-          </p>
         )}
-      </div>
 
-      <div className="mt-6">
-        <Button
-          type="submit"
-          disabled={isSubmitting}
-          className="w-full bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 dark:bg-blue-700 dark:hover:bg-blue-600"
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Verifying...
-            </>
-          ) : (
-            "Verify OTP"
+        <div className="flex flex-col items-center space-y-4">
+          <InputOTP maxLength={6} onChange={handleOTPChange} className="gap-2">
+            <InputOTPGroup className="flex w-full items-center justify-center gap-2">
+              <InputOTPSlot
+                index={0}
+                className="h-10 w-10 rounded-md border-gray-300 text-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+              />
+              <InputOTPSlot
+                index={1}
+                className="h-10 w-10 rounded-md border-gray-300 text-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+              />
+              <InputOTPSlot
+                index={2}
+                className="h-10 w-10 rounded-md border-gray-300 text-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+              />
+              <InputOTPSlot
+                index={3}
+                className="h-10 w-10 rounded-md border-gray-300 text-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+              />
+              <InputOTPSlot
+                index={4}
+                className="h-10 w-10 rounded-md border-gray-300 text-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+              />
+              <InputOTPSlot
+                index={5}
+                className="h-10 w-10 rounded-md border-gray-300 text-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+              />
+            </InputOTPGroup>
+          </InputOTP>
+
+          {/* Hidden input for form handling */}
+          <input type="hidden" {...register("token")} />
+
+          {errors.token && (
+            <p className="text-sm text-red-600 dark:text-red-400">
+              {errors.token.message}
+            </p>
           )}
-        </Button>
-      </div>
-    </form>
+
+          {/* Resend OTP Button */}
+          <div className="mt-4 flex justify-center">
+            <Button
+              type="button"
+              onClick={handleResend}
+              disabled={timeLeft > 0 || isSubmitting || isVerified}
+              className="bg-blue-500 hover:bg-blue-600"
+            >
+              {timeLeft > 0
+                ? `Resend OTP (${timeLeft}s)`
+                : hasSentOnce
+                  ? "Resend OTP"
+                  : "Send OTP Again"}
+            </Button>
+          </div>
+        </div>
+
+        {/* Remember Me Checkbox */}
+        <div className="flex items-center space-x-2">
+          <input
+            id="rememberMe"
+            type="checkbox"
+            checked={rememberMe}
+            {...register("rememberMe")}
+            onChange={(e) => {
+              setRememberMe(e.target.checked);
+              setValue("rememberMe", e.target.checked);
+            }}
+            disabled={isSubmitting || isVerified}
+            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:checked:bg-blue-600"
+          />
+          <label
+            htmlFor="rememberMe"
+            className="text-sm text-gray-700 dark:text-gray-300"
+          >
+            Remember Me (keep me signed in for 1 month)
+          </label>
+        </div>
+
+        <div className="mt-6">
+          <Button
+            type="submit"
+            disabled={isSubmitting || isVerified}
+            className="w-full bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 dark:bg-blue-700 dark:hover:bg-blue-600"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Verifying...
+              </>
+            ) : (
+              "Verify OTP"
+            )}
+          </Button>
+        </div>
+        <div className="mt-6 text-center">
+          {isSubmitting || isVerified ? (
+            <span className="cursor-not-allowed text-sm font-medium text-blue-400 opacity-50 dark:text-blue-400">
+              Return to sign in
+            </span>
+          ) : (
+            <Button
+              variant="link"
+              type="button"
+              className="h-auto p-0 text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+              onClick={() => router.push("/login")}
+            >
+              Return to sign in
+            </Button>
+          )}
+        </div>
+      </form>
+    </div>
   );
 }
 
