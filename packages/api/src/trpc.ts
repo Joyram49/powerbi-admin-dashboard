@@ -14,6 +14,7 @@ export interface Session {
     email?: string;
     role?: string;
   } | null;
+  rememberMeToken?: string;
 }
 
 // get remember me token
@@ -74,6 +75,7 @@ const isomorphicGetSession = async (
         email: user.email,
         role: user.user_metadata.role as string,
       },
+      rememberMeToken,
     };
 
     // Cache the session
