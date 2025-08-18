@@ -350,7 +350,7 @@ export const authRouter = createTRPCRouter({
         // check remember me cookie only after all checks pass
         // --- Remember Me Cookie Logic ---
 
-        const rememberMeCookie = ctx.session?.rememberMeToken as string;
+        const rememberMeCookie = ctx.session?.rememberMeToken;
 
         let skipOtp = false;
         if (rememberMeCookie) {
