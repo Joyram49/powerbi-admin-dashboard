@@ -8,6 +8,9 @@ import { createClientServer, globalCookieStore } from "@acme/db";
 
 import { env } from "~/env";
 
+// Explicitly set runtime to nodejs (required for database connections)
+export const runtime = "nodejs";
+
 // Define local interfaces to match the structure from server.ts
 interface CookieOptions {
   path?: string;
@@ -172,5 +175,11 @@ const createCustomResponseHandler = async (req: Request) => {
 };
 
 // Use the custom handler for both GET and POST
-export const GET = createCustomResponseHandler;
-export const POST = createCustomResponseHandler;
+// Using named function exports for better Next.js compatibility
+export async function GET(req: Request) {
+  return createCustomResponseHandler(req);
+}
+
+export async function POST(req: Request) {
+  return createCustomResponseHandler(req);
+}
