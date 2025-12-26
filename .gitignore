@@ -53,3 +53,4 @@ dist/
 
 # docs
 docs/
+VERCEL_ENV_SETUP.md

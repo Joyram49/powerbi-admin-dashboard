@@ -417,9 +417,40 @@ export const authRouter = createTRPCRouter({
           throw err;
         }
 
+        // Log the full error for debugging
+        console.error("SignIn error:", err);
+        if (err instanceof Error) {
+          console.error("Error message:", err.message);
+          console.error("Error stack:", err.stack);
+
+          // Check for common database connection errors
+          if (
+            err.message.includes("POSTGRES_URL") ||
+            err.message.includes("Missing")
+          ) {
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message:
+                "Database configuration error. Please check environment variables.",
+            });
+          }
+
+          // Check for Supabase connection errors
+          if (
+            err.message.includes("SUPABASE") ||
+            err.message.includes("Supabase")
+          ) {
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message:
+                "Authentication service configuration error. Please check environment variables.",
+            });
+          }
+        }
+
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Authentication failed",
+          message: err instanceof Error ? err.message : "Authentication failed",
         });
       }
     }),

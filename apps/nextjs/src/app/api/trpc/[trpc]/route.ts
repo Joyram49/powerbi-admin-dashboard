@@ -62,6 +62,11 @@ const createCustomResponseHandler = async (req: Request) => {
     }
   } catch (error) {
     console.error("Session retrieval error:", error);
+    // Log the full error details for debugging
+    if (error instanceof Error) {
+      console.error("Error message:", error.message);
+      console.error("Error stack:", error.stack);
+    }
   }
 
   // Get the tRPC response
@@ -69,15 +74,34 @@ const createCustomResponseHandler = async (req: Request) => {
     endpoint: "/api/trpc",
     router: appRouter,
     req,
-    createContext: () =>
-      createTRPCContext({
-        session,
-        headers: req.headers,
-      }),
-    onError({ error, path }) {
+    createContext: () => {
+      try {
+        return createTRPCContext({
+          session,
+          headers: req.headers,
+        });
+      } catch (error) {
+        console.error("Error creating TRPC context:", error);
+        if (error instanceof Error) {
+          console.error("Context error message:", error.message);
+          console.error("Context error stack:", error.stack);
+        }
+        throw error;
+      }
+    },
+    onError({ error, path, type }) {
       console.error(
-        `>>> tRPC Error on '${path}'`,
-        JSON.stringify(error, null, 2),
+        `>>> tRPC Error on '${path}' (${type})`,
+        JSON.stringify(
+          {
+            message: error.message,
+            code: error.code,
+            cause: error.cause,
+            stack: error.stack,
+          },
+          null,
+          2,
+        ),
       );
     },
   });
