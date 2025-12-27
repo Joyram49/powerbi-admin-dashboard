@@ -8,6 +8,11 @@ import { env } from "~/env";
 
 export const runtime = "nodejs";
 
+const baseUrl =
+  env.NODE_ENV === "development"
+    ? "http://localhost:3000/"
+    : env.NEXT_PUBLIC_APP_URL;
+
 export async function POST(req: Request) {
   const body = await req.text();
   const signature = headers().get("Stripe-Signature");
@@ -410,7 +415,7 @@ function getPlanUserLimit(tier: string): number {
 async function getStripePortalUrl(customerId: string): Promise<string> {
   const session = await stripe.billingPortal.sessions.create({
     customer: customerId,
-    return_url: `${env.NEXT_PUBLIC_APP_URL}/billing`,
+    return_url: `${baseUrl}/billing`,
   });
   return session.url;
 }

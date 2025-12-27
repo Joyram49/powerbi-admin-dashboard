@@ -27,6 +27,11 @@ const sign: (
   options?: SignOptions,
 ) => string = jwt.sign;
 
+const baseUrl =
+  env.NODE_ENV === "development"
+    ? "http://localhost:3000/"
+    : env.NEXT_PUBLIC_APP_URL;
+
 export const authRouter = createTRPCRouter({
   // Create user procedure with optional metadata
   createUser: protectedProcedure
@@ -1034,7 +1039,7 @@ export const authRouter = createTRPCRouter({
               role: input.role,
               userName: input.userName ?? input.email,
             },
-            emailRedirectTo: `${env.NEXT_PUBLIC_APP_URL}/api/auth/confirm`,
+            emailRedirectTo: `${baseUrl}/api/auth/confirm`,
           },
         });
 

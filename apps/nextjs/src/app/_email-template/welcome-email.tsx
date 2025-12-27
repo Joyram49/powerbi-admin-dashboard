@@ -17,14 +17,14 @@ interface WelcomeEmailProps {
 export default function WelcomeEmail({ name, pass, email }: WelcomeEmailProps) {
   const baseUrl =
     env.NODE_ENV === "development"
-      ? "http://localhost:3000"
-      : "https://joc-analytics.vercel.app";
+      ? "http://localhost:3000/"
+      : env.NEXT_PUBLIC_APP_URL;
   return (
     <Html>
       <Head />
       <Container style={{ padding: "40px", fontFamily: "Arial, sans-serif" }}>
         <Img
-          src="https://joc-analytics.vercel.app/joc-logo-color.png"
+          src={`${baseUrl}/joc-logo-color.png`}
           alt="JOC Logo"
           width="120"
           style={{ marginBottom: "20px" }}

@@ -27,9 +27,14 @@ interface StoredCookie {
   options: CookieOptions;
 }
 
+const baseUrl =
+  env.NODE_ENV === "development"
+    ? "http://localhost:3000/"
+    : env.NEXT_PUBLIC_APP_URL;
+
 // Optimize CORS headers with more specific configuration
 const setCorsHeaders = (res: Response) => {
-  res.headers.set("Access-Control-Allow-Origin", env.NEXT_PUBLIC_APP_URL);
+  res.headers.set("Access-Control-Allow-Origin", baseUrl);
   res.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.headers.set(
     "Access-Control-Allow-Headers",
@@ -174,12 +179,12 @@ const createCustomResponseHandler = async (req: Request) => {
   return response;
 };
 
-// Use the custom handler for both GET and POST
-// Using named function exports for better Next.js compatibility
+// Export handlers for both GET and POST
+// Next.js App Router requires named function exports for route handlers
 export async function GET(req: Request) {
-  return createCustomResponseHandler(req);
+  return await createCustomResponseHandler(req);
 }
 
 export async function POST(req: Request) {
-  return createCustomResponseHandler(req);
+  return await createCustomResponseHandler(req);
 }

@@ -5,12 +5,18 @@ import { z } from "zod";
 import { companies, db, subscriptions } from "@acme/db";
 
 import type { Tier } from "../utils/tierProducts";
+import { env } from "../../env";
 import { stripe } from "../index";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { generateTrialPeriod } from "../utils/generateTrialPeriod";
 import { tierProducts } from "../utils/tierProducts";
 
 // packages/api/src/router/billing.ts
+
+const baseUrl =
+  env.NODE_ENV === "development"
+    ? "http://localhost:3000/"
+    : env.NEXT_PUBLIC_APP_URL;
 
 export const stripeRouter = createTRPCRouter({
   createCheckoutSession: protectedProcedure
@@ -138,8 +144,8 @@ export const stripeRouter = createTRPCRouter({
           mode: "subscription",
           payment_method_types: ["card"],
           line_items,
-          success_url: `${process.env.NEXT_PUBLIC_APP_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/cancel`,
+          success_url: `${baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${baseUrl}/cancel`,
           customer_email: customerEmail,
           metadata: {
             tier: product.name,
@@ -238,7 +244,7 @@ export const stripeRouter = createTRPCRouter({
         // Create the portal session
         const session = await stripe.billingPortal.sessions.create({
           customer: subscription.stripeCustomerId,
-          return_url: `${process.env.NEXT_PUBLIC_APP_URL}/billing`,
+          return_url: `${baseUrl}/billing`,
           configuration: configuration.id,
         });
         return { url: session.url };
