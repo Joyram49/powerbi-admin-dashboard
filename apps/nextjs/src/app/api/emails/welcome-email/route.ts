@@ -4,8 +4,8 @@ import { render } from "@react-email/render";
 import nodemailerImport from "nodemailer";
 
 import WelcomeEmail from "~/app/_email-template/welcome-email";
+import { env } from "../../../../env";
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 const nodemailer = nodemailerImport;
 
 interface RequestBody {
@@ -32,21 +32,20 @@ export async function POST(req: Request) {
     React.createElement(WelcomeEmail, { name, pass, email: to }),
   );
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
   const transporter: Transporter = nodemailer.createTransport({
-    host: "email-smtp.us-east-1.amazonaws.com",
+    host: env.SMTP_HOST,
     port: 587,
     secure: false,
     auth: {
-      user: "AKIAQWBSQRSADFJMUPY5",
-      pass: "BCM6Dx8jWBGr4+uBUm5ght86C0ZVBtXLaqbv+UBRGb7f",
+      user: env.SMTP_USER,
+      pass: env.SMTP_PASS,
     },
   });
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const info: SentMessageInfo = await transporter.sendMail({
-      from: '"JOC Analytics" <example@jocanalytics.com>',
+      from: `"JOC Analytics" <${env.SMTP_FROM}>`,
       to,
       subject: "Welcome to JOC Analytics!",
       html,

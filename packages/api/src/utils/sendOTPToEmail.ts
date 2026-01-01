@@ -3,6 +3,13 @@ import { eq } from "drizzle-orm";
 
 import { createClientServer, db, users } from "@acme/db";
 
+import { env } from "../../env";
+
+const baseUrl =
+  env.NODE_ENV === "development"
+    ? "http://localhost:3000/"
+    : env.NEXT_PUBLIC_APP_URL;
+
 export async function sendOTPToEmail(email: string) {
   const supabase = createClientServer();
   const result = await db.select().from(users).where(eq(users.email, email));
@@ -18,6 +25,7 @@ export async function sendOTPToEmail(email: string) {
     email: email,
     options: {
       shouldCreateUser: false,
+      emailRedirectTo: `${baseUrl}/verify-otp?email=${email}`,
     },
   });
 

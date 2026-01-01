@@ -27,11 +27,6 @@ const sign: (
   options?: SignOptions,
 ) => string = jwt.sign;
 
-const baseUrl =
-  env.NODE_ENV === "development"
-    ? "http://localhost:3000/"
-    : env.NEXT_PUBLIC_APP_URL;
-
 export const authRouter = createTRPCRouter({
   // Create user procedure with optional metadata
   createUser: protectedProcedure
@@ -420,37 +415,6 @@ export const authRouter = createTRPCRouter({
       } catch (err) {
         if (err instanceof TRPCError) {
           throw err;
-        }
-
-        // Log the full error for debugging
-        console.error("SignIn error:", err);
-        if (err instanceof Error) {
-          console.error("Error message:", err.message);
-          console.error("Error stack:", err.stack);
-
-          // Check for common database connection errors
-          if (
-            err.message.includes("POSTGRES_URL") ||
-            err.message.includes("Missing")
-          ) {
-            throw new TRPCError({
-              code: "INTERNAL_SERVER_ERROR",
-              message:
-                "Database configuration error. Please check environment variables.",
-            });
-          }
-
-          // Check for Supabase connection errors
-          if (
-            err.message.includes("SUPABASE") ||
-            err.message.includes("Supabase")
-          ) {
-            throw new TRPCError({
-              code: "INTERNAL_SERVER_ERROR",
-              message:
-                "Authentication service configuration error. Please check environment variables.",
-            });
-          }
         }
 
         throw new TRPCError({
@@ -1039,7 +1003,7 @@ export const authRouter = createTRPCRouter({
               role: input.role,
               userName: input.userName ?? input.email,
             },
-            emailRedirectTo: `${baseUrl}/api/auth/confirm`,
+            emailRedirectTo: `${env.NEXT_PUBLIC_APP_URL}/api/auth/confirm`,
           },
         });
 
